@@ -1,0 +1,36 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+
+const ALGORITHM = "aes-256-gcm";
+
+function getKey() {
+  const secret = process.env.ENCRYPTION_MASTER_KEY || "local-development-secret-change-before-production";
+  return createHash("sha256").update(secret).digest();
+}
+
+export function encryptApiKey(apiKey: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv(ALGORITHM, getKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(apiKey, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return {
+    encryptedKey: encrypted.toString("base64"),
+    iv: iv.toString("base64"),
+    authTag: authTag.toString("base64"),
+    maskedKey: maskApiKey(apiKey),
+  };
+}
+
+export function decryptApiKey(encryptedKey: string, iv: string, authTag: string) {
+  const decipher = createDecipheriv(ALGORITHM, getKey(), Buffer.from(iv, "base64"));
+  decipher.setAuthTag(Buffer.from(authTag, "base64"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedKey, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
+}
+
+export function maskApiKey(apiKey: string) {
+  if (apiKey.length <= 8) return "****";
+  return `${apiKey.slice(0, 3)}****${apiKey.slice(-4)}`;
+}
