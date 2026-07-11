@@ -27,3 +27,6 @@ test-results/
 verification-*.png
 ui-screenshot.png
 .DS_Store
+
+# Personal local-only materials
+local-only/
