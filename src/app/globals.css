@@ -8,8 +8,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, "Microsoft YaHei", Helvetica, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, monospace;
 }
 
 body {
@@ -116,4 +116,68 @@ textarea {
 
 select.field {
   color-scheme: light;
+}
+
+.theme-dark select.field {
+  color-scheme: dark;
+}
+
+.theme-dark {
+  color: #e5e7eb;
+  color-scheme: dark;
+}
+
+.theme-dark aside,
+.theme-dark .bg-\[\#F5F7FA\],
+.theme-dark .bg-\[\#F7F8FA\],
+.theme-dark .bg-\[\#FAFBFC\],
+.theme-dark .bg-slate-50 {
+  background: #0f172a !important;
+}
+
+.theme-dark .bg-white {
+  background: #111827 !important;
+}
+
+.theme-dark .border-slate-200,
+.theme-dark .border-slate-300 {
+  border-color: #334155 !important;
+}
+
+.theme-dark .text-slate-950,
+.theme-dark .text-slate-900,
+.theme-dark .text-slate-800,
+.theme-dark .text-slate-700 {
+  color: #f8fafc !important;
+}
+
+.theme-dark .text-slate-600,
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .secondary-button,
+.theme-dark .icon-button,
+.theme-dark .field {
+  border-color: #334155;
+  background: #111827;
+  color: #e5e7eb;
+}
+
+.theme-dark .secondary-button:hover:not(:disabled),
+.theme-dark .icon-button:hover:not(:disabled) {
+  border-color: #475569;
+  background: #1f2937;
+  color: #f8fafc;
+}
+
+.theme-dark .field::placeholder,
+.theme-dark textarea::placeholder {
+  color: #94a3b8;
+}
+
+.theme-dark .shadow-sm,
+.theme-dark .shadow-md {
+  box-shadow: 0 10px 30px rgb(0 0 0 / 25%);
 }

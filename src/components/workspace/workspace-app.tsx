@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   Boxes,
@@ -31,12 +31,14 @@ import { useAgentStore } from "@/store/agent-store";
 
 type PageKey = "chat" | "creator" | "tools" | "dashboard" | "settings";
 type Language = "zh" | "en";
+type ThemeMode = "light" | "dark";
 type AgentForm = Omit<AgentConfig, "id">;
 type LocalAgent = AgentConfig & {
   enabled: boolean;
   source: string;
   apiUrl: string;
-  apiKey: string;
+  credentialConfigured: boolean;
+  maskedKey: string | null;
   tools: string[];
 };
 type WorkspaceCapability = CapabilityDefinition & { enabled: boolean };
@@ -45,6 +47,7 @@ type Copy = (typeof copy)[Language];
 const LOCAL_MESSAGES_KEY = "multi-agent-workspace.local-messages.v1";
 const LOCAL_KNOWLEDGE_KEY = "multi-agent-workspace.local-knowledge.v1";
 const LOCAL_LANGUAGE_KEY = "multi-agent-workspace.language.v1";
+const LOCAL_THEME_KEY = "multi-agent-workspace.theme.v1";
 
 const navItems: { key: PageKey; icon: typeof MessageSquareText }[] = [
   { key: "chat", icon: MessageSquareText },
@@ -63,7 +66,7 @@ const copy = {
       dashboard: "调用链路",
       settings: "基础设置",
     },
-    productSubtitle: "多 Agent 工作平台",
+    productSubtitle: "AgentForge｜多智能体协作开发报告平台",
     siderHint: "先创建 Agent，再在对话空间发送消息。当前版本优先保证本地可用。",
     topDescription: "创建 Agent，输入消息，已启用的 Agent 会在同一对话区依次回复。",
     language: "语言",
@@ -122,6 +125,11 @@ const copy = {
     apiKeyLabel: "API Key / API 密钥",
     apiKeyPlaceholder: "请输入 API Key",
     ollamaKeyPlaceholder: "Ollama 本地模型可留空",
+    apiKeyKeepHint: "留空将保持现有 API Key；当前密钥：{key}",
+    apiKeyNewHint: "API Key 只会在本次提交时发送到服务端加密保存。",
+    deleteConfirm: "确定删除智能体“{name}”吗？此操作无法撤销。",
+    agentDeleted: "已删除智能体：{name}",
+    agentDeleteFailed: "删除智能体失败。",
     capabilityBinding: "能力绑定",
     capabilityBindingDesc: "当前先作为能力开关保存，后续可接入真实 RAG、记忆、语义缓存和工具服务。",
     selectedCapabilities: "已选择 {count} 个能力",
@@ -223,6 +231,11 @@ const copy = {
     apiKeyLabel: "API Key",
     apiKeyPlaceholder: "Enter API Key",
     ollamaKeyPlaceholder: "Local Ollama can be left blank",
+    apiKeyKeepHint: "Leave blank to keep the current API Key; current key: {key}",
+    apiKeyNewHint: "The API Key is sent only for this submission and encrypted on the server.",
+    deleteConfirm: "Delete agent “{name}”? This cannot be undone.",
+    agentDeleted: "Agent deleted: {name}",
+    agentDeleteFailed: "Failed to delete agent.",
     capabilityBinding: "Capability binding",
     capabilityBindingDesc: "For now these are saved as capability switches. Real RAG, memory, semantic cache, and tool services can be connected later.",
     selectedCapabilities: "{count} capabilities selected",
@@ -366,10 +379,10 @@ async function loadPersistedMessages(): Promise<WorkspaceMessage[]> {
  * 原理：调用 DELETE /api/workspaces/manual/messages，并清空 localStorage。
  */
 async function clearPersistedMessages(): Promise<void> {
-  try {
-    await fetch("/api/workspaces/manual/messages", { method: "DELETE" });
-  } catch {
-    // ignore
+  const response = await fetch("/api/workspaces/manual/messages", { method: "DELETE" });
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(detail?.error || "Failed to clear messages");
   }
   if (typeof window !== "undefined") window.localStorage.removeItem(LOCAL_MESSAGES_KEY);
 }
@@ -388,12 +401,13 @@ function saveLanguage(language: Language) {
   if (typeof window !== "undefined") window.localStorage.setItem(LOCAL_LANGUAGE_KEY, language);
 }
 
-function hasNonByteStringCharacters(value: string) {
-  return /[^\x00-\xff]/.test(value);
+function loadTheme(): ThemeMode {
+  if (typeof window === "undefined") return "light";
+  return window.localStorage.getItem(LOCAL_THEME_KEY) === "dark" ? "dark" : "light";
 }
 
-function sanitizeApiKey(value: string) {
-  return hasNonByteStringCharacters(value) ? "" : value.trim();
+function saveTheme(theme: ThemeMode) {
+  if (typeof window !== "undefined") window.localStorage.setItem(LOCAL_THEME_KEY, theme);
 }
 
 function interpolate(template: string, values: Record<string, string | number>) {
@@ -417,13 +431,12 @@ type DocumentItem = {
 export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: WorkspaceSnapshot }) {
   const [activePage, setActivePage] = useState<PageKey>("chat");
   const [language, setLanguage] = useState<Language>("zh");
+  const [theme, setTheme] = useState<ThemeMode>("light");
   const t = copy[language];
   const [notice, setNotice] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const {
     agents: localAgents,
-    loading: agentsLoading,
-    error: agentsError,
     loadAgents,
     addAgent,
     updateAgent,
@@ -436,38 +449,40 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>(getEnabledDefaultCapabilityIds());
   const [agentSource, setAgentSource] = useState("Ollama");
   const [agentApiUrl, setAgentApiUrl] = useState(sourceToApiUrl("Ollama"));
-  const [agentApiKey, setAgentApiKey] = useState("");
   const [agentForm, setAgentForm] = useState<AgentForm>(() => createAgentForm("Ollama"));
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+  // 临时密钥仅由表单状态持有，提交后立即清空，绝不写入 LocalAgent/store。
+  const [agentApiKey, setAgentApiKey] = useState("");
+  const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [useRag, setUseRag] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
-  const { messages, activeAgentId, isRunning, error, totalSpent, budgetStatus, setWorkspace, applyEvent } = useWorkspaceStore();
+  const historyLoadGenerationRef = useRef(0);
+  const runLockRef = useRef(false);
+  const { messages, activeAgentId, isRunning, error, totalSpent, budgetStatus, setWorkspace, mergeMessages, beginRun, applyEvent } = useWorkspaceStore();
 
   const visibleMessages = useMemo(() => messages.filter((message) => message.role !== "orchestrator"), [messages]);
   const enabledAgents = useMemo(() => localAgents.filter((agent) => agent.enabled), [localAgents]);
 
-  const setLocalAgents = useCallback((updater: (agents: LocalAgent[]) => LocalAgent[]) => {
-    const current = useAgentStore.getState().agents;
-    const next = updater(current);
-    // Determine operation type based on length comparison
-    if (next.length < current.length) {
-      // Deletion: find removed agents
-      const removed = current.filter((a) => !next.find((n) => n.id === a.id));
-      removed.forEach((a) => removeAgent(a.id));
-    } else if (next.length === current.length) {
-      // Toggle or edit
-      for (const agent of next) {
-        const old = current.find((a) => a.id === agent.id);
-        if (old && old.enabled !== agent.enabled) {
-          toggleAgent(agent.id);
-        } else if (old) {
-          const { enabled: _e, source: _s, apiUrl: _u, apiKey: _k, tools: _t, ...patch } = agent;
-          updateAgent(agent.id, patch);
-        }
+  /** 删除入口统一处理确认、进行中状态、失败反馈和编辑状态复位。 */
+  const handleDeleteAgent = useCallback(async (agent: LocalAgent) => {
+    if (deletingAgentId || !window.confirm(interpolate(t.deleteConfirm, { name: agent.name }))) return;
+    setDeletingAgentId(agent.id);
+    try {
+      await removeAgent(agent.id);
+      if (editingAgentId === agent.id) {
+        setEditingAgentId(null);
+        setAgentForm(createAgentForm(agentSource));
+        setSelectedToolIds(getEnabledDefaultCapabilityIds());
+        setAgentApiKey("");
       }
+      setNotice(interpolate(t.agentDeleted, { name: agent.name }));
+    } catch (deleteError) {
+      setNotice(deleteError instanceof Error ? deleteError.message : t.agentDeleteFailed);
+    } finally {
+      setDeletingAgentId(null);
     }
-  }, [removeAgent, toggleAgent, updateAgent]);
+  }, [agentSource, deletingAgentId, editingAgentId, removeAgent, t]);
 
   const setKnowledgeSnippets = useCallback((updater: (snippets: KnowledgeSnippet[]) => KnowledgeSnippet[]) => {
     setKnowledgeSnippetsState((current) => {
@@ -478,20 +493,37 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
   }, []);
 
   useEffect(() => {
+    // 先读取用户上次保存的偏好，再启动其他异步加载。
+    // 主题和语言只在用户点击切换时写入，避免默认值在刷新时覆盖 localStorage。
+    setLanguage(loadLanguage());
+    setTheme(loadTheme());
     queueMicrotask(() => {
-      setLanguage(loadLanguage());
       loadAgents();
       setKnowledgeSnippetsState(loadLocalKnowledge());
     });
     // Load messages from database asynchronously
+    setWorkspace({ ...initialWorkspace, agents: [], messages: useWorkspaceStore.getState().messages, totalSpent: 0, status: "idle" });
+    const historyLoadGeneration = ++historyLoadGenerationRef.current;
     loadPersistedMessages().then((messages) => {
-      setWorkspace({ ...initialWorkspace, agents: [], messages, totalSpent: 0, status: "idle" });
+      // 清空对话会递增版本号；旧请求即使稍后返回，也不能把已清空的消息重新写回来。
+      if (historyLoadGeneration !== historyLoadGenerationRef.current) return;
+      // 数据库历史和加载期间新发出的消息按 ID 合并，两边都不会被覆盖或丢弃。
+      mergeMessages(messages);
     });
-  }, [initialWorkspace, setWorkspace, loadAgents]);
+    return () => {
+      historyLoadGenerationRef.current += 1;
+    };
+  }, [initialWorkspace, setWorkspace, mergeMessages, loadAgents]);
 
-  useEffect(() => {
-    saveLanguage(language);
-  }, [language]);
+  const updateLanguage = useCallback((nextLanguage: Language) => {
+    setLanguage(nextLanguage);
+    saveLanguage(nextLanguage);
+  }, []);
+
+  const updateTheme = useCallback((nextTheme: ThemeMode) => {
+    setTheme(nextTheme);
+    saveTheme(nextTheme);
+  }, []);
 
   useEffect(() => {
     // Messages are persisted via the manual/run API, no need to duplicate to localStorage
@@ -566,16 +598,15 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
     setAgentForm((current) => ({ ...current, provider: sourceToProvider(source), model: defaultModelForSource(source) }));
   }
 
-  function addLocalAgent() {
+  async function addLocalAgent() {
     const name = agentForm.name.trim();
     const systemPrompt = agentForm.systemPrompt.trim();
     if (!name) return setNotice(t.needName);
     if (systemPrompt.length < 10) return setNotice(t.needPrompt);
 
-    const apiKeyWasSanitized = hasNonByteStringCharacters(agentApiKey);
     const next: LocalAgent = {
       ...agentForm,
-      id: editingAgentId ?? `local-${Date.now()}`,
+      id: editingAgentId ?? "pending-agent-id",
       name,
       systemPrompt,
       avatar: name.slice(0, 2).toUpperCase(),
@@ -583,22 +614,31 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
       enabled: localAgents.find((agent) => agent.id === editingAgentId)?.enabled ?? true,
       source: agentSource,
       apiUrl: agentApiUrl.trim(),
-      apiKey: sanitizeApiKey(agentApiKey),
+      credentialConfigured: localAgents.find((agent) => agent.id === editingAgentId)?.credentialConfigured ?? agentSource === "Ollama",
+      maskedKey: localAgents.find((agent) => agent.id === editingAgentId)?.maskedKey ?? null,
       tools: selectedToolIds,
       capabilityIds: selectedToolIds,
     };
-    setLocalAgents((items) => (editingAgentId ? items.map((item) => (item.id === editingAgentId ? next : item)) : [...items, next]));
-    setNotice(apiKeyWasSanitized ? interpolate(t.savedWithSanitizedKey, { name: next.name }) : interpolate(editingAgentId ? t.agentUpdated : t.agentAdded, { name: next.name }));
-    setEditingAgentId(null);
-    setAgentForm(createAgentForm(agentSource));
-    setAgentApiKey("");
+    try {
+      if (editingAgentId) {
+        await updateAgent(editingAgentId, { ...next, apiKey: agentApiKey });
+      } else {
+        await addAgent({ ...next, apiKey: agentApiKey });
+      }
+      setNotice(interpolate(editingAgentId ? t.agentUpdated : t.agentAdded, { name: next.name }));
+      setEditingAgentId(null);
+      setAgentForm(createAgentForm(agentSource));
+      // 密钥已交给服务端，立即从浏览器表单状态清空。
+      setAgentApiKey("");
+    } catch (saveError) {
+      setNotice(saveError instanceof Error ? saveError.message : t.sendFailed);
+    }
   }
 
   function editLocalAgent(agent: LocalAgent) {
     setEditingAgentId(agent.id);
     setAgentSource(agent.source);
     setAgentApiUrl(agent.apiUrl);
-    setAgentApiKey(agent.apiKey);
     setSelectedToolIds(agent.capabilityIds ?? agent.tools ?? []);
     setAgentForm({
       name: agent.name,
@@ -610,21 +650,31 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
       temperature: agent.temperature,
       maxTokens: agent.maxTokens,
     });
+    setAgentApiKey("");
     setNotice(interpolate(t.editingAgent, { name: agent.name }));
   }
 
   function cancelAgentEdit() {
     setEditingAgentId(null);
     setAgentForm(createAgentForm(agentSource));
-    setAgentApiKey("");
     setSelectedToolIds(getEnabledDefaultCapabilityIds());
+    setAgentApiKey("");
     setNotice(t.editCancelled);
   }
 
   async function handleRun(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const prompt = input.trim();
-    if (!prompt || isRunning) return;
+    // ref 是同步互斥锁，可以挡住首个 SSE 事件到达前的连续点击或连续按 Enter。
+    if (!prompt || isRunning || runLockRef.current) return;
+
+    if (enabledAgents.length === 0) {
+      setNotice(t.needAgent);
+      return;
+    }
+
+    runLockRef.current = true;
+    beginRun();
 
     const userMessage: WorkspaceMessage = {
       id: crypto.randomUUID(),
@@ -632,23 +682,18 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
       content: prompt,
       createdAt: new Date().toISOString(),
     };
+    // 先把用户消息放进前端状态，这样点击发送后气泡会立刻出现，不用等后端 SSE 返回。
     applyEvent({ type: "user_message_created", message: userMessage });
     setInput("");
 
-    if (enabledAgents.length === 0) {
-      setNotice(t.needAgent);
-      return;
-    }
-
-    const runnableAgents = enabledAgents.map((agent) => ({ ...agent, apiKey: sanitizeApiKey(agent.apiKey) }));
-    const hasSanitizedKey = runnableAgents.some((agent, index) => agent.apiKey !== enabledAgents[index]?.apiKey);
-    setNotice(hasSanitizedKey ? t.sanitizedKey : null);
+    const runnableAgentIds = enabledAgents.map((agent) => agent.id);
+    setNotice(null);
 
     try {
       const response = await fetch("/api/workspaces/manual/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: prompt, agents: runnableAgents, useRag, knowledgeSnippets }),
+        body: JSON.stringify({ input: prompt, agentIds: runnableAgentIds, useRag, knowledgeSnippets }),
       });
       if (!response.ok) {
         const detail = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -669,39 +714,35 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
           const line = chunk.split("\n").find((item) => item.startsWith("data: "));
           if (!line) continue;
           const runEvent = JSON.parse(line.replace("data: ", "")) as RunEvent;
+          // 用户消息前端已经乐观显示过了；这里跳过服务端同类事件，避免同一句话显示两遍。
           if (runEvent.type !== "user_message_created") applyEvent(runEvent);
         }
       }
     } catch (runError) {
-      const fallbackAgent = runnableAgents[0];
-      if (fallbackAgent) {
-        applyEvent({ type: "agent_started", agent: fallbackAgent });
-        applyEvent({
-          type: "agent_completed",
-          agent: fallbackAgent,
-          message: {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            agentId: fallbackAgent.id,
-            content: language === "zh" ? `我看到你的输入: ${prompt}\\n\\n但这次模型调用没有成功: ${runError instanceof Error ? runError.message : t.sendFailed}` : `I saw your input: ${prompt}\\n\\nBut the model call did not succeed: ${runError instanceof Error ? runError.message : t.sendFailed}`,
-            createdAt: new Date().toISOString(),
-            inputTokens: 0,
-            outputTokens: 0,
-            costUsd: 0,
-          },
-          totalSpent,
-          budgetStatus,
-        });
-      }
-      applyEvent({ type: "run_completed", totalSpent, budgetStatus });
+      // 网络或 SSE 失败不能伪造成 Agent 成功回复；只展示真实错误并结束本地运行状态。
+      applyEvent({
+        type: "error",
+        message: runError instanceof Error ? runError.message : t.sendFailed,
+      });
       setNotice(runError instanceof Error ? runError.message : t.sendFailed);
+    } finally {
+      runLockRef.current = false;
     }
   }
 
-  function clearChat() {
-    setWorkspace({ ...initialWorkspace, agents: [], messages: [], totalSpent: 0, status: "idle" });
-    saveLocalMessages([]);
-    setNotice(t.clearDone);
+  async function clearChat() {
+    if (isRunning) return;
+    const previousWorkspace = useWorkspaceStore.getState().workspace;
+    historyLoadGenerationRef.current += 1;
+    try {
+      // 先确认数据库已经清空，再更新前端；失败时保留当前消息，避免误报成功。
+      await clearPersistedMessages();
+      setWorkspace({ ...initialWorkspace, agents: [], messages: [], totalSpent: 0, status: "idle" });
+      setNotice(t.clearDone);
+    } catch (clearError) {
+      if (previousWorkspace) setWorkspace(previousWorkspace);
+      setNotice(clearError instanceof Error ? clearError.message : t.sendFailed);
+    }
   }
 
   const content = {
@@ -710,7 +751,9 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
         t={t}
         agents={localAgents}
         enabledCount={enabledAgents.length}
-        setAgents={setLocalAgents}
+        onDeleteAgent={handleDeleteAgent}
+        deletingAgentId={deletingAgentId}
+        toggleAgent={toggleAgent}
         messages={visibleMessages}
         activeAgentId={activeAgentId}
         isRunning={isRunning}
@@ -733,17 +776,19 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
         setSource={syncAgentSource}
         apiUrl={agentApiUrl}
         setApiUrl={setAgentApiUrl}
-        apiKey={agentApiKey}
-        setApiKey={setAgentApiKey}
         selectedToolIds={selectedToolIds}
         tools={capabilities}
-        setAgents={setLocalAgents}
+        apiKey={agentApiKey}
+        setApiKey={setAgentApiKey}
+        onDeleteAgent={handleDeleteAgent}
+        deletingAgentId={deletingAgentId}
+        toggleAgent={toggleAgent}
         onEditAgent={editLocalAgent}
         onCancelEdit={cancelAgentEdit}
         setToolPickerOpen={setToolPickerOpen}
         onSubmit={(event) => {
           event.preventDefault();
-          addLocalAgent();
+          void addLocalAgent();
         }}
       />
     ),
@@ -753,10 +798,10 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
   } satisfies Record<PageKey, ReactNode>;
 
   return (
-    <div className="flex h-screen min-h-[760px] bg-[#F7F8FA] text-slate-800">
+    <div data-theme={theme} className={cn("theme-root flex h-screen min-h-[760px] text-slate-800", theme === "dark" ? "theme-dark bg-slate-950" : "bg-[#F7F8FA]")}>
       <GlobalSider t={t} activePage={activePage} setActivePage={setActivePage} />
       <main className="min-w-0 flex-1 overflow-y-auto p-6">
-        <TopBar t={t} activePage={activePage} notice={notice} language={language} setLanguage={setLanguage} />
+        <TopBar t={t} activePage={activePage} notice={notice} language={language} setLanguage={updateLanguage} theme={theme} setTheme={updateTheme} />
         {content[activePage]}
       </main>
       {toolPickerOpen && <ToolPicker t={t} tools={capabilities} selectedToolIds={selectedToolIds} setSelectedToolIds={setSelectedToolIds} onClose={() => setToolPickerOpen(false)} />}
@@ -796,7 +841,9 @@ function GlobalSider({ t, activePage, setActivePage }: { t: Copy; activePage: Pa
   );
 }
 
-function TopBar({ t, activePage, notice, language, setLanguage }: { t: Copy; activePage: PageKey; notice: string | null; language: Language; setLanguage: (language: Language) => void }) {
+function TopBar({ t, activePage, notice, language, setLanguage, theme, setTheme }: { t: Copy; activePage: PageKey; notice: string | null; language: Language; setLanguage: (language: Language) => void; theme: ThemeMode; setTheme: (theme: ThemeMode) => void }) {
+  const isZh = t.language === "语言";
+  const themeLabel = theme === "dark" ? (isZh ? "切换到浅色" : "Switch to light") : (isZh ? "切换到深色" : "Switch to dark");
   return (
     <header className="mb-5 flex items-start justify-between gap-4">
       <div>
@@ -805,6 +852,9 @@ function TopBar({ t, activePage, notice, language, setLanguage }: { t: Copy; act
       </div>
       <div className="flex items-center gap-3">
         {notice && <div className="max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">{notice}</div>}
+        <button type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="icon-button" aria-label={themeLabel} title={themeLabel}>
+          {theme === "dark" ? <Sun /> : <Moon />}
+        </button>
         <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm" aria-label={t.language}>
           <Languages className="mx-2 h-4 w-4 text-slate-400" />
           {(["zh", "en"] as const).map((item) => (
@@ -822,7 +872,9 @@ function ChatWorkspace(props: {
   t: Copy;
   agents: LocalAgent[];
   enabledCount: number;
-  setAgents: (updater: (agents: LocalAgent[]) => LocalAgent[]) => void;
+  onDeleteAgent: (agent: LocalAgent) => Promise<void>;
+  deletingAgentId: string | null;
+  toggleAgent: (id: string) => void;
   messages: WorkspaceMessage[];
   activeAgentId: string | null;
   isRunning: boolean;
@@ -833,6 +885,16 @@ function ChatWorkspace(props: {
   onAddAgent: () => void;
   onClearChat: () => void;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const shortcutHint = props.t.language === "语言" ? "Enter 发送，Shift+Enter 换行" : "Enter to send, Shift+Enter for newline";
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+  }, [props.input]);
+
   return (
     <section className="flex h-[calc(100vh-132px)] min-h-[620px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <aside className="w-[280px] shrink-0 border-r border-slate-200 bg-[#FAFBFC] p-3 max-lg:w-[72px]">
@@ -847,7 +909,7 @@ function ChatWorkspace(props: {
             <Plus />
           </button>
         </div>
-        <AgentList t={props.t} agents={props.agents} setAgents={props.setAgents} onAddAgent={props.onAddAgent} />
+        <AgentList t={props.t} agents={props.agents} onDeleteAgent={props.onDeleteAgent} deletingAgentId={props.deletingAgentId} toggleAgent={props.toggleAgent} onAddAgent={props.onAddAgent} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col bg-[#F7F8FA]">
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
@@ -855,7 +917,7 @@ function ChatWorkspace(props: {
             <div className="text-sm font-semibold text-slate-950">{props.t.currentChat}</div>
             <div className="text-xs text-slate-500">{props.t.chatTargetHint}</div>
           </div>
-          <button type="button" onClick={props.onClearChat} className="secondary-button h-9 px-3">
+          <button type="button" onClick={props.onClearChat} disabled={props.isRunning} className="secondary-button h-9 px-3 disabled:cursor-not-allowed disabled:opacity-50">
             {props.t.clearChat}
           </button>
         </div>
@@ -872,7 +934,8 @@ function ChatWorkspace(props: {
           {props.error && <div className="mx-auto mb-3 max-w-4xl rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{props.error}</div>}
           <div className="mx-auto flex max-w-4xl items-end gap-3 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
             <textarea
-              className="min-h-11 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400"
+              ref={textareaRef}
+              className="max-h-40 min-h-11 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-2 py-2 text-sm leading-6 text-slate-900 outline-none placeholder:text-slate-400"
               rows={1}
               value={props.input}
               onChange={(event) => props.setInput(event.target.value)}
@@ -884,10 +947,13 @@ function ChatWorkspace(props: {
                 }
               }}
             />
-            <button type="submit" disabled={!props.input.trim() || props.isRunning} className="primary-button h-10 px-4">
-              {props.isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
-              {props.t.send}
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <button type="submit" disabled={!props.input.trim() || props.isRunning} className="primary-button h-10 px-4">
+                {props.isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+                {props.t.send}
+              </button>
+              <span className="text-[11px] text-slate-400">{shortcutHint}</span>
+            </div>
           </div>
         </form>
       </div>
@@ -895,7 +961,7 @@ function ChatWorkspace(props: {
   );
 }
 
-function AgentList({ t, agents, setAgents, onAddAgent }: { t: Copy; agents: LocalAgent[]; setAgents: (updater: (agents: LocalAgent[]) => LocalAgent[]) => void; onAddAgent: () => void }) {
+function AgentList({ t, agents, onDeleteAgent, deletingAgentId, toggleAgent, onAddAgent }: { t: Copy; agents: LocalAgent[]; onDeleteAgent: (agent: LocalAgent) => Promise<void>; deletingAgentId: string | null; toggleAgent: (id: string) => void; onAddAgent: () => void }) {
   if (agents.length === 0) {
     return (
       <button type="button" onClick={onAddAgent} className="flex w-full flex-col items-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-xs text-slate-500 max-lg:p-2">
@@ -917,15 +983,15 @@ function AgentList({ t, agents, setAgents, onAddAgent }: { t: Copy; agents: Loca
                 {agent.source} / {agent.model}
               </div>
             </div>
-            <button type="button" onClick={() => setAgents((items) => items.filter((item) => item.id !== agent.id))} className="text-slate-400 hover:text-red-500 max-lg:hidden" aria-label={t.deleteAgent}>
-              <Trash2 className="h-4 w-4" />
+            <button type="button" onClick={() => void onDeleteAgent(agent)} disabled={deletingAgentId === agent.id} className="text-slate-400 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50 max-lg:hidden" aria-label={t.deleteAgent}>
+              {deletingAgentId === agent.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </button>
           </div>
           <div className="mt-3 flex items-center justify-between max-lg:hidden">
             <span className={cn("text-[11px]", agent.enabled ? "text-emerald-600" : "text-slate-400")}>{agent.enabled ? t.agentEnabled : t.agentDisabled}</span>
             <label className="flex items-center gap-2 text-xs text-slate-500">
               <span>{t.joinReply}</span>
-              <input type="checkbox" checked={agent.enabled} onChange={(event) => setAgents((items) => items.map((item) => (item.id === agent.id ? { ...item, enabled: event.target.checked } : item)))} />
+              <input type="checkbox" checked={agent.enabled} onChange={() => toggleAgent(agent.id)} />
             </label>
           </div>
         </div>
@@ -959,11 +1025,13 @@ function AgentCreator(props: {
   setSource: (source: string) => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
-  apiKey: string;
-  setApiKey: (key: string) => void;
   selectedToolIds: string[];
   tools: WorkspaceCapability[];
-  setAgents: (updater: (agents: LocalAgent[]) => LocalAgent[]) => void;
+  apiKey: string;
+  setApiKey: (value: string) => void;
+  onDeleteAgent: (agent: LocalAgent) => Promise<void>;
+  deletingAgentId: string | null;
+  toggleAgent: (id: string) => void;
   onEditAgent: (agent: LocalAgent) => void;
   onCancelEdit: () => void;
   setToolPickerOpen: (open: boolean) => void;
@@ -989,8 +1057,8 @@ function AgentCreator(props: {
                     {props.t.apiUrlLabel}: {agent.apiUrl || "-"}
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs">
-                    <span className={cn("rounded px-1.5 py-0.5 font-medium", agent.apiKey ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>
-                      {agent.apiKey ? props.t.apiKeyConfigured : props.t.apiKeyMissing}
+                    <span className={cn("rounded px-1.5 py-0.5 font-medium", agent.credentialConfigured || agent.provider === "ollama" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>
+                      {agent.credentialConfigured || agent.provider === "ollama" ? props.t.apiKeyConfigured : props.t.apiKeyMissing}
                     </span>
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
@@ -1000,7 +1068,7 @@ function AgentCreator(props: {
               </div>
               <div className="mt-3 flex items-center justify-between gap-2">
                 <label className="flex items-center gap-2 text-xs text-slate-500">
-                  <input type="checkbox" checked={agent.enabled} onChange={(event) => props.setAgents((items) => items.map((item) => (item.id === agent.id ? { ...item, enabled: event.target.checked } : item)))} />
+                  <input type="checkbox" checked={agent.enabled} onChange={() => props.toggleAgent(agent.id)} />
                   {props.t.joinReply}
                 </label>
                 <div className="flex items-center gap-1">
@@ -1009,14 +1077,12 @@ function AgentCreator(props: {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      props.setAgents((items) => items.filter((item) => item.id !== agent.id));
-                      if (props.editingAgentId === agent.id) props.onCancelEdit();
-                    }}
-                    className="icon-button text-red-500"
+                    onClick={() => void props.onDeleteAgent(agent)}
+                    disabled={props.deletingAgentId === agent.id}
+                    className="icon-button text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={props.t.deleteAgent}
                   >
-                    <Trash2 />
+                    {props.deletingAgentId === agent.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
                   </button>
                 </div>
               </div>
@@ -1058,8 +1124,9 @@ function AgentCreator(props: {
             <input className="field" value={props.apiUrl} onChange={(event) => props.setApiUrl(event.target.value)} placeholder={props.t.apiUrlPlaceholder} />
           </Field>
           <Field label={props.t.apiKeyLabel}>
-            <input className="field" type="password" value={props.apiKey} onChange={(event) => props.setApiKey(event.target.value)} placeholder={props.source === "Ollama" ? props.t.ollamaKeyPlaceholder : props.t.apiKeyPlaceholder} />
+            <input className="field" type="password" value={props.apiKey} onChange={(event) => props.setApiKey(event.target.value)} placeholder={props.source === "Ollama" ? props.t.ollamaKeyPlaceholder : props.t.apiKeyPlaceholder} autoComplete="new-password" />
           </Field>
+          <p className="text-xs text-slate-500">{editingAgent ? interpolate(props.t.apiKeyKeepHint, { key: editingAgent.maskedKey ?? props.t.apiKeyMissing }) : props.t.apiKeyNewHint}</p>
         </Panel>
         <Panel title={props.t.capabilityBinding} desc={props.t.capabilityBindingDesc}>
           <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -1203,12 +1270,39 @@ function SequenceDashboard({ t, agents, messages, totalSpent, budgetStatus }: { 
     messageCount: number;
     userMessages: number;
     assistantMessages: number;
+    tokenStats: {
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: number;
+    };
     byProvider: { provider: string; count: number }[];
   };
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const isZh = t.language === "语言";
+  const dashboardText = {
+    loading: isZh ? "正在加载真实运行数据..." : "Loading live workspace data...",
+    error: isZh ? "数据看板加载失败，请稍后重试。" : "Failed to load dashboard data. Please try again later.",
+    agentCount: isZh ? "数据库智能体" : "Database agents",
+    messageCount: isZh ? "数据库消息" : "Database messages",
+    userMessages: isZh ? "用户消息" : "User messages",
+    assistantMessages: isZh ? "Agent 回复" : "Agent replies",
+    inputTokens: isZh ? "输入 Token" : "Input tokens",
+    outputTokens: isZh ? "输出 Token" : "Output tokens",
+    databaseCost: isZh ? "数据库累计费用" : "Database cost",
+    currentRunCost: isZh ? "当前会话费用" : "Current run cost",
+    providerTitle: isZh ? "模型供应商分布" : "Provider distribution",
+    providerDesc: isZh ? "按数据库中已创建的 Agent 供应商聚合统计。" : "Grouped by provider from persisted agents.",
+    emptyProvider: isZh ? "还没有模型供应商数据。" : "No provider data yet.",
+    providerAgentUnit: isZh ? "个 Agent" : "agents",
+    localOverviewTitle: isZh ? "当前页面状态" : "Current page state",
+    localOverviewDesc: isZh ? "这里显示浏览器当前已加载的 Agent 与消息，用于和数据库统计互相校验。" : "Loaded agents and messages in the current browser session for comparison.",
+    loadedAgents: isZh ? "已加载 Agent" : "Loaded agents",
+    visibleMessages: isZh ? "当前可见消息" : "Visible messages",
+    budgetStatus: isZh ? "运行状态" : "Run status",
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1247,32 +1341,43 @@ function SequenceDashboard({ t, agents, messages, totalSpent, budgetStatus }: { 
       </Panel>
 
       {loading && (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-slate-500 shadow-sm">???...</div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-slate-500 shadow-sm">{dashboardText.loading}</div>
       )}
 
       {error && !loading && (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-red-500 shadow-sm">????????</div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-red-500 shadow-sm">{dashboardText.error}</div>
       )}
 
       {dashboardData && !loading && (
         <>
-          <div className="grid grid-cols-4 gap-4 max-md:grid-cols-2">
-            <InfoBlock label="Agent ??" value={String(dashboardData.agentCount ?? 0)} />
-            <InfoBlock label="????" value={String(dashboardData.messageCount ?? 0)} />
-            <InfoBlock label="?????" value={String(dashboardData.userMessages ?? 0)} />
-            <InfoBlock label="AI ???" value={String(dashboardData.assistantMessages ?? 0)} />
+          <div className="grid grid-cols-4 gap-4 max-xl:grid-cols-2 max-md:grid-cols-1">
+            <InfoBlock label={dashboardText.agentCount} value={String(dashboardData.agentCount ?? 0)} />
+            <InfoBlock label={dashboardText.messageCount} value={String(dashboardData.messageCount ?? 0)} />
+            <InfoBlock label={dashboardText.userMessages} value={String(dashboardData.userMessages ?? 0)} />
+            <InfoBlock label={dashboardText.assistantMessages} value={String(dashboardData.assistantMessages ?? 0)} />
+            <InfoBlock label={dashboardText.inputTokens} value={String(dashboardData.tokenStats?.inputTokens ?? 0)} />
+            <InfoBlock label={dashboardText.outputTokens} value={String(dashboardData.tokenStats?.outputTokens ?? 0)} />
+            <InfoBlock label={dashboardText.databaseCost} value={formatCurrency(dashboardData.tokenStats?.costUsd ?? 0)} />
+            <InfoBlock label={dashboardText.currentRunCost} value={formatCurrency(totalSpent)} />
           </div>
-          <Panel title="Provider ??" desc="?? provider ? Agent ??">
+          <Panel title={dashboardText.providerTitle} desc={dashboardText.providerDesc}>
             <div className="grid gap-2">
               {dashboardData.byProvider.length === 0 && (
-                <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">?? Provider ??</div>
+                <div className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">{dashboardText.emptyProvider}</div>
               )}
               {dashboardData.byProvider.map((item) => (
                 <div key={item.provider} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
                   <span className="font-medium text-slate-700">{item.provider}</span>
-                  <span className="text-slate-500">{item.count} ? Agent</span>
+                  <span className="text-slate-500">{item.count} {dashboardText.providerAgentUnit}</span>
                 </div>
               ))}
+            </div>
+          </Panel>
+          <Panel title={dashboardText.localOverviewTitle} desc={dashboardText.localOverviewDesc}>
+            <div className="grid grid-cols-3 gap-4 max-md:grid-cols-1">
+              <InfoBlock label={dashboardText.loadedAgents} value={String(agents.length)} />
+              <InfoBlock label={dashboardText.visibleMessages} value={String(messages.length)} />
+              <InfoBlock label={dashboardText.budgetStatus} value={budgetStatus} />
             </div>
           </Panel>
         </>

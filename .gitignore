@@ -1,9 +1,29 @@
-node_modules
-.next
-dev.db
-dev.db-journal
+node_modules/
+.next/
+dist/
+dist-electron/
+build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases and caches
+prisma/*.db
+prisma/*.db-journal
+*.db
+*.sqlite
+*.sqlite3
+*.tsbuildinfo
+
+# Test and runtime artifacts
+playwright-report/
+test-results/
 *.log
-.env.local
+
+# Local tooling and temporary verification assets
+.claude/
+verification-*.png
+ui-screenshot.png
 .DS_Store
-dist
-build

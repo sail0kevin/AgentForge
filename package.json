@@ -1,13 +1,30 @@
 {
-  "name": "multi-agent-workspace-app",
+  "name": "agentforge",
   "version": "0.1.0",
   "private": true,
+  "description": "Local-first sequential multi-agent workspace for requirement analysis and development reports.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sail0kevin/AgentForge.git"
+  },
+  "homepage": "https://github.com/sail0kevin/AgentForge",
+  "bugs": {
+    "url": "https://github.com/sail0kevin/AgentForge/issues"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "smoke:manual": "node scripts/smoke-manual-run.mjs"
+    "test:e2e": "playwright test",
+    "test:e2e:core": "playwright test e2e/core.spec.ts",
+    "migrate:legacy-keys": "node scripts/migrate-legacy-agent-keys.mjs --dry-run",
+    "electron:dev": "electron .",
+    "electron:build": "npm run build && electron-builder",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:mac": "npm run build && electron-builder --mac",
+    "electron:build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -19,6 +36,7 @@
     "clsx": "^2.1.1",
     "decimal.js": "^10.6.0",
     "edge-runtime": "^4.0.1",
+    "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",
     "openai": "^6.45.0",
@@ -31,13 +49,43 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "playwright": "^1.61.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.sail0kevin.agentforge",
+    "productName": "AgentForge",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      ".next/**/*",
+      "public/**/*",
+      "node_modules/**/*",
+      "next.config.ts",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }

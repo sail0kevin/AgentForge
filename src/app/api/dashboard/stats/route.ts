@@ -1,38 +1,22 @@
-﻿/**
- * Dashboard 统计数据接口
- *
- * 作为整个 Dashboard 看板的数据源：聚合 Agent、消息、Token 消耗等关键指标，
- * 让前端 Dashboard 展示真实数据而非占位色块。
- */
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/current-user";
 
 export const runtime = "nodejs";
 
-/**
- * GET /api/dashboard/stats
- *
- * 作用：返回聚合统计数据供 Dashboard 展示
- * 原理：
- *   1. 统计 Agent 总数
- *   2. 统计消息总数（user + assistant）
- *   3. 统计 Token 总消耗（从 TokenUsage 表聚合）
- *   4. 按供应商分组统计
- *
- * 返回：{ agentCount, messageCount, tokenStats, byProvider }
- */
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) return Response.json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }, { status: 401 });
+
     const [agentCount, userMessages, assistantMessages, tokenAgg, byProvider] = await Promise.all([
-      prisma.agent.count(),
-      prisma.message.count({ where: { role: "user" } }),
-      prisma.message.count({ where: { role: "assistant" } }),
+      prisma.agent.count({ where: { userId: user.id } }),
+      prisma.message.count({ where: { role: "user", workspace: { userId: user.id } } }),
+      prisma.message.count({ where: { role: "assistant", workspace: { userId: user.id } } }),
       prisma.tokenUsage.aggregate({
+        where: { workspace: { userId: user.id } },
         _sum: { inputTokens: true, outputTokens: true, costUsd: true },
       }),
-      prisma.agent.groupBy({
-        by: ["provider"],
-        _count: { _all: true },
-      }),
+      prisma.agent.groupBy({ where: { userId: user.id }, by: ["provider"], _count: { _all: true } }),
     ]);
 
     return Response.json({
@@ -45,12 +29,9 @@ export async function GET() {
         outputTokens: tokenAgg._sum.outputTokens ?? 0,
         costUsd: tokenAgg._sum.costUsd ?? 0,
       },
-      byProvider: byProvider.map((item) => ({
-        provider: item.provider,
-        count: item._count._all,
-      })),
+      byProvider: byProvider.map((item) => ({ provider: item.provider, count: item._count._all })),
     }, { status: 200 });
-  } catch (error) {
+  } catch {
     return Response.json({ error: "Failed to load dashboard stats" }, { status: 500 });
   }
 }

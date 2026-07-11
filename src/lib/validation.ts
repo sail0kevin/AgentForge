@@ -15,6 +15,24 @@ export const apiKeyCreateSchema = z.object({
   apiKey: z.string().min(8),
 });
 
+// API 地址只允许 HTTP(S)，并拒绝 URL 中携带的账号密码，避免把凭证误写入地址字段。
+const apiUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }, "API 地址必须是安全的 HTTP(S) URL，且不能包含账号或密码。");
+
+// 空字符串表示编辑时不修改已保存的密钥；只有非空值才会被加密写入数据库。
+const optionalAgentApiKeySchema = z.union([z.literal(""), z.string().trim().min(8)]).optional();
+
 export const agentCreateSchema = z.object({
   name: z.string().min(1).max(80),
   avatar: z.string().min(1).max(8).default("AI"),
@@ -24,8 +42,8 @@ export const agentCreateSchema = z.object({
   systemPrompt: z.string().min(10),
   temperature: z.coerce.number().min(0).max(2).default(0.7),
   maxTokens: z.coerce.number().int().min(128).max(8000).default(1200),
-  apiUrl: z.string().max(500).optional().default(""),
-  apiKey: z.string().max(500).optional().default(""),
+  apiUrl: apiUrlSchema.optional().default(""),
+  apiKey: optionalAgentApiKeySchema,
 });
 
 export const agentUpdateSchema = agentCreateSchema.partial();
@@ -44,25 +62,6 @@ export const runWorkspaceSchema = z.object({
   input: z.string().min(1).max(8000),
 });
 
-/**
- * 安全的 API Key 字符串校验
- *
- * 作用：确保 API Key 不包含中文或全角字符（否则会导致 Node.js HTTP 请求报错）
- * 原理：用正则匹配非 ASCII 字符范围（\x00-\xff），包含则校验失败
- * 如何调用：headerSafeString.parse("sk-xxx") 通过 | headerSafeString.parse("中文") 报错
- */
-const headerSafeString = z.string().refine((value) => !/[^\x00-\xff]/.test(value), {
-  message: "API Key must not contain Chinese or other non-ByteString characters.",
-});
-
-export const manualRunAgentSchema = agentCreateSchema.extend({
-  id: z.string().min(1),
-  capabilityIds: z.array(z.string().min(1)).optional().default([]),
-  apiKey: headerSafeString.optional().default(""),
-  apiUrl: z.string().optional().default(""),
-  enabled: z.boolean().optional().default(true),
-});
-
 export const knowledgeSnippetSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1).max(120),
@@ -79,7 +78,7 @@ export const knowledgeSnippetSchema = z.object({
  */
 export const manualRunSchema = z.object({
   input: z.string().min(1).max(8000),
-  agents: z.array(manualRunAgentSchema).min(1).max(12),
+  agentIds: z.array(z.string().min(1)).min(1).max(12),
   useRag: z.boolean().optional().default(false),
   knowledgeSnippets: z.array(knowledgeSnippetSchema).max(50).optional().default([]),
 });
@@ -111,28 +110,27 @@ export function parseCapabilityIds(config: unknown): string[] {
 /**
  * 解析 Agent config JSON 中的元数据
  *
- * 作用：从 Agent.config 字段解析 capabilityIds、apiUrl、apiKey 等元数据
+ * 作用：从 Agent.config 字段解析 capabilityIds 和 apiUrl 等非敏感元数据
  * 原理：早期版本仅存储 capabilityIds 数组，现扩展为对象，需向后兼容
  * 参数：config - JSON 字符串，可能是 '["rag"]' 或 '{"capabilityIds":[],"apiUrl":"..."}'
- * 返回：{ capabilityIds: string[], apiUrl: string, apiKey: string }
+ * 返回：{ capabilityIds: string[], apiUrl: string }
  */
-export function parseAgentMeta(config: unknown): { capabilityIds: string[]; apiUrl: string; apiKey: string } {
-  if (typeof config !== "string") return { capabilityIds: [], apiUrl: "", apiKey: "" };
+export function parseAgentMeta(config: unknown): { capabilityIds: string[]; apiUrl: string } {
+  if (typeof config !== "string") return { capabilityIds: [], apiUrl: "" };
   try {
     const parsed = JSON.parse(config);
     if (Array.isArray(parsed)) {
-      return { capabilityIds: parsed.filter((x): x is string => typeof x === "string"), apiUrl: "", apiKey: "" };
+      return { capabilityIds: parsed.filter((x): x is string => typeof x === "string"), apiUrl: "" };
     }
     if (parsed && typeof parsed === "object") {
       const obj = parsed as Record<string, unknown>;
       return {
         capabilityIds: Array.isArray(obj.capabilityIds) ? obj.capabilityIds.filter((x): x is string => typeof x === "string") : [],
         apiUrl: typeof obj.apiUrl === "string" ? obj.apiUrl : "",
-        apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
       };
     }
-    return { capabilityIds: [], apiUrl: "", apiKey: "" };
+    return { capabilityIds: [], apiUrl: "" };
   } catch {
-    return { capabilityIds: [], apiUrl: "", apiKey: "" };
+    return { capabilityIds: [], apiUrl: "" };
   }
 }

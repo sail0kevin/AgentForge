@@ -8,7 +8,7 @@
  */
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { getOrCreateDefaultUser } from "@/lib/current-user";
+import { getCurrentUser } from "@/lib/current-user";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 import type { Chunk } from "@/lib/rag/chunker";
 
@@ -31,7 +31,10 @@ export const runtime = "nodejs";
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getOrCreateDefaultUser();
+    const user = await getCurrentUser();
+    if (!user) {
+      return Response.json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }, { status: 401 });
+    }
     const body = await request.json();
     const query = (body.query as string ?? "").trim();
     const limit = Math.min(Math.max(Number(body.limit) || 5, 1), 20);
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
         score: result.score,
       })),
     });
-  } catch (error) {
+  } catch {
     return Response.json({ error: "Failed to search documents" }, { status: 500 });
   }
 }

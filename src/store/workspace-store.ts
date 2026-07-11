@@ -25,6 +25,14 @@
 import { create } from "zustand";
 import type { AgentConfig, RunEvent, WorkspaceMessage, WorkspaceSnapshot, WorkspaceStatus } from "@/lib/types";
 
+function appendMessageOnce(messages: WorkspaceMessage[], message: WorkspaceMessage) {
+  return messages.some((item) => item.id === message.id) ? messages : [...messages, message];
+}
+
+function syncWorkspaceMessages(workspace: WorkspaceSnapshot | null, messages: WorkspaceMessage[], updates: Partial<Pick<WorkspaceSnapshot, "totalSpent" | "status">> = {}) {
+  return workspace ? { ...workspace, ...updates, messages } : workspace;
+}
+
 type WorkspaceStore = {
   workspace: WorkspaceSnapshot | null;
   agents: AgentConfig[];
@@ -35,6 +43,8 @@ type WorkspaceStore = {
   totalSpent: number;
   budgetStatus: WorkspaceStatus;
   setWorkspace: (workspace: WorkspaceSnapshot) => void;
+  mergeMessages: (messages: WorkspaceMessage[]) => void;
+  beginRun: () => void;
   applyEvent: (event: RunEvent) => void;
   resetRun: () => void;
 };
@@ -64,6 +74,38 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       budgetStatus: workspace.status,
       error: null,
     }),
+
+  /**
+   * 合并数据库历史和当前消息
+   *
+   * 作用：页面加载历史期间，如果用户已经发送了新消息，就按消息 ID 去重合并，
+   *       避免历史覆盖新消息，也避免为了保留新消息而整批丢掉旧历史。
+   */
+  mergeMessages: (incomingMessages) =>
+    set((state) => {
+      const messageMap = new Map<string, WorkspaceMessage>();
+      for (const message of incomingMessages) messageMap.set(message.id, message);
+      for (const message of state.messages) messageMap.set(message.id, message);
+      const messages = [...messageMap.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      return {
+        messages,
+        workspace: syncWorkspaceMessages(state.workspace, messages),
+      };
+    }),
+
+  /**
+   * 标记新一轮对话开始
+   *
+   * 与 resetRun 不同：这里只锁定发送状态并清除旧错误，不会清空历史消息。
+   */
+  beginRun: () =>
+    set((state) => ({
+      isRunning: true,
+      activeAgentId: null,
+      error: null,
+      budgetStatus: "running",
+      workspace: state.workspace ? { ...state.workspace, status: "running" } : state.workspace,
+    })),
 
   /**
    * 重置当前运行状态
@@ -111,36 +153,65 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
             budgetStatus: "running",
             isRunning: true,
           };
-        case "user_message_created":
-          return { messages: [...state.messages, event.message] };
-        case "agent_started":
-          return { activeAgentId: event.agent.id, isRunning: true };
-        case "agent_completed":
+        case "user_message_created": {
+          const messages = appendMessageOnce(state.messages, event.message);
           return {
-            messages: [...state.messages, event.message],
+            messages,
+            workspace: syncWorkspaceMessages(state.workspace, messages),
+          };
+        }
+        case "agent_started":
+          return {
+            activeAgentId: event.agent.id,
+            isRunning: true,
+            error: null,
+            budgetStatus: "running",
+            workspace: state.workspace ? { ...state.workspace, status: "running" } : state.workspace,
+          };
+        case "agent_completed": {
+          const messages = appendMessageOnce(state.messages, event.message);
+          return {
+            messages,
+            workspace: syncWorkspaceMessages(state.workspace, messages, { totalSpent: event.totalSpent, status: event.budgetStatus }),
             activeAgentId: null,
             totalSpent: event.totalSpent,
             budgetStatus: event.budgetStatus,
           };
-        case "agent_failed":
+        }
+        case "agent_failed": {
+          const messages = appendMessageOnce(state.messages, event.message);
           return {
-            messages: [...state.messages, event.message],
+            messages,
+            workspace: syncWorkspaceMessages(state.workspace, messages, { totalSpent: event.totalSpent, status: event.budgetStatus }),
             activeAgentId: null,
             totalSpent: event.totalSpent,
             budgetStatus: event.budgetStatus,
             error: event.error,
           };
+        }
         case "budget_exhausted":
-          return { totalSpent: event.totalSpent, budgetStatus: "exhausted", isRunning: false, activeAgentId: null };
+          return {
+            totalSpent: event.totalSpent,
+            budgetStatus: "exhausted",
+            isRunning: false,
+            activeAgentId: null,
+            workspace: state.workspace ? { ...state.workspace, totalSpent: event.totalSpent, status: "exhausted" } : state.workspace,
+          };
         case "run_completed":
           return {
             totalSpent: event.totalSpent,
             budgetStatus: event.budgetStatus,
             isRunning: false,
             activeAgentId: null,
+            workspace: state.workspace ? { ...state.workspace, totalSpent: event.totalSpent, status: event.budgetStatus } : state.workspace,
           };
         case "error":
-          return { error: event.message, isRunning: false, activeAgentId: null };
+          return {
+            error: event.message,
+            isRunning: false,
+            activeAgentId: null,
+            workspace: state.workspace ? { ...state.workspace, status: "idle" } : state.workspace,
+          };
         default:
           return state;
       }

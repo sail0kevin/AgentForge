@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String?
+  globalBudget Float       @default(50.00)
+  passwordHash String?
+  apiKeys      ApiKey[]
+  agents       Agent[]
+  workspaces   Workspace[]
+  documents    Document[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model ApiKey {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String
+  encryptedKey String
+  iv           String
+  authTag      String
+  maskedKey    String
+  isValid      Boolean  @default(true)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model Agent {
+  id            String           @id @default(cuid())
+  userId        String
+  name          String
+  avatar        String           @default("AI")
+  color         String           @default("#38bdf8")
+  provider      String
+  model         String
+  systemPrompt  String
+  temperature   Float            @default(0.70)
+  maxTokens     Int              @default(1200)
+  apiUrl        String           @default("")
+  config        String           @default("{}")
+  credential    AgentCredential?
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaces    WorkspaceAgent[]
+  messages      Message[]
+  tokenUsages   TokenUsage[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model AgentCredential {
+  id           String   @id @default(cuid())
+  agentId      String   @unique
+  encryptedKey String
+  iv           String
+  authTag      String
+  maskedKey    String
+  isValid      Boolean  @default(true)
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Workspace {
+  id           String           @id @default(cuid())
+  userId       String
+  name         String
+  description  String?
+  mode         String           @default("sequential")
+  budgetLimit  Float            @default(10.00)
+  totalSpent   Float            @default(0.00)
+  status       String           @default("idle")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agents       WorkspaceAgent[]
+  messages     Message[]
+  tokenUsages  TokenUsage[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model WorkspaceAgent {
+  workspaceId String
+  agentId     String
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, agentId])
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  workspaceId String
+  role        String
+  agentId     String?
+  content     String
+  replyToId   String?
+  failed      Boolean     @default(false)
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent       Agent?      @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  tokenUsage  TokenUsage?
+  createdAt   DateTime    @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  userId    String
+  fileName  String
+  title     String
+  format    String
+  size      Int
+  content   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks    DocumentChunk[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+model DocumentChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  content    String
+  startLine  Int
+  endLine    Int
+  metadata   String   @default("{}")
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime    @default(now())
+
+  @@index([documentId])
+}
+
+model TokenUsage {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  messageId    String    @unique
+  agentId      String?
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Float
+  costCny      Float
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  message      Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  agent        Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  @@index([workspaceId, createdAt])
+}

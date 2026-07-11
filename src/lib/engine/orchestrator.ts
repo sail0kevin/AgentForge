@@ -3,6 +3,8 @@ import { demoWorkspace } from "@/lib/demo-data";
 import { prisma } from "@/lib/db";
 import { callLLM, callLLMWithApiKey, decryptStoredApiKey } from "@/lib/llm/router";
 import { mapAgent, mapMessage, mapWorkspace } from "@/lib/mappers";
+import { parseAgentMeta } from "@/lib/validation";
+import { toSafeRunError } from "@/lib/errors/run-error";
 import type { AgentConfig, LLMMessage, RunEvent, WorkspaceMessage, WorkspaceSnapshot, WorkspaceStatus } from "@/lib/types";
 
 type RunWorkspaceParams = {
@@ -70,23 +72,23 @@ export async function runDemoWorkspace({ input, onEvent }: RunWorkspaceParams) {
   await onEvent({ type: "run_completed", totalSpent, budgetStatus });
 }
 
-export async function runPersistentWorkspace({ workspaceId, input, onEvent }: RunWorkspaceParams & { workspaceId: string }) {
+export async function runPersistentWorkspace({ workspaceId, userId, input, onEvent }: RunWorkspaceParams & { workspaceId: string; userId: string }) {
   const lock = await prisma.workspace.updateMany({
-    where: { id: workspaceId, status: { not: "running" } },
+    where: { id: workspaceId, userId, status: { not: "running" } },
     data: { status: "running" },
   });
 
   if (lock.count === 0) {
-    const existing = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { id: true } });
+    const existing = await prisma.workspace.findFirst({ where: { id: workspaceId, userId }, select: { id: true } });
     if (!existing) throw new Error("Workspace not found");
     throw new Error("Workspace is already running");
   }
 
-  const workspaceRecord = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
+  const workspaceRecord = await prisma.workspace.findFirst({
+    where: { id: workspaceId, userId },
     include: {
       user: { include: { apiKeys: true } },
-      agents: { include: { agent: true }, orderBy: { sortOrder: "asc" } },
+      agents: { include: { agent: { include: { credential: true } } }, orderBy: { sortOrder: "asc" } },
       messages: { include: { tokenUsage: true }, orderBy: { createdAt: "asc" } },
     },
   });
@@ -118,63 +120,69 @@ export async function runPersistentWorkspace({ workspaceId, input, onEvent }: Ru
         return;
       }
 
-      const agent = mapAgent(member.agent);
+      const meta = parseAgentMeta(member.agent.config);
+      const agent = { ...mapAgent(member.agent), capabilityIds: meta.capabilityIds };
       await onEvent({ type: "agent_started", agent });
 
-      const storedApiKey = workspaceRecord.user.apiKeys.find((key) => key.provider === member.agent.provider && key.isValid);
-      const apiKey = decryptStoredApiKey(storedApiKey);
-      const messages = buildContext(agent, input, assistantMessages);
-      const result = await callLLMWithApiKey({ agent, messages, apiKey });
-      const cost = calculateCost(agent.model, result.inputTokens, result.outputTokens);
-      totalSpent = Number((totalSpent + cost.costUsd).toFixed(8));
-      budgetStatus = getBudgetStatus(totalSpent, snapshot.budgetLimit);
-      finalStatus = budgetStatus;
+      try {
+        // Agent 专属凭证优先；仅兼容尚未迁移的旧用户 Provider 凭证。
+        const storedApiKey = member.agent.credential?.isValid
+          ? member.agent.credential
+          : workspaceRecord.user.apiKeys.find((key) => key.provider === member.agent.provider && key.isValid);
+        const apiKey = decryptStoredApiKey(storedApiKey);
+        const messages = buildContext(agent, input, assistantMessages);
+        // 专用 apiUrl 优先，老记录才从 config 回退读取历史地址。
+        const result = await callLLMWithApiKey({ agent, messages, apiKey, baseUrl: member.agent.apiUrl || meta.apiUrl });
+        const cost = calculateCost(agent.model, result.inputTokens, result.outputTokens);
+        totalSpent = Number((totalSpent + cost.costUsd).toFixed(8));
+        budgetStatus = getBudgetStatus(totalSpent, snapshot.budgetLimit);
+        finalStatus = budgetStatus;
 
-      const createdAssistantMessage = await prisma.message.create({
-        data: {
-          workspaceId,
-          role: "assistant",
-          agentId: agent.id,
-          content: result.content,
-          tokenUsage: {
-            create: {
-              workspaceId,
-              agentId: agent.id,
-              provider: agent.provider,
-              model: agent.model,
-              inputTokens: result.inputTokens,
-              outputTokens: result.outputTokens,
-              costUsd: cost.costUsd,
-              costCny: cost.costCny,
+        const createdAssistantMessage = await prisma.message.create({
+          data: {
+            workspaceId,
+            role: "assistant",
+            agentId: agent.id,
+            content: result.content,
+            tokenUsage: {
+              create: {
+                workspaceId,
+                agentId: agent.id,
+                provider: agent.provider,
+                model: agent.model,
+                inputTokens: result.inputTokens,
+                outputTokens: result.outputTokens,
+                costUsd: cost.costUsd,
+                costCny: cost.costCny,
+              },
             },
           },
-        },
-        include: { tokenUsage: true },
-      });
+          include: { tokenUsage: true },
+        });
 
-      const assistantMessage = mapMessage(createdAssistantMessage);
-      assistantMessages.push(assistantMessage);
+        const assistantMessage = mapMessage(createdAssistantMessage);
+        assistantMessages.push(assistantMessage);
 
-      await prisma.workspace.update({
-        where: { id: workspaceId },
-        data: {
-          totalSpent,
-          status: budgetStatus,
-        },
-      });
-
-      await onEvent({
-        type: "agent_completed",
-        agent,
-        message: assistantMessage,
-        totalSpent,
-        budgetStatus,
-      });
+        await prisma.workspace.update({ where: { id: workspaceId }, data: { totalSpent, status: budgetStatus } });
+        await onEvent({ type: "agent_completed", agent, message: assistantMessage, totalSpent, budgetStatus });
+      } catch (error) {
+        // 单个 Agent 失败只记录本次失败，队列继续执行后面的 Agent。
+        const safeError = toSafeRunError(error);
+        const createdFailedMessage = await prisma.message.create({
+          data: { workspaceId, role: "assistant", agentId: agent.id, content: `模型调用失败：${safeError.message}`, failed: true },
+        });
+        const failedMessage = mapMessage({ ...createdFailedMessage, tokenUsage: null });
+        assistantMessages.push(failedMessage);
+        finalStatus = "warning";
+        await onEvent({ type: "agent_failed", agent, message: failedMessage, error: safeError.code, totalSpent, budgetStatus: "warning" });
+      }
     }
 
     finalStatus = budgetStatus === "running" ? getBudgetStatus(totalSpent, snapshot.budgetLimit) : budgetStatus;
     await onEvent({ type: "run_completed", totalSpent, budgetStatus: finalStatus });
   } finally {
+    // 异常中断时不能永久停留在 running，否则用户会被错误地锁在无法再次运行的状态。
+    if (finalStatus === "running") finalStatus = "warning";
     await prisma.workspace.update({ where: { id: workspaceId }, data: { totalSpent, status: finalStatus } });
   }
 }

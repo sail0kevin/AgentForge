@@ -59,7 +59,7 @@ export async function callLLM({ agent, messages, baseUrl }: CallLLMParams): Prom
  * 参数：
  *   - agent: Agent 配置（包含 provider, model, temperature 等）
  *   - messages: 对话消息列表
- *   - apiKey: 明文 API Key（可选，为空时进入模拟模式）
+ *   - apiKey: 明文 API Key（远程 Provider 必填；Ollama 不需要）
  *   - baseUrl: 自定义 API 地址（可选）
  *
  * 返回值：LLMResult { content: string, inputTokens: number, outputTokens: number }
@@ -73,7 +73,8 @@ export async function callLLMWithApiKey({ agent, messages, apiKey, baseUrl }: Ca
   }
 
   if (!apiKey) {
-    return simulateLLM(agent, messages);
+    // 真实运行路径缺少远程凭证时必须明确失败，不能用模拟回复伪装成模型成功。
+    throw new Error("CREDENTIAL_NOT_CONFIGURED");
   }
 
   if (agent.provider === "anthropic") {

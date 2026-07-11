@@ -1,140 +1,94 @@
-﻿# Multi-Agent Workspace (多 Agent 工作平台)
+# Multi-Agent Workspace
 
-## 当前版本：v0.1 稳定版（本地 MVP）
+一个本地优先的 **顺序式多 Agent 协作工作台**。多个 Agent 在同一对话中依次分析任务，后续 Agent 可读取前序结论并生成结构化开发报告。
 
-一个允许用户手动配置多个 AI Agent（支持 Ollama、OpenAI、DeepSeek、Anthropic 等），
-并在同一对话区进行多 Agent 顺序协作的本地 Web 工作台应用。
+> 当前是用于学习、演示和简历展示的 Web MVP，不是生产级公网服务。
 
-> ⚠️ 当前版本定位为**本地可演示的 MVP**，尚未达到生产级 SaaS 上线标准。
-> 数据库持久化、账号系统、API Key 加密存储、桌面端打包将在下一阶段接入。
+## 核心亮点
 
----
+- **多 Agent 协作**：支持“需求分析师 → 开发报告负责人”的顺序讨论与上下文传递。
+- **实时可观测**：通过 SSE 推送 Agent 开始、完成、失败等运行事件；单个失败不阻塞后续 Agent。
+- **用户自带模型**：每个 Agent 可配置自己的 API URL、模型名和 API Key，支持 Ollama 与 OpenAI-compatible 接口。
+- **凭证安全**：API Key 使用 AES-256-GCM 加密保存；接口、浏览器状态和 SSE 只保留掩码信息。
+- **工程闭环**：消息持久化、刷新恢复、清空不复活、轻量 TF-IDF RAG、Playwright 核心 E2E。
 
-## 功能概览
+## 快速开始：Ollama 双 Agent 演示
 
-| 页面 | 说明 |
-|------|------|
-| 💬 对话空间 | 添加多个 Agent，发送消息后已启用的 Agent 依次回复 |
-| 🤖 创建智能体 | 手动配置 Agent（模型来源、API URL、API Key、模型名称、能力绑定） |
-| 📦 能力库 | 管理系统级能力开关（RAG、工具调用、记忆、语义缓存）和本地知识片段 |
-| 📊 调用链路 | 展示当前多 Agent 顺序调用的流程图 |
-| ⚙️ 基础设置 | 系统预留配置页 |
+### 1. 准备本地模型
 
----
+```bash
+ollama pull qwen2.5:3b
+ollama serve
+```
 
-## 快速开始
+### 2. 启动项目
 
-### 前置要求
-
-- Node.js 18+
-- npm 或 pnpm
--（可选）本地 Ollama 服务，用于调用本地模型
-
-### 安装与启动
-
-`ash
+```bash
+cp .env.example .env
 npm install
+npx prisma db push
+npx prisma generate
 npm run dev
-# 打开 http://localhost:3000
-`
+```
 
-### 使用流程
+Windows PowerShell 可用：
 
-1. 点击左侧「创建智能体」
-2. 选择模型来源（如 Ollama / OpenAI Compatible / DeepSeek）
-3. 填写 API URL、API Key、模型名称
-4. 编写角色设定 Prompt（至少 10 个字符）
-5. 可选：绑定能力（RAG、工具调用、记忆等）
-6. 点击「添加到对话空间」
-7. 切换到「对话空间」，在底部输入框发送消息
-8. 已启用的 Agent 会依次回复
+```powershell
+Copy-Item .env.example .env
+```
 
-### 使用本地 Ollama
+打开 [http://localhost:3000](http://localhost:3000)。本地演示推荐保留 `.env` 中的：
 
-1. 确保 Ollama 服务已启动（默认 http://localhost:11434）
-2. 创建 Agent 时选择「Ollama」，API Key 留空即可
-3. 模型名称填写本机已下载的模型名，如 llama3.1、qwen2.5
+```env
+APP_AUTH_MODE="local"
+OLLAMA_BASE_URL="http://localhost:11434"
+```
 
-### 使用远程 API（OpenAI / DeepSeek 等）
+项目会使用两个默认 Agent：
 
-1. 创建 Agent 时选择对应的模型来源
-2. 填写你的 API Key
-3. 模型名称填写服务商支持的模型 ID，如 gpt-4o-mini、deepseek-chat
+1. **需求分析师**：拆解目标、限制、验收与风险；
+2. **开发报告负责人**：读取前序分析，输出方案、任务、测试和下一步。
 
----
+更多演示步骤见 [Demo Guide](docs/demo.md)。
+
+## 质量验证
+
+```bash
+npm run test:e2e:core
+npm run build
+```
+
+核心 E2E 覆盖：
+
+- API Key 不泄漏；
+- Agent 失败后继续执行；
+- 聊天历史恢复与清空；
+- 主题和语言刷新持久化。
 
 ## 技术栈
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 |
-| 状态管理 | Zustand |
-| UI 组件 | Lucide Icons |
-| 后端 | Next.js API Routes |
-| 模型调用 | OpenAI SDK + Anthropic SDK + 原生 fetch (Ollama) |
-| 数据库 | Prisma 7 + SQLite（预留，当前主要用 localStorage） |
-| 流式通信 | SSE (Server-Sent Events) |
+`Next.js` · `React` · `TypeScript` · `Prisma` · `SQLite` · `Zustand` · `SSE` · `Playwright` · `Ollama` / OpenAI Compatible API
 
----
+## 项目边界
 
-## 项目结构
+- 当前 RAG 是 TF-IDF 轻量检索，未接入 embedding / pgvector；
+- 已提供工具注册与执行 API，完整模型 Tool Calling 循环尚未实现；
+- 提供 Electron shell 与打包脚本，但本版本以 Web MVP 为主，未完成桌面端最终验收；
+- `local` 用于本机开发，公网或多用户部署应使用 `APP_AUTH_MODE=session` 并配置强随机密钥。
 
-`
-src/
-+--- app/                    # Next.js App Router
-|   +--- api/               # API 路由
-|   |   +--- agents/        # Agent CRUD
-|   |   +--- documents/     # 文档管理
-|   |   +--- workspaces/    # 工作空间 & 对话运行
-|   +--- layout.tsx         # 全局布局
-|   +--- page.tsx           # 首页
-+--- components/workspace/   # 页面组件
-|   +--- workspace-app.tsx  # 主应用组件
-+--- lib/
-|   +--- llm/               # LLM 调用路由器
-|   |   +--- router.ts
-|   +--- capabilities/      # 能力注册
-|   +--- rag/               # RAG 检索（预留）
-|   +--- validation.ts      # 请求校验
-+--- store/
-    +--- workspace-store.ts  # 全局状态管理
-`
+## 文档
 
----
+- [架构说明](docs/architecture.md)
+- [当前状态与已知限制](docs/current-status.md)
+- [演示指南](docs/demo.md)
+- [项目报告](docs/reports/project-report.md)
+- [公开发布检查清单](docs/reports/publishing-checklist.md)
+- [贡献说明](CONTRIBUTING.md)
 
-## 能力层设计
+## 安全提醒
 
-v0.1 版本将 RAG、工具调用、记忆、语义缓存作为**平台能力层**的合约字段保存。
-每个 Agent 可以绑定一组能力，但实际执行逻辑在后续版本接入。
-
-设计原则：
-- **能力是平台级共享资源**，不是每个 Agent 独立实现一份
-- Agent 通过能力 ID 绑定到平台能力
-- 未来新增能力不需要修改 Agent 配置
-
----
-
-## 后续规划
-
-| 阶段 | 内容 |
-|------|------|
-| v0.2 | 接入真实 RAG 向量检索、长期记忆存储 |
-| v0.3 | 工具调用执行、语义缓存 |
-| v0.4 | PostgreSQL + Prisma 持久化、账号系统 |
-| v0.5 | 桌面端打包 (Electron/Tauri) |
-| v1.0 | 生产级 SaaS 上线 |
-
----
-
-## 开发规范
-
-- 所有代码注释使用中文
-- 每个文件顶部有文件级注释（作用 + 原理 + 如何调用）
-- 每个函数/类有注释块（作用 + 原理 + 参数与返回值 + 如何调用）
-- 复杂逻辑有行内注释说明为什么
-
----
+不要提交 `.env`、SQLite 数据库、真实 API Key 或测试产物。如果 `.env` 曾被提交到 Git 历史，请在对应 Provider 后台轮换 API Key、`SESSION_SECRET` 与 `ENCRYPTION_MASTER_KEY`。
 
 ## License
 
-MIT
+[MIT](LICENSE)

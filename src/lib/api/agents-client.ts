@@ -23,7 +23,12 @@ export async function listAgents(): Promise<PersistedAgent[]> {
   return res.json();
 }
 
-export async function createAgent(data: Omit<PersistedAgent, "id">): Promise<PersistedAgent> {
+export interface AgentSubmission extends Omit<PersistedAgent, "id"> {
+  // 原始 Key 仅用于本次 API 请求，调用方不得将它写入浏览器持久状态。
+  apiKey?: string;
+}
+
+export async function createAgent(data: AgentSubmission): Promise<PersistedAgent> {
   const res = await fetch("/api/agents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -36,7 +41,7 @@ export async function createAgent(data: Omit<PersistedAgent, "id">): Promise<Per
   return res.json();
 }
 
-export async function updateAgent(id: string, data: Partial<PersistedAgent>): Promise<PersistedAgent> {
+export async function updateAgent(id: string, data: Partial<AgentSubmission>): Promise<PersistedAgent> {
   const res = await fetch(`/api/agents/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -49,7 +54,11 @@ export async function updateAgent(id: string, data: Partial<PersistedAgent>): Pr
   return res.json();
 }
 
-export async function deleteAgent(id: string): Promise<void> {
+export async function deleteAgent(id: string): Promise<boolean> {
   const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("agent-delete-failed");
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || "agent-delete-failed");
+  }
+  return true;
 }

@@ -11,6 +11,7 @@ model User {
   email        String      @unique
   name         String?
   globalBudget Float       @default(50.00)
+  passwordHash String?
   apiKeys      ApiKey[]
   agents       Agent[]
   workspaces   Workspace[]
@@ -46,13 +47,28 @@ model Agent {
   systemPrompt  String
   temperature   Float            @default(0.70)
   maxTokens     Int              @default(1200)
+  apiUrl        String           @default("")
   config        String           @default("{}")
+  credential    AgentCredential?
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspaces    WorkspaceAgent[]
   messages      Message[]
   tokenUsages   TokenUsage[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+model AgentCredential {
+  id           String   @id @default(cuid())
+  agentId      String   @unique
+  encryptedKey String
+  iv           String
+  authTag      String
+  maskedKey    String
+  isValid      Boolean  @default(true)
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Workspace {
@@ -109,8 +125,8 @@ model Document {
   content   String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chunks    DocumentChunk[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@index([userId])
 }
@@ -123,7 +139,7 @@ model DocumentChunk {
   endLine    Int
   metadata   String   @default("{}")
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  createdAt  DateTime    @default(now())
 
   @@index([documentId])
 }
@@ -139,8 +155,8 @@ model TokenUsage {
   outputTokens Int
   costUsd      Float
   costCny      Float
-  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  message      Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete:Cascade)
+  message      Message   @relation(fields: [messageId], references: [id], onDelete:Cascade)
   agent        Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   createdAt    DateTime    @default(now())
 

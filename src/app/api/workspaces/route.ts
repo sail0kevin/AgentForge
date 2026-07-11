@@ -1,11 +1,16 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getOrCreateDefaultUser } from "@/lib/current-user";
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
 import { mapWorkspace } from "@/lib/mappers";
 import { workspaceCreateSchema } from "@/lib/validation";
 
+function unauthorized() {
+  return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }, { status: 401 });
+}
+
 export async function GET() {
-  const user = await getOrCreateDefaultUser();
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const workspaces = await prisma.workspace.findMany({
     where: { userId: user.id },
     include: {
@@ -18,8 +23,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return unauthorized();
   const body = workspaceCreateSchema.parse(await request.json());
-  const user = await getOrCreateDefaultUser();
   const workspace = await prisma.workspace.create({
     data: {
       name: body.name,

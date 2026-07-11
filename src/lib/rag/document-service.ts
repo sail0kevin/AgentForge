@@ -10,9 +10,17 @@
  *   3. 可升级性——后续切换到向量检索时，只需修改这一个文件
  */
 import { prisma } from "@/lib/db";
-import { getOrCreateDefaultUser } from "@/lib/current-user";
 import { retrieveChunks, formatRetrievedChunks } from "@/lib/rag/retrieval";
 import type { Chunk } from "@/lib/rag/chunker";
+
+function parseChunkMetadata(value: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, string> : {};
+  } catch {
+    return {};
+  }
+}
 
 /**
  * 从知识库检索与查询相关的知识块，并格式化为可注入到 Prompt 的文本
@@ -31,13 +39,11 @@ import type { Chunk } from "@/lib/rag/chunker";
  *   const knowledge = await retrieveDocumentChunks('什么是RAG', 3);
  *   if (knowledge) { prompt += knowledge; }
  */
-export async function retrieveDocumentChunks(query: string, limit: number = 5): Promise<string> {
+export async function retrieveDocumentChunks(userId: string, query: string, limit: number = 5): Promise<string> {
   try {
-    const user = await getOrCreateDefaultUser();
-
-    // 从数据库加载当前用户的所有知识块
+    // 调用方传入已认证的用户 ID，检索服务不再自行退回共享默认用户。
     const chunks = await prisma.documentChunk.findMany({
-      where: { document: { userId: user.id } },
+      where: { document: { userId } },
       select: {
         id: true,
         documentId: true,
@@ -58,7 +64,8 @@ export async function retrieveDocumentChunks(query: string, limit: number = 5): 
       content: chunk.content,
       startLine: chunk.startLine,
       endLine: chunk.endLine,
-      metadata: JSON.parse(chunk.metadata || "{}") as Record<string, string>,
+      // 单条旧数据损坏时只忽略它的 metadata，不能让整次知识检索失效。
+      metadata: parseChunkMetadata(chunk.metadata),
     }));
 
     // 用 TF-IDF 检索最相关的知识块
