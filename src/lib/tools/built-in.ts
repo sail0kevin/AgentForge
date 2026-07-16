@@ -1,87 +1,64 @@
-import { registerTool, type Tool } from "./registry";
+import { z } from "zod";
+import { searchDocumentChunks } from "@/lib/rag/document-service";
+import { registerTool, type ToolDefinition } from "./registry";
 
-/**
- * Web Search stub - future integration point for real web search APIs.
- * Currently returns a simulated acknowledgment.
- */
-const webSearchTool: Tool = {
-  id: "web_search",
-  name: "Web Search",
-  description: "Search the web for information. Placeholder — requires search API key.",
-  parameters: [
-    { name: "query", type: "string", description: "The search query", required: true },
-  ],
-  async execute(input) {
-    return { output: `[Web Search] Searched for: "${String(input?.query ?? "")}". (API key not configured)` };
+const citationSchema = z.object({
+  documentId: z.string(), title: z.string(), fileName: z.string(), sourceType: z.string(), sourceUrl: z.string().nullable(),
+  sourceVersion: z.string(), license: z.string(), reviewedAt: z.string().nullable(), checksumSha256: z.string(),
+  headingPath: z.string().nullable(), startLine: z.number().int().nonnegative(), endLine: z.number().int().nonnegative(),
+});
+
+const knowledgeSearchTool: ToolDefinition<{ query: string; limit: number }, { results: Awaited<ReturnType<typeof searchDocumentChunks>> }> = {
+  id: "knowledge-search",
+  name: "Local Knowledge Search",
+  description: "Search only the authenticated user's versioned local document library and return traceable citations.",
+  permission: "knowledge:read",
+  risk: "read-only",
+  inputSchema: z.object({ query: z.string().trim().min(2).max(2_000), limit: z.number().int().min(1).max(10).optional().default(5) }),
+  outputSchema: z.object({ results: z.array(z.object({ id: z.string(), content: z.string().max(2_000), score: z.number().nonnegative(), citation: citationSchema })).max(10) }),
+  timeoutMs: 5_000,
+  maxCallsPerRun: 5,
+  maxInputBytes: 8 * 1024,
+  maxOutputBytes: 64 * 1024,
+  async execute(input, context) {
+    context.signal.throwIfAborted();
+    const results = await searchDocumentChunks(context.userId, input.query, input.limit);
+    return { results: results.map((result) => ({ ...result, content: result.content.slice(0, 2_000) })) };
   },
 };
 
-/**
- * Calculator tool - evaluates simple math expressions safely.
- */
-const calculatorTool: Tool = {
-  id: "calculator",
-  name: "Calculator",
-  description: "Evaluate simple math expressions. Supports +, -, *, /, parentheses, sqrt, pow.",
-  parameters: [
-    { name: "expression", type: "string", description: "Math expression, e.g. (2 + 3) * 4", required: true },
-  ],
-  async execute(input) {
-    try {
-      const expr = String(input?.expression ?? "").replace(/[^0-9+\-*/().,^%\s]/g, "");
-      if (!expr.trim()) return { output: "Invalid expression" };
-      // Use Function constructor with strict whitelist
-      const sanitized = expr.replace(/sqrt/gi, "Math.sqrt").replace(/pow/gi, "Math.pow").replace(/\^/g, "**");
-      const result = new Function(`"use strict"; return (${sanitized});`)();
-      return { output: `${expr} = ${result}` };
-    } catch {
-      return { output: "Failed to evaluate expression" };
-    }
-  },
-};
+const uiAcceptanceInputSchema = z.object({
+  pageType: z.string().trim().min(2).max(100),
+  hasVisibleLabels: z.boolean(),
+  hasKeyboardFocus: z.boolean(),
+  coveredStates: z.array(z.enum(["loading", "empty", "success", "warning", "error", "disabled"])).max(6),
+});
 
-/**
- * Date and time tool
- */
-const datetimeTool: Tool = {
-  id: "datetime",
-  name: "Date Time",
-  description: "Get current date and time in the specified timezone.",
-  parameters: [
-    { name: "timezone", type: "string", description: "Timezone (default: Asia/Shanghai)", required: false },
-  ],
+const uiAcceptanceTool: ToolDefinition<z.infer<typeof uiAcceptanceInputSchema>, { passed: boolean; checks: string[] }> = {
+  id: "ui-acceptance-check",
+  name: "UI Acceptance Check",
+  description: "Run deterministic, read-only baseline checks for labels, keyboard focus and essential UI states.",
+  permission: "knowledge:read",
+  risk: "read-only",
+  inputSchema: uiAcceptanceInputSchema,
+  outputSchema: z.object({ passed: z.boolean(), checks: z.array(z.string().max(300)).max(10) }),
+  timeoutMs: 1_000,
+  maxCallsPerRun: 3,
+  maxInputBytes: 4 * 1024,
+  maxOutputBytes: 8 * 1024,
   async execute(input) {
-    const tz = String(input?.timezone ?? "Asia/Shanghai");
-    try {
-      const now = new Date();
-      const formatted = now.toLocaleString("zh-CN", { timeZone: tz });
-      return { output: `Current time (${tz}): ${formatted}` };
-    } catch {
-      return { output: new Date().toISOString() };
-    }
-  },
-};
-
-/**
- * Knowledge base search (uses RAG)
- */
-const knowledgeSearchTool: Tool = {
-  id: "knowledge_search",
-  name: "Knowledge Search",
-  description: "Search the local knowledge base for relevant information.",
-  parameters: [
-    { name: "query", type: "string", description: "The search query", required: true },
-  ],
-  async execute(input) {
-    return { output: `[Knowledge Search] Query: "${String(input?.query ?? "")}" — RAG module handles full pipeline.` };
+    const checks = [
+      input.hasVisibleLabels ? "PASS: interactive fields have visible labels." : "FAIL: add visible labels; placeholders alone are insufficient.",
+      input.hasKeyboardFocus ? "PASS: keyboard focus is visible." : "FAIL: add a visible keyboard focus indicator.",
+      ...(["loading", "empty", "error"] as const).filter((state) => !input.coveredStates.includes(state)).map((state) => `FAIL: ${input.pageType} does not define the ${state} state.`),
+    ];
+    return { passed: checks.every((check) => check.startsWith("PASS")), checks };
   },
 };
 
 export function initBuiltInTools(): void {
-  registerTool(webSearchTool);
-  registerTool(calculatorTool);
-  registerTool(datetimeTool);
   registerTool(knowledgeSearchTool);
+  registerTool(uiAcceptanceTool);
 }
 
-export const BUILTIN_TOOL_IDS = ["web_search", "calculator", "datetime", "knowledge_search"];
+export const BUILTIN_TOOL_IDS = ["knowledge-search", "ui-acceptance-check"] as const;

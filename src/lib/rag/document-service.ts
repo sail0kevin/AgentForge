@@ -13,6 +13,28 @@ import { prisma } from "@/lib/db";
 import { retrieveChunks, formatRetrievedChunks } from "@/lib/rag/retrieval";
 import type { Chunk } from "@/lib/rag/chunker";
 
+export type DocumentCitation = {
+  documentId: string;
+  title: string;
+  fileName: string;
+  sourceType: string;
+  sourceUrl: string | null;
+  sourceVersion: string;
+  license: string;
+  reviewedAt: string | null;
+  checksumSha256: string;
+  headingPath: string | null;
+  startLine: number;
+  endLine: number;
+};
+
+export type RetrievedDocumentChunk = {
+  id: string;
+  content: string;
+  score: number;
+  citation: DocumentCitation;
+};
+
 function parseChunkMetadata(value: string): Record<string, string> {
   try {
     const parsed = JSON.parse(value || "{}");
@@ -41,7 +63,33 @@ function parseChunkMetadata(value: string): Record<string, string> {
  */
 export async function retrieveDocumentChunks(userId: string, query: string, limit: number = 5): Promise<string> {
   try {
-    // 调用方传入已认证的用户 ID，检索服务不再自行退回共享默认用户。
+    const results = await searchDocumentChunks(userId, query, limit);
+    if (results.length === 0) return "";
+    return formatRetrievedChunks(results.map((result) => ({
+      id: result.id,
+      documentId: result.citation.documentId,
+      content: result.content,
+      startLine: result.citation.startLine,
+      endLine: result.citation.endLine,
+      score: result.score,
+      metadata: {
+        documentTitle: result.citation.title,
+        fileName: result.citation.fileName,
+        headingPath: result.citation.headingPath ?? "",
+        sourceUrl: result.citation.sourceUrl ?? "",
+        sourceVersion: result.citation.sourceVersion,
+        license: result.citation.license,
+      },
+    })));
+  } catch (error) {
+    // Agent上下文允许知识库不可用时降级；受控 Tool入口则直接调用 searchDocumentChunks并记录失败。
+    console.error("Document retrieval failed:", error);
+    return "";
+  }
+}
+
+/** 返回带来源的结构化检索结果；调用方必须传入已认证用户 ID。 */
+export async function searchDocumentChunks(userId: string, query: string, limit: number = 5): Promise<RetrievedDocumentChunk[]> {
     const chunks = await prisma.documentChunk.findMany({
       where: { document: { userId } },
       select: {
@@ -51,11 +99,12 @@ export async function retrieveDocumentChunks(userId: string, query: string, limi
         startLine: true,
         endLine: true,
         metadata: true,
+        document: { select: { title: true, fileName: true, sourceType: true, sourceUrl: true, sourceVersion: true, license: true, reviewedAt: true, checksumSha256: true } },
       },
     });
 
     // 如果没有知识块，直接返回空字符串
-    if (chunks.length === 0) return "";
+    if (chunks.length === 0) return [];
 
     // 转换为检索模块需要的 Chunk 格式
     const mapped: Chunk[] = chunks.map((chunk) => ({
@@ -65,20 +114,40 @@ export async function retrieveDocumentChunks(userId: string, query: string, limi
       startLine: chunk.startLine,
       endLine: chunk.endLine,
       // 单条旧数据损坏时只忽略它的 metadata，不能让整次知识检索失效。
-      metadata: parseChunkMetadata(chunk.metadata),
+      metadata: {
+        ...parseChunkMetadata(chunk.metadata),
+        documentTitle: chunk.document.title,
+        fileName: chunk.document.fileName,
+        sourceType: chunk.document.sourceType,
+        sourceUrl: chunk.document.sourceUrl ?? "",
+        sourceVersion: chunk.document.sourceVersion,
+        license: chunk.document.license,
+        reviewedAt: chunk.document.reviewedAt?.toISOString() ?? "",
+        checksumSha256: chunk.document.checksumSha256,
+      },
     }));
 
     // 用 TF-IDF 检索最相关的知识块
-    const results = retrieveChunks(query, mapped, limit);
-
-    // 如果没有匹配结果，返回空字符串
-    if (results.length === 0) return "";
-
-    // 格式化为可注入 Prompt 的文本
-    return formatRetrievedChunks(results);
-  } catch (error) {
-    // 检索失败不影响主流程，静默降级为空字符串
-    console.error('Document retrieval failed:', error);
-    return "";
-  }
+    return retrieveChunks(query, mapped, limit).map((result) => {
+      const source = chunks.find((chunk) => chunk.id === result.id)!;
+      return {
+        id: result.id,
+        content: result.content,
+        score: result.score,
+        citation: {
+          documentId: result.documentId,
+          title: source.document.title,
+          fileName: source.document.fileName,
+          sourceType: source.document.sourceType,
+          sourceUrl: source.document.sourceUrl,
+          sourceVersion: source.document.sourceVersion,
+          license: source.document.license,
+          reviewedAt: source.document.reviewedAt?.toISOString() ?? null,
+          checksumSha256: source.document.checksumSha256,
+          headingPath: result.metadata.headingPath || null,
+          startLine: result.startLine,
+          endLine: result.endLine,
+        },
+      };
+    });
 }

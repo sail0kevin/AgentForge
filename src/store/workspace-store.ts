@@ -47,6 +47,7 @@ type WorkspaceStore = {
   beginRun: () => void;
   applyEvent: (event: RunEvent) => void;
   resetRun: () => void;
+  clearSession: () => void;
 };
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
@@ -121,6 +122,19 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       messages: [],
       totalSpent: 0,
       budgetStatus: "running",
+    }),
+
+  /** 登出或切换账号时清除模块级 Store，避免旧账号状态短暂显示给新账号。 */
+  clearSession: () =>
+    set({
+      workspace: null,
+      agents: [],
+      messages: [],
+      activeAgentId: null,
+      isRunning: false,
+      error: null,
+      totalSpent: 0,
+      budgetStatus: "idle",
     }),
 
   /**

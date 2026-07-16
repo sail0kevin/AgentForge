@@ -1,5 +1,8 @@
-# Screenshots
+# Public Screenshots
 
-Place only reviewed, non-sensitive public screenshots in this directory.
+These screenshots are safe, local baseline demonstrations for the GitHub project page. They contain no real API Key, account password, or production data.
 
-Do not add screenshots that contain API keys, personal email addresses, local paths, test data, or internal debug output.
+- `workflow-completed.png`: deterministic baseline after human approval, showing the node timeline, Checkpoint metadata, Artifact chain, and completed ReportArtifact.
+- `report-demo.png`: generated report center showing version history, final decision, dynamic table of contents, source manifest, and Markdown export.
+
+Regenerate them from the local demo workflow instead of capturing a real provider credential or personal database.

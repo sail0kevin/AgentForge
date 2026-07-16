@@ -26,7 +26,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   const { id } = await params;
-  const body = workspaceUpdateSchema.parse(await request.json());
+  const parsed = workspaceUpdateSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message } }, { status: 400 });
+  const body = parsed.data;
   const workspace = await prisma.workspace.findFirst({ where: { id, userId: user.id }, select: { id: true } });
   if (!workspace) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
 

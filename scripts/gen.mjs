@@ -1,9 +1,6 @@
 ﻿// Generator script for workspace-app.tsx
 // Builds the file content programmatically to avoid encoding issues
 
-const fs = require("fs");
-const target = "G:/projects/agent-learning/projects/Multi-Agent-Workspace/src/components/workspace/workspace-app.tsx";
-
 // ===== UI strings =====
 // All user-facing text is defined here for easy localization
 // Chinese translations will be added in v0.2

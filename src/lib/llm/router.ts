@@ -24,31 +24,35 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { decryptApiKey } from "@/lib/security/crypto";
 import type { AgentConfig, LLMMessage, LLMResult } from "@/lib/types";
 import { estimateTokens } from "@/lib/utils";
+import { assertSafeProviderUrl } from "@/lib/security/provider-url";
 
 type CallLLMParams = {
   agent: AgentConfig;
   messages: LLMMessage[];
   baseUrl?: string | null;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 };
 
-export async function callLLM({ agent, messages, baseUrl }: CallLLMParams): Promise<LLMResult> {
-  if (agent.provider === "ollama") {
-    return callOllama(agent, messages);
-  }
+export async function callLLM({ agent, messages, baseUrl, signal, timeoutMs }: CallLLMParams): Promise<LLMResult> {
+  return withProviderAbort(signal, timeoutMs, async (providerSignal) => {
+    if (agent.provider === "ollama") {
+      return callOllama(agent, messages, baseUrl, providerSignal);
+    }
 
-  const apiKey = getApiKey(agent.provider);
-  if (!apiKey) {
-    return simulateLLM(agent, messages);
-  }
+    const apiKey = getApiKey(agent.provider);
+    if (!apiKey) {
+      return simulateLLM(agent, messages, providerSignal);
+    }
 
-  if (agent.provider === "anthropic") {
-    return callAnthropic(agent, messages, apiKey, baseUrl);
-  }
+    if (agent.provider === "anthropic") {
+      return callAnthropic(agent, messages, apiKey, baseUrl, providerSignal);
+    }
 
-  return callOpenAICompatible(agent, messages, apiKey, baseUrl);
+    return callOpenAICompatible(agent, messages, apiKey, baseUrl, providerSignal);
+  });
 }
 
 /**
@@ -67,26 +71,56 @@ export async function callLLM({ agent, messages, baseUrl }: CallLLMParams): Prom
  * 如何调用：
  *   const result = await callLLMWithApiKey({ agent, messages, apiKey: "sk-xxx" });
  */
-export async function callLLMWithApiKey({ agent, messages, apiKey, baseUrl }: CallLLMParams & { apiKey?: string | null }): Promise<LLMResult> {
-  if (agent.provider === "ollama") {
-    return callOllama(agent, messages, baseUrl);
-  }
+export async function callLLMWithApiKey({ agent, messages, apiKey, baseUrl, signal, timeoutMs }: CallLLMParams & { apiKey?: string | null }): Promise<LLMResult> {
+  return withProviderAbort(signal, timeoutMs, async (providerSignal) => {
+    if (agent.provider === "ollama") {
+      return callOllama(agent, messages, baseUrl, providerSignal);
+    }
 
-  if (!apiKey) {
-    // 真实运行路径缺少远程凭证时必须明确失败，不能用模拟回复伪装成模型成功。
-    throw new Error("CREDENTIAL_NOT_CONFIGURED");
-  }
+    if (!apiKey) {
+      // 真实运行路径缺少远程凭证时必须明确失败，不能用模拟回复伪装成模型成功。
+      throw new Error("CREDENTIAL_NOT_CONFIGURED");
+    }
 
-  if (agent.provider === "anthropic") {
-    return callAnthropic(agent, messages, apiKey, baseUrl);
-  }
+    if (agent.provider === "anthropic") {
+      return callAnthropic(agent, messages, apiKey, baseUrl, providerSignal);
+    }
 
-  return callOpenAICompatible(agent, messages, apiKey, baseUrl);
+    return callOpenAICompatible(agent, messages, apiKey, baseUrl, providerSignal);
+  });
 }
 
-export function decryptStoredApiKey(apiKey?: { encryptedKey: string; iv: string; authTag: string } | null) {
-  if (!apiKey) return null;
-  return decryptApiKey(apiKey.encryptedKey, apiKey.iv, apiKey.authTag);
+function providerTimeoutMs(override?: number) {
+  const configured = override ?? Number(process.env.PROVIDER_TIMEOUT_MS || 120_000);
+  return Number.isFinite(configured) && configured > 0 ? Math.min(configured, 10 * 60_000) : 120_000;
+}
+
+async function withProviderAbort<T>(parentSignal: AbortSignal | undefined, timeoutMs: number | undefined, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  let abortCode: "PROVIDER_TIMEOUT" | "RUN_CANCELLED" | null = null;
+  const abortFromParent = () => {
+    abortCode = "RUN_CANCELLED";
+    controller.abort(new Error(abortCode));
+  };
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener("abort", abortFromParent, { once: true });
+
+  const timer = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    abortCode = "PROVIDER_TIMEOUT";
+    controller.abort(new Error(abortCode));
+  }, providerTimeoutMs(timeoutMs));
+
+  try {
+    controller.signal.throwIfAborted();
+    return await operation(controller.signal);
+  } catch (error) {
+    if (abortCode) throw new Error(abortCode, { cause: error });
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    parentSignal?.removeEventListener("abort", abortFromParent);
+  }
 }
 
 function getApiKey(provider: AgentConfig["provider"]) {
@@ -112,7 +146,8 @@ function getApiKey(provider: AgentConfig["provider"]) {
  *
  * 返回值：LLMResult
  */
-async function callOpenAICompatible(agent: AgentConfig, messages: LLMMessage[], apiKey: string, baseUrl?: string | null): Promise<LLMResult> {
+async function callOpenAICompatible(agent: AgentConfig, messages: LLMMessage[], apiKey: string, baseUrl: string | null | undefined, signal: AbortSignal): Promise<LLMResult> {
+  await assertSafeProviderUrl(baseUrl || (agent.provider === "deepseek" ? "https://api.deepseek.com" : undefined));
   const client = new OpenAI({
     apiKey,
     baseURL: baseUrl || (agent.provider === "deepseek" ? "https://api.deepseek.com" : undefined),
@@ -122,7 +157,7 @@ async function callOpenAICompatible(agent: AgentConfig, messages: LLMMessage[], 
     messages,
     temperature: agent.temperature,
     max_tokens: agent.maxTokens,
-  });
+  }, { signal });
   const content = response.choices[0]?.message?.content || "";
 
   return {
@@ -148,7 +183,8 @@ async function callOpenAICompatible(agent: AgentConfig, messages: LLMMessage[], 
  *
  * 返回值：LLMResult
  */
-async function callAnthropic(agent: AgentConfig, messages: LLMMessage[], apiKey: string, baseUrl?: string | null): Promise<LLMResult> {
+async function callAnthropic(agent: AgentConfig, messages: LLMMessage[], apiKey: string, baseUrl: string | null | undefined, signal: AbortSignal): Promise<LLMResult> {
+  await assertSafeProviderUrl(baseUrl || undefined);
   const client = new Anthropic({ apiKey, baseURL: baseUrl || undefined });
   const system = messages.find((message) => message.role === "system")?.content || agent.systemPrompt;
   const anthropicMessages = messages
@@ -164,7 +200,7 @@ async function callAnthropic(agent: AgentConfig, messages: LLMMessage[], apiKey:
     temperature: agent.temperature,
     system,
     messages: anthropicMessages,
-  });
+  }, { signal });
   const content = response.content.find((item) => item.type === "text")?.text || "";
 
   return {
@@ -191,11 +227,13 @@ async function callAnthropic(agent: AgentConfig, messages: LLMMessage[], apiKey:
  *
  * 异常：当 HTTP 状态码非 2xx 时抛出 Error，包含状态码和响应体
  */
-async function callOllama(agent: AgentConfig, messages: LLMMessage[], configuredBaseUrl?: string | null): Promise<LLMResult> {
+async function callOllama(agent: AgentConfig, messages: LLMMessage[], configuredBaseUrl: string | null | undefined, signal: AbortSignal): Promise<LLMResult> {
   const baseUrl = configuredBaseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+  await assertSafeProviderUrl(baseUrl);
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal,
     body: JSON.stringify({
       model: agent.model,
       messages,
@@ -240,7 +278,7 @@ async function callOllama(agent: AgentConfig, messages: LLMMessage[], configured
  *
  * 返回值：LLMResult（标记为模拟输出）
  */
-async function simulateLLM(agent: AgentConfig, messages: LLMMessage[]): Promise<LLMResult> {
+async function simulateLLM(agent: AgentConfig, messages: LLMMessage[], signal: AbortSignal): Promise<LLMResult> {
   const userTask = [...messages].reverse().find((message) => message.role === "user")?.content || "Current task";
   const previousAgentNotes = messages
     .filter((message) => message.content.includes("[Previous agent"))
@@ -254,7 +292,13 @@ async function simulateLLM(agent: AgentConfig, messages: LLMMessage[]): Promise<
     buildRoleSpecificAdvice(agent.name),
   ].join("\n\n");
 
-  await new Promise((resolve) => setTimeout(resolve, 450));
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, 450);
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
 
   return {
     content,

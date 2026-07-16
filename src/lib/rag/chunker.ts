@@ -64,43 +64,70 @@ export function chunkText(text: string, documentId: string, options: ChunkingOpt
 }
 
 export function chunkMarkdown(text: string, documentId: string): Chunk[] {
-  const sections = text.split(/(?=#{1,6}\s)/);
   const chunks: Chunk[] = [];
   let chunkIndex = 0;
-  let currentLine = 0;
+  const lines = text.split("\n");
+  const headingStack: string[] = [];
+  const sections: Array<{ startLine: number; endLine: number; lines: string[]; heading?: string; headingLevel?: number; headingPath?: string }> = [];
+  let sectionStart = 0;
+  let sectionHeading: { title: string; level: number; path: string } | undefined;
+
+  const pushSection = (endLine: number) => {
+    const sectionLines = lines.slice(sectionStart, endLine + 1);
+    if (sectionLines.join("\n").trim()) sections.push({
+      startLine: sectionStart,
+      endLine,
+      lines: sectionLines,
+      heading: sectionHeading?.title,
+      headingLevel: sectionHeading?.level,
+      headingPath: sectionHeading?.path,
+    });
+  };
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const match = lines[lineIndex].match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (!match) continue;
+    if (lineIndex > sectionStart) pushSection(lineIndex - 1);
+    const level = match[1].length;
+    const title = match[2].trim();
+    headingStack.length = level - 1;
+    headingStack[level - 1] = title;
+    sectionStart = lineIndex;
+    sectionHeading = { title, level, path: headingStack.filter(Boolean).join(" > ") };
+  }
+  if (sectionStart < lines.length) pushSection(lines.length - 1);
 
   for (const section of sections) {
-    const trimmed = section.trim();
-    if (trimmed.length === 0) continue;
-
-    const sectionLines = section.split("\n");
-    const endLine = currentLine + sectionLines.length - 1;
-
-    if (trimmed.length <= 1200) {
+    const content = section.lines.join("\n").trim();
+    const metadata = {
+      type: "section",
+      ...(section.heading ? { heading: section.heading } : {}),
+      ...(section.headingLevel ? { headingLevel: String(section.headingLevel) } : {}),
+      ...(section.headingPath ? { headingPath: section.headingPath } : {}),
+    };
+    if (content.length <= 1200) {
       chunks.push({
         id: `${documentId}-chunk-${chunkIndex}`,
         documentId,
-        content: trimmed,
-        startLine: currentLine,
-        endLine,
-        metadata: { chunkIndex: String(chunkIndex), type: "section" },
+        content,
+        startLine: section.startLine,
+        endLine: section.endLine,
+        metadata: { ...metadata, chunkIndex: String(chunkIndex) },
       });
       chunkIndex += 1;
     } else {
-      const subChunks = chunkText(trimmed, documentId, { chunkSize: 800, chunkOverlap: 100 });
+      const subChunks = chunkText(content, documentId, { chunkSize: 800, chunkOverlap: 100 });
       for (const sub of subChunks) {
         chunks.push({
           ...sub,
           id: `${documentId}-chunk-${chunkIndex}`,
-          startLine: currentLine + sub.startLine,
-          endLine: currentLine + sub.endLine,
-          metadata: { ...sub.metadata, chunkIndex: String(chunkIndex), type: "section" },
+          startLine: section.startLine + sub.startLine,
+          endLine: section.startLine + sub.endLine,
+          metadata: { ...sub.metadata, ...metadata, chunkIndex: String(chunkIndex) },
         });
         chunkIndex += 1;
       }
     }
-
-    currentLine = endLine + 1;
   }
 
   return chunks;

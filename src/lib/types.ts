@@ -10,6 +10,7 @@ export type CapabilityDefinition = {
   name: string;
   description: string;
   enabledByDefault: boolean;
+  implementationStatus: "available" | "planned";
 };
 
 export type KnowledgeSnippet = {
@@ -34,6 +35,7 @@ export type AgentConfig = {
 
 export type WorkspaceMessage = {
   id: string;
+  runId?: string;
   role: MessageRole;
   agentId?: string;
   content: string;
@@ -68,11 +70,12 @@ export type LLMResult = {
 };
 
 export type RunEvent =
-  | { type: "workspace_loaded"; workspace: WorkspaceSnapshot }
-  | { type: "user_message_created"; message: WorkspaceMessage }
-  | { type: "agent_started"; agent: AgentConfig }
-  | { type: "agent_completed"; agent: AgentConfig; message: WorkspaceMessage; totalSpent: number; budgetStatus: WorkspaceStatus }
-  | { type: "agent_failed"; agent: AgentConfig; message: WorkspaceMessage; error: string; totalSpent: number; budgetStatus: WorkspaceStatus }
-  | { type: "budget_exhausted"; totalSpent: number; budgetLimit: number }
-  | { type: "run_completed"; totalSpent: number; budgetStatus: WorkspaceStatus }
-  | { type: "error"; message: string };
+  | { version?: 1; type: "run_created"; runId: string; startedAt: string }
+  | { version?: 1; type: "workspace_loaded"; runId?: string; workspace: WorkspaceSnapshot }
+  | { version?: 1; type: "user_message_created"; runId?: string; message: WorkspaceMessage }
+  | { version?: 1; type: "agent_started"; runId?: string; agent: AgentConfig }
+  | { version?: 1; type: "agent_completed"; runId?: string; agent: AgentConfig; message: WorkspaceMessage; totalSpent: number; budgetStatus: WorkspaceStatus }
+  | { version?: 1; type: "agent_failed"; runId?: string; agent: AgentConfig; message: WorkspaceMessage; error: string; totalSpent: number; budgetStatus: WorkspaceStatus }
+  | { version?: 1; type: "budget_exhausted"; runId?: string; totalSpent: number; budgetLimit: number }
+  | { version?: 1; type: "run_completed"; runId?: string; totalSpent: number; budgetStatus: WorkspaceStatus; errorCode?: string; finishedAt?: string }
+  | { version?: 1; type: "error"; runId?: string; message: string; code?: string };

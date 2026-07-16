@@ -31,9 +31,16 @@ export async function DELETE() {
   try {
     const user = await getCurrentUser();
     if (!user) return Response.json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }, { status: 401 });
-    const workspace = await prisma.workspace.findFirst({ where: { id: manualWorkspaceId(user.id), userId: user.id }, select: { id: true } });
+    const workspace = await prisma.workspace.findFirst({ where: { id: manualWorkspaceId(user.id), userId: user.id }, select: { id: true, status: true } });
     if (!workspace) return Response.json({ success: true });
-    await prisma.message.deleteMany({ where: { workspaceId: workspace.id } });
+    if (workspace.status === "running") {
+      return Response.json({ error: { code: "WORKSPACE_ALREADY_RUNNING", message: "运行期间不能清空历史。" } }, { status: 409 });
+    }
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { workspaceId: workspace.id } }),
+      prisma.run.deleteMany({ where: { workspaceId: workspace.id, userId: user.id } }),
+      prisma.workspace.update({ where: { id: workspace.id }, data: { totalSpent: 0, status: "idle", activeRunId: null } }),
+    ]);
     return Response.json({ success: true });
   } catch {
     return Response.json({ error: "Failed to clear messages" }, { status: 500 });

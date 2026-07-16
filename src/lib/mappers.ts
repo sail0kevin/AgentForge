@@ -14,6 +14,7 @@ type AgentRecord = {
 
 type MessageRecord = {
   id: string;
+  runId?: string | null;
   role: string;
   agentId: string | null;
   content: string;
@@ -55,6 +56,7 @@ export function mapAgent(agent: AgentRecord): AgentConfig {
 export function mapMessage(message: MessageRecord): WorkspaceMessage {
   return {
     id: message.id,
+    runId: message.runId ?? undefined,
     role: message.role as MessageRole,
     agentId: message.agentId ?? undefined,
     content: message.content,

@@ -9,6 +9,15 @@ export type FriendlyError = {
  */
 export function toSafeRunError(error: unknown): FriendlyError {
   const raw = error instanceof Error ? error.message : "";
+  if (raw.includes("WORKSPACE_ALREADY_RUNNING")) {
+    return { code: "WORKSPACE_ALREADY_RUNNING", message: "该工作区已有任务正在运行，请等待完成后重试。" };
+  }
+  if (raw.includes("RUN_CANCELLED")) {
+    return { code: "RUN_CANCELLED", message: "本次运行已取消，后续智能体不会继续执行。" };
+  }
+  if (raw.includes("PROVIDER_TIMEOUT")) {
+    return { code: "PROVIDER_TIMEOUT", message: "模型响应超过时限，本次运行已停止，后续智能体不会继续执行。" };
+  }
   if (raw.includes("CREDENTIAL_NOT_CONFIGURED")) {
     return { code: "CREDENTIAL_NOT_CONFIGURED", message: "该模型供应商尚未配置 API Key，请前往基础设置保存凭证。" };
   }
@@ -25,7 +34,7 @@ export function toSafeRunError(error: unknown): FriendlyError {
     return { code: "PERSISTENCE_UNAVAILABLE", message: "无法保存本次运行结果，请检查数据库后重试。" };
   }
   if (/timeout|timed out/i.test(raw)) {
-    return { code: "PROVIDER_TIMEOUT", message: "模型响应超时，已跳过当前智能体并继续后续任务。" };
+    return { code: "PROVIDER_TIMEOUT", message: "模型响应超过时限，本次运行已停止，后续智能体不会继续执行。" };
   }
   if (/ECONNREFUSED|fetch failed|network/i.test(raw)) {
     return { code: "PROVIDER_UNAVAILABLE", message: "无法连接模型供应商，请检查网络、服务地址或 Ollama 是否已启动。" };

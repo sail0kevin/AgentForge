@@ -12,7 +12,10 @@ build/
 # Local databases and caches
 prisma/*.db
 prisma/*.db-journal
+prisma/*.db.backup-*
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 *.tsbuildinfo
@@ -26,6 +29,7 @@ test-results/
 .claude/
 verification-*.png
 ui-screenshot.png
+docs/screenshots/workflow-demo.png
 .DS_Store
 
 # Personal local-only materials

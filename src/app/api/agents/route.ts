@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/current-user";
-import { encryptApiKey } from "@/lib/security/crypto";
+import { decryptApiKey, encryptApiKey } from "@/lib/security/crypto";
 import { agentCreateSchema, parseAgentMeta } from "@/lib/validation";
 
 type AgentWithCredential = {
@@ -17,10 +17,22 @@ type AgentWithCredential = {
   maxTokens: number;
   apiUrl: string;
   config: string;
-  credential?: { maskedKey: string; isValid: boolean } | null;
+  credential?: { maskedKey: string; keyLength: number; isValid: boolean; encryptedKey: string; iv: string; authTag: string } | null;
 };
 
-type LegacyCredential = { maskedKey: string; isValid: boolean } | null | undefined;
+type LegacyCredential = { maskedKey: string; keyLength: number; isValid: boolean; encryptedKey: string; iv: string; authTag: string } | null | undefined;
+
+function credentialLength(credential: LegacyCredential) {
+  if (!credential) return null;
+  if (credential.keyLength > 0) return credential.keyLength;
+  // 旧记录在新增 keyLength 字段前已存在。只在服务端临时解密以计算长度，
+  // 结果仍只作为数字返回，绝不把明文或密文发送到浏览器。
+  try {
+    return decryptApiKey(credential.encryptedKey, credential.iv, credential.authTag).length;
+  } catch {
+    return 0;
+  }
+}
 
 // DTO 只提供脱敏密钥和配置状态，绝不把加密字段或明文密钥发送到浏览器。
 function toAgentDto(agent: AgentWithCredential, legacyCredential?: LegacyCredential) {
@@ -41,6 +53,7 @@ function toAgentDto(agent: AgentWithCredential, legacyCredential?: LegacyCredent
     apiUrl: agent.apiUrl || meta.apiUrl,
     credentialConfigured: Boolean(credential),
     maskedKey: credential?.maskedKey ?? null,
+    keyLength: credentialLength(credential),
   };
 }
 
@@ -53,11 +66,11 @@ export async function GET() {
     const [agents, legacyKeys] = await Promise.all([
       prisma.agent.findMany({
         where: { userId: user.id },
-        include: { credential: { select: { maskedKey: true, isValid: true } } },
+        include: { credential: { select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true } } },
         orderBy: { createdAt: "desc" },
       }),
       // 旧版按用户和供应商存储的 Key 仅作为兼容回退，新的 Agent 凭证始终优先。
-      prisma.apiKey.findMany({ where: { userId: user.id, isValid: true }, select: { provider: true, maskedKey: true, isValid: true } }),
+      prisma.apiKey.findMany({ where: { userId: user.id, isValid: true }, select: { provider: true, maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true } }),
     ]);
     const legacyKeysByProvider = new Map(legacyKeys.map((key) => [key.provider, key]));
     return Response.json(agents.map((agent) => toAgentDto(agent, legacyKeysByProvider.get(agent.provider))), { status: 200 });
@@ -92,11 +105,11 @@ export async function POST(request: NextRequest) {
         config: JSON.stringify({ capabilityIds: body.capabilityIds ?? [] }),
         credential: encryptedCredential ? { create: encryptedCredential } : undefined,
       },
-      include: { credential: { select: { maskedKey: true, isValid: true } } },
+      include: { credential: { select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true } } },
     });
     const legacyCredential = await prisma.apiKey.findFirst({
       where: { userId: user.id, provider: agent.provider, isValid: true },
-      select: { maskedKey: true, isValid: true },
+      select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true },
     });
     return Response.json(toAgentDto(agent, legacyCredential), { status: 201 });
   } catch (error) {

@@ -16,7 +16,10 @@ export type SessionPayload = {
  * local 仅用于本机单用户开发；session 用于需要登录和用户隔离的环境。
  */
 export function getAuthMode(): "local" | "session" {
-  if (process.env.APP_AUTH_MODE === "local") return "local";
+  if (process.env.APP_AUTH_MODE === "local") {
+    if (process.env.NODE_ENV === "production") throw new Error("APP_AUTH_MODE=local is not allowed in production.");
+    return "local";
+  }
   if (process.env.APP_AUTH_MODE === "session") return "session";
 
   // 开发环境默认保持单用户本地体验；生产环境必须显式使用安全的 Session 模式。
@@ -26,7 +29,8 @@ export function getAuthMode(): "local" | "session" {
 
 function getSessionKey() {
   const secret = process.env.SESSION_SECRET;
-  if (secret) return new TextEncoder().encode(secret);
+  if (secret && secret.length >= 32) return new TextEncoder().encode(secret);
+  if (secret) throw new Error("SESSION_SECRET must be at least 32 characters.");
 
   // 本地单用户模式不会依赖 Cookie 登录，保留开发密钥只为兼容辅助接口。
   if (getAuthMode() === "local" && process.env.NODE_ENV !== "production") {
@@ -72,7 +76,7 @@ export async function setSession(payload: SessionPayload): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.ELECTRON_DESKTOP !== "1",
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
@@ -84,7 +88,7 @@ export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.ELECTRON_DESKTOP !== "1",
     sameSite: "lax",
     path: "/",
     maxAge: 0,

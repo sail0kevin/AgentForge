@@ -39,7 +39,7 @@ export const agentCreateSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#38bdf8"),
   provider: providerSchema,
   model: z.string().min(1).max(120),
-  systemPrompt: z.string().min(10),
+  systemPrompt: z.string().trim().min(1, "角色设定不能为空。"),
   temperature: z.coerce.number().min(0).max(2).default(0.7),
   maxTokens: z.coerce.number().int().min(128).max(8000).default(1200),
   apiUrl: apiUrlSchema.optional().default(""),
@@ -53,7 +53,7 @@ export const workspaceCreateSchema = z.object({
   description: z.string().max(1000).optional().default(""),
   mode: workspaceModeSchema.default("sequential"),
   budgetLimit: z.coerce.number().positive().default(10),
-  agentIds: z.array(z.string()).default([]),
+  agentIds: z.array(z.string().min(1)).max(12).refine((ids) => new Set(ids).size === ids.length, "agentIds must be unique").default([]),
 });
 
 export const workspaceUpdateSchema = workspaceCreateSchema.partial();

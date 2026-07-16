@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/current-user";
-import { encryptApiKey } from "@/lib/security/crypto";
+import { decryptApiKey, encryptApiKey } from "@/lib/security/crypto";
 import { agentUpdateSchema, parseAgentMeta } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -19,10 +19,20 @@ type AgentWithCredential = {
   maxTokens: number;
   apiUrl: string;
   config: string;
-  credential?: { maskedKey: string; isValid: boolean } | null;
+  credential?: { maskedKey: string; keyLength: number; isValid: boolean; encryptedKey: string; iv: string; authTag: string } | null;
 };
 
-type LegacyCredential = { maskedKey: string; isValid: boolean } | null | undefined;
+type LegacyCredential = { maskedKey: string; keyLength: number; isValid: boolean; encryptedKey: string; iv: string; authTag: string } | null | undefined;
+
+function credentialLength(credential: LegacyCredential) {
+  if (!credential) return null;
+  if (credential.keyLength > 0) return credential.keyLength;
+  try {
+    return decryptApiKey(credential.encryptedKey, credential.iv, credential.authTag).length;
+  } catch {
+    return 0;
+  }
+}
 
 // DTO 只返回密钥是否存在和脱敏展示值，绝不回传 API Key 原文或加密载荷。
 function toAgentDto(agent: AgentWithCredential, legacyCredential?: LegacyCredential) {
@@ -43,6 +53,7 @@ function toAgentDto(agent: AgentWithCredential, legacyCredential?: LegacyCredent
     apiUrl: agent.apiUrl || meta.apiUrl,
     credentialConfigured: Boolean(credential),
     maskedKey: credential?.maskedKey ?? null,
+    keyLength: credentialLength(credential),
   };
 }
 
@@ -57,12 +68,12 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const { id } = await params;
     const agent = await prisma.agent.findFirst({
       where: { id, userId: user.id },
-      include: { credential: { select: { maskedKey: true, isValid: true } } },
+      include: { credential: { select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true } } },
     });
     if (!agent) return Response.json({ error: "Agent not found" }, { status: 404 });
     const legacyCredential = await prisma.apiKey.findFirst({
       where: { userId: user.id, provider: agent.provider, isValid: true },
-      select: { maskedKey: true, isValid: true },
+      select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true },
     });
     return Response.json(toAgentDto(agent, legacyCredential));
   } catch {
@@ -102,11 +113,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
         // upsert 让首次填写和替换已有 Agent 凭证使用同一条安全写入路径。
         ...(encryptedCredential && { credential: { upsert: { create: encryptedCredential, update: encryptedCredential } } }),
       },
-      include: { credential: { select: { maskedKey: true, isValid: true } } },
+      include: { credential: { select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true } } },
     });
     const legacyCredential = await prisma.apiKey.findFirst({
       where: { userId: user.id, provider: agent.provider, isValid: true },
-      select: { maskedKey: true, isValid: true },
+      select: { maskedKey: true, keyLength: true, isValid: true, encryptedKey: true, iv: true, authTag: true },
     });
     return Response.json(toAgentDto(agent, legacyCredential));
   } catch (error) {

@@ -1,9 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { LogIn, UserPlus } from "lucide-react";
+import { FileText, GitBranch, LogIn, UserPlus } from "lucide-react";
+import Link from "next/link";
 import { WorkspaceApp } from "@/components/workspace/workspace-app";
 import type { WorkspaceSnapshot } from "@/lib/types";
+import { useAgentStore } from "@/store/agent-store";
+import { useWorkspaceStore } from "@/store/workspace-store";
 
 type SafeUser = { id: string; email: string; name: string | null };
 type AuthMode = "login" | "register";
@@ -76,6 +79,8 @@ export function AuthenticatedWorkspace() {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "DELETE" }).catch(() => undefined);
+    useWorkspaceStore.getState().clearSession();
+    useAgentStore.getState().clearSession();
     setUser(null);
     setPassword("");
   }
@@ -110,6 +115,10 @@ export function AuthenticatedWorkspace() {
   return (
     <>
       <div className="fixed right-4 top-3 z-50 flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
+        <Link href="/workflows" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><GitBranch className="h-3.5 w-3.5" />工作流</Link>
+        <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
+        <Link href="/reports" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><FileText className="h-3.5 w-3.5" />报告中心</Link>
+        <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
         <span>{user.name || user.email}</span>
         <button type="button" onClick={logout} className="font-semibold text-[#5B5BD6]">退出登录</button>
       </div>

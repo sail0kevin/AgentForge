@@ -9,6 +9,7 @@ export type LocalAgent = AgentConfig & {
   apiUrl: string;
   credentialConfigured: boolean;
   maskedKey: string | null;
+  keyLength: number | null;
   tools: string[];
 };
 
@@ -18,7 +19,7 @@ type AgentSubmission = Omit<LocalAgent, "id"> & { apiKey?: string };
 type AgentRecord = {
   id: string; name: string; avatar: string; color: string; provider: string; model: string;
   systemPrompt: string; temperature: number; maxTokens: number; capabilityIds?: string[]; apiUrl?: string;
-  credentialConfigured?: boolean; maskedKey?: string | null;
+  credentialConfigured?: boolean; maskedKey?: string | null; keyLength?: number | null;
 };
 
 type AgentStore = {
@@ -30,6 +31,7 @@ type AgentStore = {
   updateAgent: (id: string, patch: Partial<AgentSubmission>) => Promise<LocalAgent>;
   removeAgent: (id: string) => Promise<boolean>;
   toggleAgent: (id: string) => void;
+  clearSession: () => void;
 };
 
 function providerToSource(provider: string): string {
@@ -52,21 +54,26 @@ function toLocalAgent(record: AgentRecord): LocalAgent {
     provider: record.provider as Provider, model: record.model, systemPrompt: record.systemPrompt,
     temperature: record.temperature, maxTokens: record.maxTokens, capabilityIds: record.capabilityIds ?? [],
     enabled: true, source, apiUrl: record.apiUrl || sourceToApiUrl(source),
-    credentialConfigured: Boolean(record.credentialConfigured), maskedKey: record.maskedKey ?? null, tools: [],
+    credentialConfigured: Boolean(record.credentialConfigured), maskedKey: record.maskedKey ?? null, keyLength: record.keyLength ?? null, tools: [],
   };
 }
 
 /** 浏览器端 Agent store 仅保存非敏感配置和掩码状态，绝不保留原始 API Key。 */
+let loadGeneration = 0;
+
 export const useAgentStore = create<AgentStore>((set) => ({
   agents: [], loading: false, error: null,
 
   async loadAgents() {
+    const generation = ++loadGeneration;
     set({ loading: true, error: null });
     try {
       const response = await fetch("/api/agents");
       if (!response.ok) throw new Error("加载智能体失败");
+      if (generation !== loadGeneration) return;
       set({ agents: (await response.json() as AgentRecord[]).map(toLocalAgent), loading: false });
     } catch (error) {
+      if (generation !== loadGeneration) return;
       set({ loading: false, error: error instanceof Error ? error.message : "加载智能体失败" });
     }
   },
@@ -140,5 +147,10 @@ export const useAgentStore = create<AgentStore>((set) => ({
 
   toggleAgent(id) {
     set((state) => ({ agents: state.agents.map((agent) => agent.id === id ? { ...agent, enabled: !agent.enabled } : agent) }));
+  },
+
+  clearSession() {
+    loadGeneration += 1;
+    set({ agents: [], loading: false, error: null });
   },
 }));

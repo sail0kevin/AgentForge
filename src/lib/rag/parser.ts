@@ -5,15 +5,9 @@ export type ParsedDocument = {
   size: number;
 };
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
 const TEXT_EXTENSIONS = [".txt", ".md", ".markdown", ".json", ".csv", ".log", ".yaml", ".yml", ".ts", ".js", ".tsx", ".jsx", ".py", ".java", ".go", ".rs", ".c", ".cpp", ".h", ".css", ".html", ".xml", ".sh", ".sql"];
 
-export function parseFile(fileName: string, content: string): ParsedDocument {
-  if (content.length > MAX_FILE_SIZE) {
-    throw new Error(`File "${fileName}" exceeds the 5MB size limit.`);
-  }
-
+export function parseFile(fileName: string, content: string, byteSize = new TextEncoder().encode(content).byteLength): ParsedDocument {
   const extension = getFileExtension(fileName);
   const format = getFormat(extension);
   const title = fileName.replace(/\.[^.]+$/, "");
@@ -22,7 +16,7 @@ export function parseFile(fileName: string, content: string): ParsedDocument {
     title,
     content: extractText(content, format),
     format,
-    size: content.length,
+    size: byteSize,
   };
 }
 
@@ -56,7 +50,8 @@ function getFormat(extension: string): string {
 function extractText(content: string, format: string): string {
   switch (format) {
     case "markdown":
-      return stripMarkdownSyntax(content);
+      // Markdown标题是后续按章节切块和引用追踪的结构信息，不能在切块前删除。
+      return normalizeMarkdown(content);
     case "json":
       try {
         return JSON.stringify(JSON.parse(content), null, 2);
@@ -68,16 +63,9 @@ function extractText(content: string, format: string): string {
   }
 }
 
-function stripMarkdownSyntax(content: string): string {
+function normalizeMarkdown(content: string): string {
   return content
-    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/```[\s\S]*?```/g, (match) => match.replace(/```\w*\n?/g, ""))
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/#{1,6}\s+/g, "")
-    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/\r\n?/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }

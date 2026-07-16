@@ -4,14 +4,16 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import path from "path";
 
-const databaseUrl = process.env.DATABASE_URL || path.join(process.cwd(), "prisma", "dev.db");
+// These paths select a runtime database; they are not build inputs and must not make
+// Turbopack trace the entire repository into the server bundle.
+const databaseUrl = process.env.DATABASE_URL || path.join(/* turbopackIgnore: true */ process.cwd(), "prisma", "dev.db");
 
 let adapter;
 if (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://")) {
   const pool = new Pool({ connectionString: databaseUrl });
   adapter = new PrismaPg(pool);
 } else {
-  const url = databaseUrl.startsWith("file:") ? databaseUrl : `file:${path.resolve(databaseUrl)}`;
+  const url = databaseUrl.startsWith("file:") ? databaseUrl : `file:${path.resolve(/* turbopackIgnore: true */ databaseUrl)}`;
   adapter = new PrismaLibSql({ url });
 }
 
