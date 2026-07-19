@@ -2,7 +2,7 @@
 <!-- 文件名：project-report - 当前项目报告 -->
 <!-- 所属目录：reports - 对外发布报告 -->
 
-更新时间：2026-07-15 22:59（Asia/Shanghai）
+更新时间：2026-07-19（Asia/Shanghai）
 
 ## 1. 产品定位
 
@@ -77,17 +77,16 @@ RAG 提供可引用的知识片段；Tool 执行具有 Schema、权限、超时�
 
 ## 7. 当前验证与限制
 
-当前基线命令：
+当前统一基线命令：
 
 ```bash
-npm run db:validate
-npm run test:unit
-npm run test:e2e:core
-npm run build
+npm run quality:all
 ```
 
-已知限制包括：历史主加密密钥仍需人工轮换；PostgreSQL只有 schema静态校验；固定检索评测只有3个查询；Review契约评估只有3类确定性需求，匿名盲评工具链已经实现但尚未完成单/双 Agent、RAG、交叉评审的真实模型与人工评分；模型原生 Tool Calling和尚未验证的共享Checkpointer/多实例恢复仍待处理；正式导出目前只有Markdown；完整WCAG人工审计和Electron桌面交付尚未执行。
+该命令串联固定检索夹具、仓库文档检索、盲评清单与运行计划、合成dry-run、单元测试、核心E2E、Session隔离E2E、TypeScript、ESLint和Production Build。
 
-当前量化证据为单元测试62/62、隔离 SQLite核心 E2E 24/24、Session账号切换 E2E 1/1、两份 Prisma Schema有效、九次 migration可从空库应用、旧初始库可备份升级、生产构建和全量 lint通过；Workspace-Agent原子绑定和前端模块拆分也已收口。完整实验和失败记录见[工程整改与开发总报告]()。
+已知限制包括：历史主加密密钥仍需人工轮换；PostgreSQL只有schema静态校验；当前RAG仍为TF-IDF，12类固定夹具与31个项目文档Chunk/6意图冒烟门禁不能代表通用检索或真实模型质量；盲评基础设施已冻结12案例并生成5变体共60项计划，但尚未完成60次真实模型运行和至少2名独立评分者评分；Provider原生Tool Calling、共享Checkpointer/多实例恢复仍待处理；正式导出目前只有Markdown；完整WCAG人工审计和Electron桌面交付尚未执行。
 
-当前事实见[开发状态](../current-status - 当前开发状态.md)，正式目标见[设计文档]()，实施顺序见[整改总览]()。
+2026-07-19文档收口后最终完整执行 `npm run quality:all`，退出码为0。当前量化证据为单元测试72/72、隔离SQLite核心E2E 24/24、Session账号切换E2E 1/1、仓库文档检索31个Chunk且6/6命中、九次migration可从空库应用、生产构建和全量lint通过。完整实验和失败记录见[工程整改与开发总报告](../remediation - 工程整改实施/final-report - 工程整改与开发总报告.md)。
+
+当前事实见[开发状态](../current-status - 当前开发状态.md)，正式目标见[设计文档](../design - 产品设计方案/README - 设计文档总入口.md)，实施顺序见[整改总览](../remediation - 工程整改实施/README - 整改执行总览.md)。

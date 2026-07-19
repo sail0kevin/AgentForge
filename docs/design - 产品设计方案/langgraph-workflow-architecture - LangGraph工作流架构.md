@@ -6,7 +6,7 @@
 
 ## 1. 为什么引入 LangGraph
 
-当前流程是固定的“需求分析师 → 报告负责人”，普通循环足够清晰。后续 Web 项目需求规划会出现分支、返工、工具调用、人工确认和中断恢复，使用 LangGraph 管理状态图比不断扩展 `for` 循环更可靠。
+保留的手动轻量流程是固定的“需求分析师 → 报告负责人”，普通循环足够清晰。当前产品工作流已经支持条件分支、有限修订、受控工具、补充信息与人工确认中断、报告生成和Checkpoint恢复；LangGraph用于让这些状态、路由与恢复边界保持可追踪。
 
 ```text
 用户需求
@@ -86,13 +86,14 @@ Reporter 依据 `reportOutline` 和最终 artifact 生成内容，并标注假�
 ## 6. 与现有架构的关系
 
 ```text
-现有：Route → 顺序 orchestrator → Provider router → Prisma + SSE
-目标：Route → RunService → LangGraph → Model/Tool/Retriever adapters → Prisma + SSE
+保留的手动链：Route → RunService → Single-Agent LangGraph → Provider/Retriever adapters → Prisma + SSE
+当前产品链：Workflow API → Product LangGraph + SQLite Checkpointer → Planner/Review/Approval/Reporter → Artifacts
+后续扩展：Provider原生Tool Calling、独立检索子图、共享Checkpointer与多实例恢复
 ```
 
-保留现有：认证、用户隔离、AES-256-GCM 凭证、Provider 路由语义、SSE 传输、Prisma、TF-IDF fallback 和 Playwright 基础。
+继续复用：认证、用户隔离、AES-256-GCM凭证、Provider路由语义、SSE传输、Prisma、TF-IDF和Playwright基础。
 
-新增：Run、Artifact、Review、RunEvent、Checkpoint 引用等领域实体。LangGraph checkpoint 用于恢复图状态；Prisma 用于产品查询、历史、审计和成本报表，两者不互相替代。
+当前已有：Run、PlanningArtifact、ReviewWorkflow、ReportArtifact、DevelopmentWorkflow、WorkflowNode、RunEvent和Checkpoint引用等领域实体。LangGraph checkpoint用于恢复图状态；Prisma用于产品查询、历史、审计和成本报表，两者不互相替代。
 
 ## 7. 事件与恢复
 

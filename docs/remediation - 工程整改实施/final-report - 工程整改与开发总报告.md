@@ -3,11 +3,11 @@
 <!-- 所属目录：remediation - 工程整改实施 -->
 
 报告性质：阶段性完整版，可用于当前项目答辩、开发交接与后续持续更新  
-报告版本：2026-07-15.11  
-统计时间：2026-07-15 23:00（Asia/Shanghai）  
-项目目录：`Multi-Agent-Workspace`  
-写作标准：[答辩级工程报告写作规范]()  
-事实来源：[当前开发状态](../current-status - 当前开发状态.md)、[整改总览]()、[正式设计]()及自动化验证结果
+报告版本：2026-07-19.1
+统计时间：2026-07-19（Asia/Shanghai）
+项目目录：`Multi-Agent-Workspace`
+写作标准：[答辩级工程报告写作规范](reporting-standard - 答辩级报告写作规范.md)
+事实来源：[当前开发状态](../current-status - 当前开发状态.md)、[整改总览](README - 整改执行总览.md)、[正式设计](../design - 产品设计方案/README - 设计文档总入口.md)及自动化验证结果
 
 > 本报告已经完整描述“当前做到哪里、如何证明、还缺什么以及下一步怎么做”。后续阶段尚未实现的能力不会伪装成完成，而是以目标、依赖和验收条件的形式保留。
 
@@ -19,9 +19,9 @@ AgentForge 是一个面向 Web 项目的多智能体需求规划与开发方案�
 
 当前代码处于“从需求到可恢复、可审计动态报告”的 Web MVP阶段。用户需求会先经过结构化分析、关键缺失信息判断、动态计划和报告目录选择；随后生成彼此输入隔离的 delivery/quality 候选，经结构化 Reviewer Finding、动态 Rubric Evaluator 和人工确认得到可追踪决策；Reporter最终创建带状态、来源、版本和幂等键的ReportArtifact。`/workflows`已经用产品级LangGraph统一这些步骤，缺失信息和高影响取舍可通过持久Checkpoint暂停、恢复，异常失败可在幂等键、租约和乐观锁保护下继续。真实模型盲评的匿名发卷、私有解盲与汇总工具已具备，但尚待收集真实模型和独立人工评分。
 
-截至统计时间，仓库侧已经停止跟踪 `.env`，建立九次可复现 SQLite migration；手动、持久和 Demo三入口统一到 RunService和 v1事件。认证 Planner能够生成并保存分析、补充问题、计划和动态目录；计划授权的 `knowledge-search`返回章节、行号、版本、许可和 SHA-256引用；ReviewWorkflow保存候选、Finding、Evaluator、失败终态、预算、修订轮次和人工裁决；ReportArtifact保存动态章节、Claim、来源清单、版本链和生成幂等键；DevelopmentWorkflow和WorkflowNode保存产品状态，完整图状态由独立SQLite Checkpointer管理。Workspace创建会原子绑定当前用户Agent，前端已按页面职责拆分。当前证据包括62项单元测试、24项隔离数据库核心 E2E和1项 Session账号切换 E2E；生产构建和全量Lint通过且没有原NFT tracing警告。仓库新增无回显的密钥轮换验收脚本，但历史主加密密钥仍需项目所有者在外部完成轮换，真实模型盲评的数据收集仍未完成。
+截至统计时间，仓库侧已经停止跟踪 `.env`，建立九次可复现SQLite migration；手动、持久和Demo三入口统一到RunService和v1事件。认证Planner能够生成并保存分析、补充问题、计划和动态目录；计划授权的 `knowledge-search` 返回章节、行号、版本、许可和SHA-256引用；ReviewWorkflow保存候选、Finding、Evaluator、失败终态、预算、修订轮次和人工裁决；ReportArtifact保存动态章节、Claim、来源清单、版本链和生成幂等键；DevelopmentWorkflow和WorkflowNode保存产品状态，完整图状态由独立SQLite Checkpointer管理。Workspace创建会原子绑定当前用户Agent，前端已按页面职责拆分。2026-07-19文档收口后最终统一质量门禁退出码为0，证据包括72项单元测试、24项隔离数据库核心E2E、1项Session账号切换E2E、31个仓库文档Chunk的6/6检索命中、TypeScript、生产构建和全量Lint通过。仓库新增无回显的密钥轮换验收脚本，但历史主加密密钥仍需项目所有者在外部完成轮换，60次真实模型运行和至少2名独立评分者结果仍未完成。
 
-本报告的结论是：AgentForge 已经从“能够演示的双 Agent 页面”推进为“具有安全、追踪、并发和取消基础的可测试工程型 MVP”，但还不能宣称完整的多智能体开发方案生成平台已经实现。
+本报告的结论是：AgentForge已经形成能够从结构化需求生成有版本、有来源、可暂停恢复、可人工裁决、可导出Markdown的开发方案报告Web MVP；真实模型质量收益、生产级多实例恢复和桌面正式交付仍没有完成。
 
 关键词：多智能体、需求规划、开发方案、LangGraph、SSE、Run、RAG、工程整改、可追溯报告
 
@@ -56,16 +56,15 @@ AgentForge 是一个面向 Web 项目的多智能体需求规划与开发方案�
 
 ### 当前还不能做什么
 
-- Planner还没有调度后续专业任务；
+- 尚未实现面向任意专业任务的自动调度；
 - Planner、Review和Reporter已合并为带Checkpoint的单一可恢复工作流，但尚未完成任意专业任务的自动调度；
 - 受控Tool执行已闭环，Provider原生 Tool Calling仍未接入；
-- 固定检索评测只有3个查询，尚不能代表真实项目语料质量；
-- ReportArtifact、审批、报告中心、工作流页和Checkpoint恢复已实现；
+- 当前RAG仍为TF-IDF；12类固定夹具和基于两份项目文档的31个Chunk/6意图冒烟门禁不能代表通用检索或真实模型质量；
 - 还没有完成生产部署、多实例并发和 Electron 安装包验收；0.1正式交付范围已经明确为Web MVP。
 
 ### 如何证明不是只改了文档
 
-当前验证结果为：单元测试62/62、核心 E2E 24/24、Session账号切换 E2E 1/1；九次 migration从空库成功应用，旧初始数据库可自动备份后安全升级；SQLite/PostgreSQL Schema、生产构建和全量Lint通过。本报告同时保留失败实验和未解决问题，不用“构建成功”代替业务正确性证明。
+当前验证结果为：文档收口后的最终 `npm run quality:all` 退出码0；单元测试72/72、核心E2E 24/24、Session账号切换E2E 1/1；仓库文档检索31个Chunk、6/6命中；九次migration从空库成功应用；TypeScript、生产构建和全量Lint通过。本报告同时保留失败实验和未解决问题，不用“构建成功”代替业务正确性证明。
 
 ---
 
@@ -77,9 +76,9 @@ AgentForge 是一个面向 Web 项目的多智能体需求规划与开发方案�
 4. [整改前系统基线](#4-整改前系统基线)
 5. [当前技术架构](#5-当前技术架构)
 6. [当前数据模型与运行状态](#6-当前数据模型与运行状态)
-7. [Phase 0 安全与数据库](#7-已完成整改phase-0-安全与数据库)
+7. [Phase 0 安全与数据库](#7-phase-0-安全与数据库)
 8. [Phase 1 运行正确性](#8-已完成整改phase-1-运行正确性)
-9. [后续目标阶段及验收条件](#9-后续目标阶段及验收条件)
+9. [Phase 2～3完成情况与后续目标阶段](#9-phase-23完成情况与后续目标阶段)
 10. [实验设计与验证结果](#10-实验设计与验证结果)
 11. [失败实验与修正记录](#11-失败实验与修正记录)
 12. [方案比较与关键决策](#12-方案比较与关键决策)
@@ -195,8 +194,8 @@ flowchart LR
 | RQ3 | Agent 部分失败会不会被后续成功覆盖？ | 终态聚合单测和 E2E 证明不会 |
 | RQ4 | 两个并发运行会不会混在一起？ | Run/activeRunId 和并发 E2E 证明同用户运行被拒绝或串行化 |
 | RQ5 | 用户取消后 Provider 是否继续？ | SSE 取消 E2E 观察到 Provider 连接关闭，后续运行可重新取得锁 |
-| RQ6 | 当前 RAG 是否可靠？ | 已修复结构、零召回与词频；3查询基线全命中，但样本不足，结论为“可回归、未充分外部验证” |
-| RQ7 | 多 Agent 是否明显优于单 Agent？ | 尚无固定评测集，不能下结论 |
+| RQ6 | 当前RAG是否可靠？ | 已修复结构、零召回与词频；12类固定夹具和31个项目文档Chunk的6/6门禁可用于离线回归，但仍不能代表通用检索或真实模型质量 |
+| RQ7 | 多 Agent 是否明显优于单 Agent？ | 已冻结12案例和5变体并贯通合成dry-run，但60次真实模型运行和至少2名独立评分者结果尚未完成，不能下结论 |
 | RQ8 | 动态报告工作流是否完成？ | 已完成：Planner、Review、人工确认、ReportArtifact、动态报告、版本、导出、报告中心、统一工作流页和Checkpoint恢复均有自动化证据 |
 
 ### 3.2 工程约束
@@ -256,8 +255,8 @@ flowchart LR
 | 状态 | Zustand | 前端工作区和 SSE 事件消费 |
 | 数据 | Prisma 7.8、SQLite | 用户、Agent、Workspace、Run、消息和用量 |
 | 模型 | OpenAI SDK、Anthropic SDK、Ollama fetch | Provider 适配 |
-| 工作流 | LangGraph | 当前单 Agent 线性“检索 → 模型”原型 |
-| 检索 | 自研 TF-IDF | 当前轻量 RAG，仍待修复 |
+| 工作流 | LangGraph | 单Agent执行内核和产品级可恢复开发报告状态图 |
+| 检索 | 自研TF-IDF | 当前轻量RAG、标题/行号引用与离线回归门禁 |
 | 测试 | Node test、Playwright | 单元与隔离数据库 E2E |
 | 桌面 | Electron | 未完成交付验收的壳 |
 
@@ -340,7 +339,7 @@ exhausted（预算耗尽） > warning（失败/超时/取消） > idle（正常�
 
 ---
 
-## 7. 已完成整改：Phase 0 安全与数据库
+## 7. Phase 0 安全与数据库
 
 ### 7.1 `.env` 与历史密钥
 
@@ -369,9 +368,13 @@ exhausted（预算耗尽） > warning（失败/超时/取消） > idle（正常�
 6. `20260715213000_add_report_artifacts`：ReportArtifact版本链；
 7. `20260715214500_add_report_generation_idempotency`：报告生成幂等键；
 8. `20260715220000_add_development_workflow_checkpoints`：DevelopmentWorkflow、WorkflowNode和节点幂等键；
-9. `migration_lock.toml`：明确 migration provider 为 SQLite；
-10. `run-prisma-migrate.mjs`：阻止PostgreSQL误用SQLite history，并对旧初始库执行精确识别、备份、baseline和升级；
-11. `run-isolated-e2e.mjs`：唯一临时产品数据库与Checkpoint数据库、迁移、测试和最终清理。
+9. `20260716000000_add_api_key_length`：凭证长度元数据。
+
+迁移配套设施：
+
+- `migration_lock.toml`：明确migration provider为SQLite；
+- `run-prisma-migrate.mjs`：阻止PostgreSQL误用SQLite history，并对旧初始库执行精确识别、备份、baseline和升级；
+- `run-isolated-e2e.mjs`：创建唯一临时产品数据库与Checkpoint数据库，应用迁移、运行测试并清理临时文件。
 
 P0-2 已完成。PostgreSQL 仍只有 Schema 静态校验，不属于已验证部署目标。
 
@@ -422,7 +425,7 @@ E2E 证明：第一个 Agent 超时后第二个 Agent没有启动；客户端取
 
 验证采用两层证据：4个单元测试验证键隔离、异常记录过滤和旧键清理；Session Playwright 在独立数据库中完成 A→B→A 切换，证明 A/B 知识互不可见且返回 A 后仍能恢复 A 自己的数据，结果1/1通过。local 模式核心 E2E 7/7继续通过。
 
-边界说明：浏览器知识仍是过渡能力。Phase 4 仍需把服务端 Document/Chunk 建设为统一知识入口，补齐来源、版本、权限和容量治理。
+边界说明：服务端Document/Chunk已经成为唯一产品运行时知识入口，并已具备来源、版本、权限和容量治理；浏览器旧知识键只清理，不再进入运行时。
 
 ### 8.5 P1-5：上传边界
 
@@ -452,7 +455,7 @@ E2E 证明：第一个 Agent 超时后第二个 Agent没有启动；客户端取
 
 模型 Prompt直接包含机器可读 JSON Schema。结构化输出默认最多重试两次；每次同时经过 Zod和服务端语义校验。Agent/Tool白名单、DAG无环、依赖存在性、任务数、轮次、Token、预计费用及任务/章节双向引用任一失败，均不能标记完成。
 
-新增 PlanningArtifact，以唯一 runId关联需求分析、计划、目录、补充请求或失败码，并按 userId隔离。官网、后台和学习工具三类 fixture生成不同目录；核心 E2E验证成功持久化、补充终态和非法模型两次失败；Session E2E验证A的规划记录对B不可见。完整证据见[Phase 3报告]()。
+新增PlanningArtifact，以唯一runId关联需求分析、计划、目录、补充请求或失败码，并按userId隔离。官网、后台和学习工具三类fixture生成不同目录；核心E2E验证成功持久化、补充终态和非法模型两次失败；Session E2E验证A的规划记录对B不可见。完整证据见[Phase 3报告](phase-3-planner-and-structured-output - Planner与结构化输出.md)。
 
 ### 9.3 Phase 4：知识、RAG 与 Tools
 
@@ -462,7 +465,7 @@ Markdown标题在解析和切块中保留，Chunk记录 headingPath与真实行�
 
 Registry只注册两个真实只读 Tool：`knowledge-search`和 `ui-acceptance-check`。调用必须经过 Zod、Run用户归属、ExecutionPlan授权、次数、大小、AbortSignal和超时校验；ToolInvocation记录 toolCallId、状态、错误码和耗时，并支持完成结果幂等回放。旧占位 Web Search和 `USE_TOOL:`自由文本协议已删除。
 
-固定3查询在 k=1时 Recall与 MRR为1、无关率0、引用完整率1；该数据只作为回归基线。核心 E2E证明“来源文档上传 → Planner授权 → Tool返回引用 → 幂等回放 → 未授权失败审计”，Session E2E证明不同账号不能读取对方文档、Run或 Tool结果。完整证据见[Phase 4报告]()。
+固定夹具和仓库文档评测只作为离线回归：12类固定意图在无噪声k=1与共享噪声k=5下的Recall、MRR和引用完整率均为1；README与当前状态文档生成31个Chunk，6个检索意图6/6命中目标章节。它们不代表通用检索或模型语义质量。核心E2E证明“来源文档上传 → Planner授权 → Tool返回引用 → 幂等回放 → 未授权失败审计”，Session E2E证明不同账号不能读取对方文档、Run或Tool结果。完整证据见[Phase 4报告](phase-4-knowledge-and-tools - 知识库与受控工具.md)。
 
 ### 9.4 Phase 5：候选方案和交叉评审
 
@@ -470,13 +473,13 @@ Registry只注册两个真实只读 Tool：`knowledge-search`和 `ui-acceptance-
 
 ReviewWorkflow已关联当前用户、PlanningArtifact和独立 Run，并保存候选、Review、Evaluation、失败、预算、轮次和人工裁决。相同裁决重试幂等，不同裁决不能覆盖第一次决定；跨用户审批返回404。
 
-当前有3类固定需求的流程契约评估，7项聚合指标均为1；这只证明契约和安全状态机，不代表真实模型语义质量。P2-4 已新增[匿名盲评协议]()及发卷、评分完整性校验、私有解盲和汇总工具；仍需运行单 Agent、双 Agent、双 Agent + RAG、交叉评审和人工裁决的真实实验，并报告需求覆盖、人工修改量、延迟、Token与费用。因此Phase 5状态为“工程完成、实验部分完成”。
+当前有3类固定需求的流程契约评估，7项聚合指标均为1；这只证明契约和安全状态机，不代表真实模型语义质量。P2-4已新增[匿名盲评协议](../quality - 质量评测/blind-evaluation-protocol - 真实模型盲评协议.md)，冻结12案例并生成5变体共60项计划，具备预检、匿名发卷、评分模板、私有解盲和汇总工具；仍需完成60次真实模型运行和至少2名独立评分者结果。因此Phase 5状态为“工程完成、真实实验未完成”。
 
 ### 9.5 Phase 6：Artifact 与动态报告
 
 ReportArtifact工程闭环已完成：Reporter读取需求、计划、已审计知识、候选、Review和人工决定，严格按Planner动态目录生成带Claim来源的报告，并区分completed、partial、blocked和inconclusive。报告按版本不可变保存，parentReportId形成链；相同generationKey重试只回放原版本。真实Reporter受两次结构化尝试、Token/费用、超时、取消、敏感输入预拦截和来源二次校验约束。
 
-`/reports`独立报告中心展示版本、状态、动态目录、决策、风险、未决项和来源；Markdown导出前重新加载来源链并验证。`/workflows`把Planner、双候选、Reviewer、Evaluator、人工确认和Reporter统一为baseline/model产品图，支持clarification/approval暂停、持久Checkpoint、相同thread恢复、节点幂等和租约故障恢复。Phase 6状态为已完成（3/3）。详细证据见[Phase 6报告]()与[Checkpoint技术专题]()。
+`/reports`独立报告中心展示版本、状态、动态目录、决策、风险、未决项和来源；Markdown导出前重新加载来源链并验证。`/workflows`把Planner、双候选、Reviewer、Evaluator、人工确认和Reporter统一为baseline/model产品图，支持clarification/approval暂停、持久Checkpoint、相同thread恢复、节点幂等和租约故障恢复。Phase 6状态为已完成（3/3）。详细证据见[Phase 6报告](phase-6-dynamic-report-and-ui - 动态报告与产品界面.md)与[Checkpoint技术专题](phase-6-workflow-checkpoint-completion - 工作流与Checkpoint恢复.md)。
 
 完成证据：报告结论可追溯到来源；刷新恢复不重复副作用；导出不包含密钥、原始内部错误或完整 Checkpoint。
 
@@ -484,7 +487,7 @@ ReportArtifact工程闭环已完成：Reporter读取需求、计划、已审计�
 
 Phase 7已按3/3完成。`workspace-app.tsx`由约1550行降至约458行，控制器、文案、类型、导航、对话、Agent、知识/Tool、看板和设置形成独立模块；乱码文本与关键动态状态可访问语义同步修正。Workspace POST现在校验agentIds归属与重复，在一次嵌套写入中按请求顺序创建关联，失败不留下半成品。
 
-0.1正式交付范围确定为Web MVP；Electron只保留实验入口，桌面安装包未完成且不计入完成度。Lint、Unit、E2E、Schema与Build均达到当前工程门槛，构建原NFT tracing警告已消除。完整过程见[Phase 7报告]()。
+0.1正式交付范围确定为Web MVP；Electron只保留实验入口，桌面安装包未完成且不计入完成度。Lint、Unit、E2E、Schema与Build均达到当前工程门槛，构建原NFT tracing警告已消除。完整过程见[Phase 7报告](phase-7-quality-and-release - 质量与交付边界.md)。
 
 ---
 
@@ -509,32 +512,21 @@ Phase 7已按3/3完成。`workspace-app.tsx`由约1550行降至约458行，控�
 |---|---|---|
 | `npm run db:validate` | 通过 | SQLite Schema 语法和关系有效 |
 | `npm run db:validate:postgres` | 通过 | PostgreSQL Schema 静态有效 |
-| SQLite迁移 | 8/8 | 空数据库依次应用；旧初始库精确识别、备份、baseline后升级 |
-| `npm run test:unit` | 62/62 | 含Review、Report、Checkpoint暂停/恢复、补充轮次、崩溃继续，以及盲评匿名化/解盲/命令行全流程 |
+| SQLite迁移 | 9次 | 空数据库依次应用；旧初始库精确识别、备份、baseline后升级 |
+| `npm run test:unit` | 72/72 | 含RAG固定夹具、Review、Report、Checkpoint、盲评清单/计划/预检/评分模板和解盲流程 |
+| `npm run quality:rag:repository` | 31个Chunk，6/6 | README与当前状态文档目标章节冒烟门禁 |
+| `npm run quality:blind:dry-run` | 12案例、5变体、60运行、2名合成评分者 | 只验证工具链；synthetic=true，modelCalled=false |
 | `npm run test:e2e:core` | 24/24 | 含Workspace、Review、Report、baseline/model产品工作流、Checkpoint和完整模型角色链 |
 | `npm run test:e2e:session` | 1/1 | Session A→B→A文档、计划、Run、Tool、Review、Report和Workflow详情/resume/recover隔离 |
 | 涉及文件定向 ESLint | 通过 | 本轮核心文件未引入新 Lint 问题 |
 | `npm run build` | 通过，无警告 | Next.js 编译、类型、页面生成和路由收集 |
 | `npm run lint` | 通过 | 活动代码、Electron定向规则和旧脚本清理后无错误/警告 |
 | Markdown链接审计 | 34份文档，0断链 | 当前文档入口和相对引用可达 |
-| E2E临时数据库审计 | 0个残留 | 测试结束清理有效 |
+| E2E临时数据库清理 | 清理器含重试 | 清理提示不再导致门禁失败；所有Windows环境零残留未获证明 |
 
-### 10.3 59项单元测试分组
+### 10.3 72项单元测试
 
-| 分组 | 数量 | 内容 |
-|---|---:|---|
-| LangGraph 单 Agent | 6 | 检索顺序、上下文、依赖隔离、输入校验和错误传播 |
-| 终态聚合 | 5 | 成功、混合失败、全部失败和预算优先级 |
-| Provider 控制 | 4 | Ollama、OpenAI-compatible、Anthropic 超时和父级取消 |
-| 浏览器用户存储 | 4 | 用户键差异、A/B 隔离、异常数据过滤和旧键清理 |
-| 文档上传策略 | 4 | 请求/文件边界、UTF-8字节、文档容量和 Chunk配额 |
-| RunService契约 | 4 | v1事件、前序上下文、失败继续、超时停止、预算耗尽和唯一完成 |
-| Planner | 6 | 动态目录、补充问题、非法计划、有限重试、失败终态和 Prompt契约 |
-| RAG与来源 | 6 | 标题/行号、词频、零召回、排序、固定指标和来源元数据 |
-| 受控 Tool | 4 | 幂等注册、授权/输入、次数和真实超时 |
-| Review | 8 | 独立候选、证据门槛、失败降级、有限修订、人工门槛和固定契约评估 |
-| Report | 5 | 动态目录、来源清单、partial、敏感内容和知识引用反伪造 |
-| Product Workflow | 3 | 审批暂停恢复、补充信息新轮次、崩溃后从Checkpoint继续且不重复计划 |
+单元测试当前共72项，覆盖单Agent图、终态聚合、Provider控制、浏览器隔离、上传策略、RunService、Planner、RAG、Report、盲评清单/计划/预检/评分模板/解盲、Review、受控Tool和产品工作流。详细清单以 `npm run test:unit` 的实际输出为准，避免在本报告内重复维护容易过期的逐组计数。
 
 ### 10.4 24项核心 E2E
 
@@ -569,7 +561,7 @@ Phase 7已按3/3完成。`workspace-app.tsx`由约1550行降至约458行，控�
 
 ### 10.6 为什么测试数据库必须隔离
 
-如果 E2E 直接使用 `prisma/dev.db`，测试可能删除开发者消息、修改真实 Agent 或污染费用数据。当前启动器每次生成唯一文件、应用全部 migration、运行测试，并在 finally 中删除 db、journal、wal 和 shm 文件。最终检查结果为 `TempE2eDatabases=0`。
+如果E2E直接使用 `prisma/dev.db`，测试可能删除开发者消息、修改真实Agent或污染费用数据。当前启动器每次生成唯一产品数据库和Checkpoint数据库、应用全部migration、运行测试，并在finally中清理db、journal、wal和shm文件。Windows删除逻辑包含重试；2026-07-19核心E2E 24/24通过且命令退出码0，但日志仍出现部分EPERM清理提示，因此不能把临时文件清理描述为在所有Windows环境零残留。
 
 ---
 
@@ -623,7 +615,7 @@ Router 静态导入凭证解密，而凭证模块依赖 Next.js `server-only`。
 
 ### 13.2 用户隔离
 
-数据库 Agent、Workspace、Document 和 Run 均通过 userId 限定；浏览器过渡知识也已使用 userId 命名空间。消息不再从 localStorage 降级恢复，登出时清空瞬时 Store 并中止旧请求。正式知识仍应在 Phase 4 统一迁移到服务端治理。
+数据库Agent、Workspace、Document和Run均通过userId限定；消息不再从localStorage降级恢复，登出时清空瞬时Store并中止旧请求。服务端Document/Chunk是唯一产品运行时知识入口；浏览器旧知识键只做安全清理，不自动归属或注入模型。
 
 ### 13.3 错误脱敏
 
@@ -640,11 +632,11 @@ Provider 原始错误映射为稳定错误码，例如：
 
 ### 13.4 成本控制
 
-当前记录输入/输出 Token 和美元/人民币估算。持久工作区具有预算状态；未来 Planner 工作流还需要 Run、节点、Tool 和修订轮次的分层预算。
+当前记录输入/输出Token和美元/人民币估算。Planner已校验任务数、轮次、Token和费用，Review/Reporter具有Token、费用与修订轮次边界，Tool具有调用次数限制；跨节点统一预算策略和生产环境长期成本基线仍需在真实模型实验与部署阶段验证。
 
 ### 13.5 外部工具风险
 
-目标 Tool 必须具有 Schema、权限、超时、次数、大小和审计限制。当前占位工具不能在公开材料中写成完整 Tool Calling。
+当前已实现 `knowledge-search` 和 `ui-acceptance-check` 两个受计划授权的受控只读Tool，具备Schema、权限、超时、次数、大小、幂等和审计限制；Provider原生function/tool calling尚未统一接入。
 
 ---
 
@@ -661,7 +653,7 @@ Provider 原始错误映射为稳定错误码，例如：
 | 运行追踪 | 无 Run | Run、runId、时间、状态、错误、消息、用量 |
 | Provider 超时 | 无统一控制 | 三类 Provider 统一超时与 AbortSignal |
 | SSE 取消 | 可能继续调用 | 中止 Provider，停止后续 Agent并释放锁 |
-| 单元测试 | 6项 | 59项 |
+| 单元测试 | 6项 | 72项 |
 | 核心 E2E | 隔离未完成 | 24项核心 + 1项Session隔离 E2E |
 | 构建 | 通过，有警告 | 通过且NFT tracing警告已消除 |
 | Lint/前端结构 | 8错12警告（最初评审） | 全量通过；Workspace主控制器约1550行降至约458行并按职责拆分 |
@@ -674,7 +666,7 @@ Provider 原始错误映射为稳定错误码，例如：
 | 优先级 | 风险 | 影响 | 下一动作 |
 |---:|---|---|---|
 | P0 | 历史主密钥尚未轮换 | 旧密钥应视为已泄露 | 轮换并重新保存 Provider Key |
-| P1 | 检索固定样例只有3个 | 真实语料质量证据不足 | Phase 5扩大评测和人工引用检查 |
+| P1 | 真实模型盲评尚未完成 | 不能证明多Agent报告质量收益 | 完成60次真实运行和至少2名独立评分者评分后解盲汇总 |
 | P2 | Checkpoint当前为本地SQLite且租约无心跳 | 多实例恢复和长时间悬挂仍需部署级设计 | 选择共享Checkpointer并加入租约续期 |
 | P2 | Provider计费后、响应或Artifact落库前存在结果未知窗口 | 无Provider幂等键时不能证明费用全局exactly-once | 设计ModelCall账本、未知结果人工处理或使用Provider幂等键 |
 | P2 | 真实模型与人工盲评数据尚未收集 | 不能证明真实模型报告质量提升 | 按已实现协议固定样本、匿名评分后解盲汇总 |
@@ -704,7 +696,7 @@ Provider 原始错误映射为稳定错误码，例如：
 
 ### 17.1 已经形成的贡献
 
-1. 清晰区分“当前双 Agent MVP”和“目标多智能体报告平台”；
+1. 清晰区分“保留的自由双Agent入口”“当前产品级Web MVP”和“尚未完成的真实模型质量实验”；
 2. 建立可复现、不会污染开发数据的迁移与 E2E 流程；
 3. 用 Run/runId 把消息、费用、错误和并发统一到同一次运行；
 4. 将超时和取消传到真实 Provider 请求，而不是只停止前端动画；
@@ -782,24 +774,24 @@ AgentForge 的产品方向已经明确：它不是普通多 Agent 聊天工具�
 - [文档总索引](../README - 文档索引.md)
 - [当前开发状态](../current-status - 当前开发状态.md)
 - [核心架构](../architecture - 当前运行架构.md)
-- [正式设计入口]()
-- [项目记忆](../project-memory - 项目长期记忆.md)
+- [正式设计入口](../design - 产品设计方案/README - 设计文档总入口.md)
+- [当前开发状态](../current-status - 当前开发状态.md)
 
 ### 20.2 评审与整改
 
-- [2026-07-15 代码与文档评审]()
-- [2026-07-15 设计对齐复查]()
-- [Phase 0：安全与数据库]()
-- [Phase 1：运行正确性]()
-- [整改执行总览]()
+- [2026-07-15 代码与文档评审](../reviews - 历史评审复查/2026-07-15-code-and-documentation-review - 代码与文档评审.md)
+- [2026-07-15 设计对齐复查](../reviews - 历史评审复查/2026-07-15-design-alignment-review - 设计对齐复查.md)
+- [Phase 0：安全与数据库](phase-0-security-and-database - 安全与数据库初始化.md)
+- [Phase 1：运行正确性](phase-1-runtime-correctness - 运行正确性与隔离.md)
+- [整改执行总览](README - 整改执行总览.md)
 
 ### 20.3 目标专题设计
 
-- [LangGraph 工作流架构]()
-- [LangChain 集成设计]()
-- [多 Agent 交叉评审]()
-- [Web UI/UX 知识工具]()
-- [来源与许可]()
+- [LangGraph 工作流架构](../design - 产品设计方案/langgraph-workflow-architecture - LangGraph工作流架构.md)
+- [LangChain 集成设计](../design - 产品设计方案/langchain-integration-design - LangChain集成设计.md)
+- [多 Agent 交叉评审](../design - 产品设计方案/multi-agent-cross-review-workflow - 多智能体交叉评审工作流.md)
+- [Web UI/UX 知识工具](../design - 产品设计方案/web-ui-ux-knowledge-tool-design - Web界面知识工具设计.md)
+- [来源与许可](../design - 产品设计方案/references - 设计参考与许可说明.md)
 
 ---
 
@@ -829,25 +821,19 @@ AgentForge 的产品方向已经明确：它不是普通多 Agent 聊天工具�
 | `src/lib/engine/langgraph/single-agent.ts` | 当前单 Agent 线性图 |
 | `src/lib/client/user-storage.ts` | 浏览器过渡知识用户命名空间和旧键处置 |
 | `src/lib/rag/upload-policy.ts` | 上传请求、文件、容量和 Chunk边界 |
-| `e2e/core.spec.ts` | 12项核心 E2E |
+| `e2e/core.spec.ts` | 24项核心E2E |
 | `e2e/session-isolation.spec.ts` | Session A→B→A账号切换隔离 E2E |
 
 ## 附录 B：复现命令
 
 ```bash
 npm install
+npm run quality:all
 npm run db:validate
 npm run db:validate:postgres
-npm run db:migrate
-npm run db:generate
-npm run test:unit
-npm run test:e2e:core
-npm run test:e2e:session
-npm run lint
-npm run build
 ```
 
-注意：以上命令应全部通过；`npm run lint`当前为零错误零警告，`npm run build`也不再出现原NFT tracing警告。若结果不同，应先检查工作区、依赖版本和环境变量，不应把失败写成通过。
+注意：`npm run quality:all`应完整通过；`npm run db:validate`和`npm run db:validate:postgres`是独立Schema补充校验，不包含在统一门禁中。若结果不同，应先检查工作区、依赖版本和环境变量，不应把失败写成通过。
 
 ## 附录 C：当前核心事件
 
@@ -904,4 +890,4 @@ npm run build
 
 ### 现在能否公开发布？
 
-可以作为明确标注边界的学习型 Web MVP 展示，但在密钥轮换、全量 Lint、截图审查和发布清单完成前，不应作为生产级服务发布。
+可以作为明确标注边界的学习型Web MVP展示，但历史密钥轮换、发布检查和生产级部署验证仍未完成，不应作为生产级服务发布。
