@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "p2-4-v1",
+  "frozenAt": "2026-07-19T12:00:00+08:00",
+  "cases": [
+    {
+      "caseId": "case-01",
+      "category": "website",
+      "complexity": "medium",
+      "requirement": "为一家制造企业规划中英双语官方网站，包含产品目录、案例展示、询盘表单、内容后台、SEO、无障碍访问和发布审核，并给出可分阶段交付的开发方案。",
+      "acceptanceFocus": ["内容发布闭环", "多语言与SEO", "无障碍验收"]
+    },
+    {
+      "caseId": "case-02",
+      "category": "website",
+      "complexity": "high",
+      "requirement": "规划一个面向开发者的SaaS官网与文档站，要求版本化文档、全文搜索、代码示例、试用转化、隐私同意、访问分析和故障降级，并说明数据边界与验收路径。",
+      "acceptanceFocus": ["文档版本与搜索", "隐私和分析", "降级与可观测性"]
+    },
+    {
+      "caseId": "case-03",
+      "category": "website",
+      "complexity": "medium",
+      "requirement": "为公益机构规划低带宽友好的信息门户，支持活动公告、资源下载、志愿者报名、移动端访问、内容审核和高对比度模式，要求方案包含风险、测试与运维交接。",
+      "acceptanceFocus": ["低带宽体验", "报名与审核", "可访问性测试"]
+    },
+    {
+      "caseId": "case-04",
+      "category": "website",
+      "complexity": "high",
+      "requirement": "规划一个多会场活动报名网站，包含票种与名额、候补队列、支付状态同步、退票规则、二维码签到、通知模板和峰值流量保护，并明确异常恢复和审计要求。",
+      "acceptanceFocus": ["名额一致性", "支付与退票", "峰值和恢复"]
+    },
+    {
+      "caseId": "case-05",
+      "category": "admin",
+      "complexity": "medium",
+      "requirement": "规划大学运营团队使用的内容管理后台，需要角色权限、提交与审核流程、操作审计、批量发布、可访问性检查和分阶段交付，并给出清晰的测试与验收标准。",
+      "acceptanceFocus": ["角色权限", "审核与审计", "分阶段验收"]
+    },
+    {
+      "caseId": "case-06",
+      "category": "admin",
+      "complexity": "high",
+      "requirement": "规划电商运营后台，覆盖商品、库存、订单、退款、优惠活动和客服备注，要求细粒度权限、敏感操作二次确认、并发冲突处理、审计日志与灾难恢复方案。",
+      "acceptanceFocus": ["库存和订单一致性", "敏感操作控制", "灾难恢复"]
+    },
+    {
+      "caseId": "case-07",
+      "category": "admin",
+      "complexity": "medium",
+      "requirement": "规划客户支持管理平台，包含工单分派、SLA计时、标签、内部备注、知识库引用和升级流程，要求说明权限隔离、通知失败处理和可量化的服务验收指标。",
+      "acceptanceFocus": ["SLA状态机", "权限隔离", "通知失败处理"]
+    },
+    {
+      "caseId": "case-08",
+      "category": "admin",
+      "complexity": "high",
+      "requirement": "规划企业数据分析后台，支持多租户数据看板、指标口径版本、筛选与导出、行级权限、异步任务和操作审计，要求处理大数据量、导出失败和权限变更后的缓存失效。",
+      "acceptanceFocus": ["多租户与行级权限", "指标版本", "异步导出恢复"]
+    },
+    {
+      "caseId": "case-09",
+      "category": "learning",
+      "complexity": "medium",
+      "requirement": "规划大学生学习计划工具，支持课程目标、任务拆分、番茄计时、提醒、阶段复盘和进度统计，要求状态可恢复、数据可导出，并给出核心流程的测试用例。",
+      "acceptanceFocus": ["计划与任务状态", "计时恢复", "进度与导出"]
+    },
+    {
+      "caseId": "case-10",
+      "category": "learning",
+      "complexity": "high",
+      "requirement": "规划带AI问答的学习助手，支持上传课程资料、检索引用、自动出题、错题复习和学习报告，要求答案证据可追溯、资料按用户隔离、模型失败时提供明确降级路径。",
+      "acceptanceFocus": ["引用可追溯", "资料隔离", "模型失败降级"]
+    },
+    {
+      "caseId": "case-11",
+      "category": "learning",
+      "complexity": "high",
+      "requirement": "规划教师与学生共同使用的课程平台，包含课程发布、作业提交、评分反馈、延期申请、成绩导出和通知，要求区分角色权限、保留评分变更历史并处理截止时间并发。",
+      "acceptanceFocus": ["角色和作业权限", "评分版本历史", "截止时间并发"]
+    },
+    {
+      "caseId": "case-12",
+      "category": "learning",
+      "complexity": "medium",
+      "requirement": "用户只提出建设一个学习社区，希望支持发帖、资料分享和互助讨论，但没有说明目标人群、审核规则、隐私边界和运营方式；需要先识别关键缺失信息，再形成可执行方案。",
+      "acceptanceFocus": ["缺失信息识别", "内容治理", "隐私和运营边界"]
+    }
+  ]
+}

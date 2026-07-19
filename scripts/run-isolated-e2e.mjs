@@ -50,6 +50,16 @@ function run(args) {
   return result.status ?? 1;
 }
 
+function removeTemporaryFile(filePath) {
+  try {
+    // SQLite/Prisma may release Windows file handles a few milliseconds after
+    // the child process exits. Retry cleanup without turning passing tests red.
+    rmSync(filePath, { force: true, maxRetries: 8, retryDelay: 250 });
+  } catch (error) {
+    console.warn(`Could not remove temporary E2E file ${filePath}:`, error instanceof Error ? error.message : error);
+  }
+}
+
 let exitCode = 1;
 try {
   exitCode = run([
@@ -65,8 +75,8 @@ try {
   }
 } finally {
   for (const suffix of ["", "-journal", "-shm", "-wal"]) {
-    rmSync(`${databasePath}${suffix}`, { force: true });
-    rmSync(`${checkpointDatabasePath}${suffix}`, { force: true });
+    removeTemporaryFile(`${databasePath}${suffix}`);
+    removeTemporaryFile(`${checkpointDatabasePath}${suffix}`);
   }
 }
 
