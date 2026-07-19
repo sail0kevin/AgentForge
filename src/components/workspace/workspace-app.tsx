@@ -505,9 +505,9 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
   } satisfies Record<PageKey, ReactNode>;
 
   return (
-    <div data-theme={theme} className={cn("theme-root flex h-screen min-h-[760px] text-slate-800", theme === "dark" ? "theme-dark bg-slate-950" : "bg-[#F7F8FA]")}>
+    <div data-theme={theme} className={cn("theme-root flex h-screen min-h-[760px] text-slate-800", theme === "dark" ? "theme-dark" : "")}>
       <GlobalSider t={t} activePage={activePage} setActivePage={setActivePage} />
-      <main className="min-w-0 flex-1 overflow-y-auto p-6">
+      <main className="page-main min-w-0 flex-1 overflow-y-auto">
         <TopBar t={t} activePage={activePage} notice={notice} language={language} setLanguage={updateLanguage} theme={theme} setTheme={updateTheme} />
         {content[activePage]}
       </main>
@@ -515,4 +515,3 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
     </div>
   );
 }
-

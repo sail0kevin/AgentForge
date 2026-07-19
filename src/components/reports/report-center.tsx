@@ -28,7 +28,7 @@ function ClaimList({ claims, empty = "无" }: { claims: Claim[]; empty?: string 
   return (
     <div className="space-y-3">
       {claims.map((claim) => (
-        <article key={claim.id} className="rounded-xl border border-slate-200 bg-white p-4">
+        <article key={claim.id} className="claim-card rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-violet-50 px-2 py-1 font-semibold text-violet-700">{kindLabel[claim.kind] ?? claim.kind}</span>
             <span className="text-slate-500">置信度：{claim.confidence}</span>
@@ -100,8 +100,8 @@ export function ReportCenter() {
   if (loading) return <main className="grid min-h-screen place-items-center bg-slate-50 text-slate-600"><div className="flex items-center gap-2"><Loader2 className="animate-spin" />正在加载报告中心…</div></main>;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white px-5 py-4">
+    <main className="secondary-page min-h-screen text-slate-900">
+      <header className="secondary-header border-b border-slate-200 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="icon-button" aria-label="返回工作台"><ArrowLeft /></Link>
@@ -115,7 +115,7 @@ export function ReportCenter() {
 
       <div className="mx-auto grid max-w-[1500px] gap-5 p-5 lg:grid-cols-[300px_minmax(0,1fr)_320px]">
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <section className="secondary-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2"><FileText className="h-4 w-4 text-violet-600" /><h2 className="font-bold">报告版本</h2></div>
             {reports.length === 0 ? <p className="text-sm leading-6 text-slate-500">暂无报告。先完成计划、交叉评审和必要的人工确认。</p> : (
               <div className="space-y-2">
@@ -123,16 +123,16 @@ export function ReportCenter() {
               </div>
             )}
           </section>
-          {reportableReviews.length > 0 && <section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">从评审生成新版本</h2><p className="mt-1 text-xs leading-5 text-slate-500">每次生成都是不可变的新版本，不会覆盖旧报告。</p><div className="mt-3 space-y-2">{reportableReviews.slice(0, 6).map((review) => <button key={review.id} type="button" disabled={generating !== null} onClick={() => void generate(review.id)} className="secondary-button min-h-10 w-full justify-start px-3 text-left"><BookOpen />{generating === review.id ? "生成中…" : `${review.status} · ${review.approval.decision ?? "无需裁决"}`}</button>)}</div></section>}
+          {reportableReviews.length > 0 && <section className="secondary-card rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">从评审生成新版本</h2><p className="mt-1 text-xs leading-5 text-slate-500">每次生成都是不可变的新版本，不会覆盖旧报告。</p><div className="mt-3 space-y-2">{reportableReviews.slice(0, 6).map((review) => <button key={review.id} type="button" disabled={generating !== null} onClick={() => void generate(review.id)} className="secondary-button min-h-10 w-full justify-start px-3 text-left"><BookOpen />{generating === review.id ? "生成中…" : `${review.status} · ${review.approval.decision ?? "无需裁决"}`}</button>)}</div></section>}
         </aside>
 
-        <section className="min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="min-w-0 secondary-card rounded-2xl border border-slate-200 bg-white shadow-sm">
           {!selected ? <div className="grid min-h-[560px] place-items-center p-10 text-center"><div><FileText className="mx-auto h-10 w-10 text-slate-300" /><h2 className="mt-4 text-lg font-bold">还没有可阅读的报告</h2><p className="mt-2 text-sm text-slate-500">完成 Review 后可在左侧生成第一个版本。</p></div></div> : <>
             <div className="border-b border-slate-200 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4"><div className="max-w-3xl"><div className="flex items-center gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyle[selected.status] ?? statusStyle.inconclusive}`}>{statusLabel[selected.status] ?? selected.status}</span><span className="text-xs text-slate-500">v{selected.version}{selected.parentReportId ? " · 有上一版本" : " · 初始版本"}</span></div><h2 className="mt-3 text-2xl font-bold tracking-tight">{selected.title}</h2><p className="mt-3 text-sm leading-7 text-slate-600">{selected.executiveSummary}</p></div><a className="primary-button h-10 px-4" href={`/api/reports/${selected.id}/export`}><Download />导出 Markdown</a></div>
             </div>
             <div className="space-y-8 p-6">
-              <section className="rounded-xl border border-violet-200 bg-violet-50 p-5"><div className="flex items-center gap-2 font-bold text-violet-900"><Scale className="h-5 w-5" />最终决策</div><p className="mt-2 text-sm leading-7 text-violet-900">{selected.content.decisionSummary}</p></section>
+              <section className="accent-card rounded-xl border border-violet-200 bg-violet-50 p-5"><div className="flex items-center gap-2 font-bold text-violet-900"><Scale className="h-5 w-5" />最终决策</div><p className="mt-2 text-sm leading-7 text-violet-900">{selected.content.decisionSummary}</p></section>
               {[...selected.content.sections].sort((a, b) => a.order - b.order).map((chapter) => <section key={chapter.id} id={`chapter-${chapter.id}`} className="scroll-mt-4"><p className="text-xs font-bold uppercase tracking-wider text-violet-600">第 {chapter.order} 章</p><h3 className="mt-1 text-xl font-bold">{chapter.title}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{chapter.summary}</p><div className="mt-4"><ClaimList claims={chapter.claims} /></div></section>)}
               <section><div className="mb-3 flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" /><h3 className="text-lg font-bold">风险</h3></div><ClaimList claims={selected.content.risks} /></section>
               <section><div className="mb-3 flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-slate-600" /><h3 className="text-lg font-bold">假设与未决事项</h3></div><ClaimList claims={[...selected.content.assumptions, ...selected.content.unresolvedItems]} /></section>
@@ -140,7 +140,7 @@ export function ReportCenter() {
           </>}
         </section>
 
-        <aside>{selected && <div className="sticky top-5 space-y-4"><section className="rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">动态目录</h2><nav className="mt-3 space-y-1">{[...selected.content.sections].sort((a, b) => a.order - b.order).map((chapter) => <a key={chapter.id} href={`#chapter-${chapter.id}`} className="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-violet-700">{chapter.order}. {chapter.title}</a>)}</nav></section><section className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /><h2 className="font-bold">来源清单</h2></div><p className="mt-1 text-xs leading-5 text-slate-500">点击正文中的来源编号，可在这里核对类型和用途。</p><div className="mt-3 max-h-[430px] space-y-2 overflow-auto">{selected.content.sourceManifest.map((source) => <div key={`${source.sourceType}:${source.refId}`} className="rounded-lg bg-slate-50 p-3"><code className="break-all text-[11px] font-semibold text-violet-700">{source.sourceType}:{source.refId}</code><p className="mt-1 text-xs leading-5 text-slate-600">{source.label}</p><p className="mt-1 text-[10px] text-slate-400">引用 {source.usedByClaimIds.length} 次</p></div>)}</div></section></div>}</aside>
+        <aside>{selected && <div className="sticky top-5 space-y-4"><section className="secondary-card rounded-2xl border border-slate-200 bg-white p-4"><h2 className="font-bold">动态目录</h2><nav className="mt-3 space-y-1">{[...selected.content.sections].sort((a, b) => a.order - b.order).map((chapter) => <a key={chapter.id} href={`#chapter-${chapter.id}`} className="block rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-violet-700">{chapter.order}. {chapter.title}</a>)}</nav></section><section className="secondary-card rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /><h2 className="font-bold">来源清单</h2></div><p className="mt-1 text-xs leading-5 text-slate-500">点击正文中的来源编号，可在这里核对类型和用途。</p><div className="mt-3 max-h-[430px] space-y-2 overflow-auto">{selected.content.sourceManifest.map((source) => <div key={`${source.sourceType}:${source.refId}`} className="soft-card rounded-lg bg-slate-50 p-3"><code className="break-all text-[11px] font-semibold text-violet-700">{source.sourceType}:{source.refId}</code><p className="mt-1 text-xs leading-5 text-slate-600">{source.label}</p><p className="mt-1 text-[10px] text-slate-400">引用 {source.usedByClaimIds.length} 次</p></div>)}</div></section></div>}</aside>
       </div>
     </main>
   );

@@ -61,8 +61,8 @@ export function SequenceDashboard({ t, agents, messages, totalSpent, budgetStatu
 
   return (
     <div className="space-y-5">
-      <Panel title={t.sequenceTitle} desc={t.sequenceDesc}><div className="grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2">{t.sequenceSteps.map((step, index) => <div key={step} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center text-sm"><div className="mx-auto mb-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-semibold text-[#5B5BD6] shadow-sm">{index + 1}</div>{step}</div>)}</div></Panel>
-      {loading && <div className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-slate-500 shadow-sm" role="status">{dashboardText.loading}</div>}
+      <Panel title={t.sequenceTitle} desc={t.sequenceDesc}><div className="grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-md:grid-cols-2">{t.sequenceSteps.map((step, index) => <div key={step} className="group rounded-xl border border-slate-200/70 bg-white/55 p-4 text-center text-sm shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-white/90"><div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#6975FF] to-[#22BFA6] text-xs font-bold text-white shadow-[0_7px_15px_rgba(89,101,242,0.22)] transition group-hover:scale-110">{index + 1}</div>{step}</div>)}</div></Panel>
+      {loading && <div className="rounded-2xl border border-slate-200/70 bg-white/70 p-5 text-center text-sm text-slate-500 shadow-sm" role="status">{dashboardText.loading}</div>}
       {error && !loading && <div className="rounded-lg border border-slate-200 bg-white p-5 text-center text-sm text-red-500 shadow-sm" role="alert">{dashboardText.error}</div>}
       {dashboardData && !loading && <>
         <div className="grid grid-cols-4 gap-4 max-xl:grid-cols-2 max-md:grid-cols-1">
