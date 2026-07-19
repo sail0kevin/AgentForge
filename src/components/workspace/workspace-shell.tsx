@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Boxes, GitBranch, Languages, MessageSquareText, Moon, Settings, Sparkles, Sun } from "lucide-react";
+import { Activity, Bot, Boxes, GitBranch, Languages, MessageSquareText, Moon, Settings, Sparkles, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Copy, Language } from "./workspace-copy";
 import type { PageKey, ThemeMode } from "./workspace-types";
@@ -14,32 +14,57 @@ const navItems: { key: PageKey; icon: typeof MessageSquareText }[] = [
 ];
 
 export function GlobalSider({ t, activePage, setActivePage }: { t: Copy; activePage: PageKey; setActivePage: (page: PageKey) => void }) {
+  const isZh = t.language === "语言";
+
   return (
-    <aside className="flex w-[200px] shrink-0 flex-col border-r border-slate-200 bg-[#F5F7FA]">
-      <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#5B5BD6] text-white">
-          <Sparkles className="h-4 w-4" />
+    <aside className="app-sider flex shrink-0 flex-col">
+      <div className="app-brand flex items-center gap-3 px-5">
+        <div className="brand-mark relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] text-white">
+          <Sparkles className="h-[18px] w-[18px]" />
+          <span className="brand-dot" />
         </div>
-        <div>
-          <div className="text-sm font-semibold">AIWorkbench</div>
-          <div className="text-xs text-slate-500">{t.productSubtitle}</div>
+        <div className="app-brand-copy relative z-10 min-w-0">
+          <div className="truncate text-[15px] font-bold tracking-[-0.02em] text-slate-950">AgentForge</div>
+          <div className="mt-0.5 truncate text-[11px] font-medium tracking-wide text-slate-500">{t.productSubtitle}</div>
         </div>
       </div>
-      <nav className="space-y-1 p-3">
-        {navItems.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setActivePage(item.key)}
-            className={cn("flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm transition", activePage === item.key ? "bg-white font-medium text-[#5B5BD6] shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-900")}
-          >
-            <item.icon className="h-4 w-4" />
-            {t.nav[item.key]}
-          </button>
-        ))}
-      </nav>
+
+      <div className="px-3 pt-5">
+        <div className="nav-label mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+          {isZh ? "工作台" : "Workspace"}
+        </div>
+        <nav className="space-y-1.5">
+          {navItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActivePage(item.key)}
+              className={cn(
+                "nav-item flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition",
+                activePage === item.key ? "nav-item-active text-[#505BE0]" : "text-slate-600 hover:text-slate-900",
+              )}
+              title={t.nav[item.key]}
+            >
+              <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors", activePage === item.key ? "bg-indigo-50 text-[#5965F2]" : "bg-transparent text-slate-400")}>
+                <item.icon className="h-4 w-4" />
+              </span>
+              <span className="nav-label truncate">{t.nav[item.key]}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
       <div className="mt-auto p-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-500">{t.siderHint}</div>
+        <div className="sider-note rounded-2xl p-3.5 text-xs leading-5 text-slate-500">
+          <div className="mb-2 flex items-center gap-2 font-semibold text-slate-700">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            {isZh ? "本地引擎已就绪" : "Local engine ready"}
+          </div>
+          {t.siderHint}
+        </div>
       </div>
     </aside>
   );
@@ -48,21 +73,26 @@ export function GlobalSider({ t, activePage, setActivePage }: { t: Copy; activeP
 export function TopBar({ t, activePage, notice, language, setLanguage, theme, setTheme }: { t: Copy; activePage: PageKey; notice: string | null; language: Language; setLanguage: (language: Language) => void; theme: ThemeMode; setTheme: (theme: ThemeMode) => void }) {
   const isZh = t.language === "语言";
   const themeLabel = theme === "dark" ? (isZh ? "切换到浅色" : "Switch to light") : (isZh ? "切换到深色" : "Switch to dark");
+
   return (
-    <header className="mb-5 flex items-start justify-between gap-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-950">{t.nav[activePage]}</h1>
-        <p className="mt-1 text-sm text-slate-500">{t.topDescription}</p>
+    <header className="top-bar mb-6 flex items-start justify-between gap-5">
+      <div className="min-w-0">
+        <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#5965F2]">
+          <Activity className="h-3.5 w-3.5" />
+          AgentForge / {isZh ? "智能协作空间" : "Intelligent workspace"}
+        </div>
+        <h1 className="page-title truncate text-[26px] font-bold tracking-[-0.035em]">{t.nav[activePage]}</h1>
+        <p className="page-description mt-1.5 text-sm leading-6 text-slate-500">{t.topDescription}</p>
       </div>
-      <div className="flex items-center gap-3">
-        {notice && <div className="max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm" role="status" aria-live="polite">{notice}</div>}
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5">
+        {notice && <div className="notice-pill max-w-md rounded-xl border px-3.5 py-2 text-xs shadow-sm" role="status" aria-live="polite">{notice}</div>}
         <button type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="icon-button" aria-label={themeLabel} title={themeLabel}>
           {theme === "dark" ? <Sun /> : <Moon />}
         </button>
-        <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm" aria-label={t.language}>
-          <Languages className="mx-2 h-4 w-4 text-slate-400" />
+        <div className="language-switcher flex items-center gap-1 rounded-xl border p-1 shadow-sm" aria-label={t.language}>
+          <Languages className="mx-1.5 h-4 w-4 text-slate-400" />
           {(["zh", "en"] as const).map((item) => (
-            <button key={item} type="button" onClick={() => setLanguage(item)} className={cn("h-8 rounded-md px-3 text-xs font-medium transition", language === item ? "bg-[#5B5BD6] text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900")}>
+            <button key={item} type="button" onClick={() => setLanguage(item)} className={cn("h-8 rounded-lg px-3 text-xs font-semibold transition", language === item ? "bg-[#5965F2] text-white shadow-sm" : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-900")}>
               {t[item]}
             </button>
           ))}

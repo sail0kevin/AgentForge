@@ -86,16 +86,16 @@ export function AuthenticatedWorkspace() {
   }
 
   if (loading) {
-    return <main className="grid min-h-screen place-items-center bg-slate-50 text-slate-600">正在验证登录状态…</main>;
+    return <main className="auth-page grid min-h-screen place-items-center text-slate-600">正在验证登录状态…</main>;
   }
 
   if (!user) {
     const isRegister = mode === "register";
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 p-6 text-slate-900">
-        <form onSubmit={submit} className="w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <main className="auth-page grid min-h-screen place-items-center p-6 text-slate-900">
+        <form onSubmit={submit} className="auth-card w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <div>
-            <p className="text-sm font-semibold text-[#5B5BD6]">AgentForge</p>
+            <p className="auth-kicker text-sm font-bold uppercase tracking-[0.18em] text-[#5B5BD6]">AgentForge</p>
             <h1 className="mt-2 text-2xl font-bold">{isRegister ? "创建账号" : "登录工作台"}</h1>
             <p className="mt-2 text-sm text-slate-500">{isRegister ? "注册后会自动登录，并使用独立的数据和凭证。" : "请登录后访问属于你的 Agent、对话和知识库。"}</p>
           </div>
@@ -114,7 +114,7 @@ export function AuthenticatedWorkspace() {
 
   return (
     <>
-      <div className="fixed right-4 top-3 z-50 flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
+      <div className="global-account-bar fixed right-4 top-3 z-50 flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
         <Link href="/workflows" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><GitBranch className="h-3.5 w-3.5" />工作流</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
         <Link href="/reports" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><FileText className="h-3.5 w-3.5" />报告中心</Link>

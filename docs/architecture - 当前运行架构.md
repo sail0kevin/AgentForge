@@ -1,7 +1,7 @@
 # AgentForge 当前核心架构
 <!-- 文件名：architecture - 当前运行架构 -->
 
-更新时间：2026-07-15 22:04（Asia/Shanghai）
+更新时间：2026-07-19（Asia/Shanghai）
 
 本文只说明当前代码已经运行并经过相应验证的架构。结构化 Planner、交叉评审、ReportArtifact、产品级LangGraph和Checkpoint恢复已经进入当前实现；Provider原生 Tool Calling、共享Checkpointer和真实质量盲评等目标能力见[正式设计](design - 产品设计方案/README - 设计文档总入口.md)，不能从本文推断为已经实现。
 
@@ -178,7 +178,20 @@ AgentCredential 是 Agent 专属凭证的优先来源；旧 User ApiKey 只作�
 
 算法使用保留重复词的对数 TF、正值平滑 IDF和确定性同分排序，解决旧实现的虚假词频和常见有效词零召回。前端能力库、Agent上下文和 Knowledge Tool均使用服务端 Document/Chunk；浏览器旧知识键不再注入模型。
 
-当前固定3查询基线 Recall@1和 MRR为1、无关率为0、引用完整率为1。样本规模仍小，因此不宣称真实项目检索质量已经充分，也暂不据此引入 embedding/pgvector。
+离线质量链路分为两层：
+
+```text
+固定夹具（12类检索意图）
+  → 无噪声 k=1 / 共享噪声 k=5
+  → Recall / MRR / 无关结果率 / 引用完整率
+
+README.md + 当前开发状态.md
+  → Markdown 标题与行号切块
+  → 6个固定检索意图
+  → 检查前5项是否包含目标章节
+```
+
+2026-07-19最终复跑中，固定夹具两种场景的Recall、MRR和引用完整率均为1；共享噪声无关结果率为 `0.5862068965517241`。仓库文档生成31个Chunk，6/6检索意图命中目标章节。前者只证明确定性检索与引用指标实现，后者只是项目文档冒烟门禁；两者都不是通用检索准确率或真实模型语义质量结论。当前未使用embedding、RRF或向量数据库。
 
 ## 13. 受控 Tools
 
@@ -188,38 +201,56 @@ ToolInvocation以 toolCallId关联 Run和用户，记录 running/completed/faile
 
 ## 14. 数据库与迁移
 
-当前 SQLite migration：
+当前 SQLite migration 共9次：
 
 1. `20260715000000_init`：初始数据模型；
-2. `20260715043000_add_runs`：Run、activeRunId、Message/TokenUsage runId。
-3. `20260715181000_add_planning_artifacts`：PlanningArtifact与 Run/User/Planner Agent关系。
-4. `20260715190000_add_knowledge_sources_and_tool_audit`：知识来源字段与 ToolInvocation。
+2. `20260715043000_add_runs`：Run、activeRunId、Message/TokenUsage runId；
+3. `20260715181000_add_planning_artifacts`：PlanningArtifact与 Run/User/Planner Agent关系；
+4. `20260715190000_add_knowledge_sources_and_tool_audit`：知识来源字段与 ToolInvocation；
+5. `20260715203000_add_review_workflows`：ReviewWorkflow；
+6. `20260715213000_add_report_artifacts`：ReportArtifact版本链；
+7. `20260715214500_add_report_generation_idempotency`：报告生成幂等键；
+8. `20260715220000_add_development_workflow_checkpoints`：DevelopmentWorkflow、WorkflowNode与节点幂等；
+9. `20260716000000_add_api_key_length`：凭证长度元数据。
 
 `db:migrate` 只管理 SQLite。PostgreSQL Schema 可以静态校验，但没有独立 migration history。
 
 ## 15. 自动化验证边界
 
-`npm run test:unit` 当前56项：
+`npm run quality:all` 是当前统一质量门禁，按顺序串联：
 
-- 单 Agent LangGraph 6项；
-- 终态聚合5项；
-- Provider 超时和取消4项。
-- 浏览器用户存储隔离4项；
-- 文档上传边界和配额4项。
-- RunService与 v1事件契约4项。
-- Planner契约、动态目录、补充问题、语义校验、有限重试与 Prompt契约6项。
-- RAG结构、排序、来源与固定指标6项；
-- Tool注册、授权、输入、次数与超时4项。
-- Review独立候选、证据、失败、修订、人工门槛和评估8项；
-- Report动态目录、来源、partial、敏感内容和知识反伪造5项。
+1. 12类固定检索夹具评测；
+2. README与当前状态文档的6意图仓库检索门禁；
+3. 12案例冻结清单与60项运行计划校验；
+4. 不调用模型的盲评合成端到端演练；
+5. 单元测试、核心E2E与Session隔离E2E；
+6. TypeScript、ESLint和Production Build。
 
-`npm run test:e2e:core` 当前24项：覆盖运行与上传、Workspace-Agent原子绑定、三入口契约、Planner、Review/人工裁决、ReportArtifact版本/幂等/导出、报告中心、baseline/model产品工作流、Checkpoint恢复和受控知识Tool。另有1项 Session A→B→A账号切换 E2E，同时验证文档、PlanningArtifact、Run、Tool、Review、Report和Workflow详情/resume/recover隔离。
+2026-07-19最终完整运行退出码为 `0`：单元测试72/72、核心E2E 24/24、Session隔离E2E 1/1；仓库文档生成31个Chunk且6/6命中目标章节；TypeScript、ESLint与Build通过。
 
-E2E 每次创建唯一 SQLite 数据库，应用全部 migration，结束后自动清理，不读取 `prisma/dev.db`，也不调用真实收费 Provider。
+核心E2E覆盖运行与上传、Workspace-Agent原子绑定、三入口契约、Planner、Review/人工裁决、ReportArtifact版本/幂等/导出、报告中心、baseline/model产品工作流、Checkpoint恢复和受控知识Tool。Session E2E执行A→B→A账号切换，验证文档、PlanningArtifact、Run、Tool、Review、Report和Workflow详情/resume/recover隔离。
 
-生产构建和全量 Lint通过；运行时数据库路径已排除出构建输入，原NFT tracing warning消失。Workspace前端已按控制器、对话、Agent、知识/Tool、看板、设置、文案和共享类型拆分。
+E2E每次创建唯一SQLite产品数据库和Checkpoint数据库，应用全部migration，不读取`prisma/dev.db`，也不调用真实收费Provider。Windows清理器包含重试；本次核心E2E测试全部通过且命令成功，但日志仍出现部分临时SQLite文件的EPERM清理提示，因此只能证明清理失败不再误报整个门禁失败，不能声称文件句柄问题在所有Windows环境彻底消失。
 
-## 16. 当前架构边界
+## 16. 离线真实模型盲评子系统
+
+盲评属于离线质量链，不参与产品请求的在线运行。其数据流为：
+
+```text
+冻结 case-manifest.json（12案例，网站/后台/学习各4个）
+  → 校验 Schema、唯一性、类别覆盖与 SHA-256
+  → 生成5种变体 × 12案例 = 60项确定性运行计划
+  → 收集60份真实模型输出与运行元数据
+  → preflight 核对协议、清单哈希和全部 runId
+  → prepare 生成匿名 packet.json 与私有 reveal.json
+  → 每名评分者生成绑定 packetId / blindId 的独立评分模板
+  → 至少2名独立评分者完成全部评分
+  → analyze 解盲并按变体汇总评分、修订时间、延迟、Token与费用
+```
+
+目前已经完成清单、运行计划、预检、匿名化、评分模板、完整性约束、解盲汇总和合成dry-run。dry-run明确输出 `synthetic: true`、`modelCalled: false`，只证明60项运行和2名合成评分者的工具链可贯通。尚未完成60次真实模型运行与至少2名独立评分者真实评分，因而没有多Agent质量提升、幻觉下降或成本下降结论。
+
+## 17. 当前架构边界
 
 已经实现：顺序协作、单 Agent线性图、Run、锁、终态、Provider超时取消、SSE、消息/用量、凭证安全、用户隔离、上传边界、结构化 Planner、PlanningArtifact、版本化文档引用、修正 TF-IDF和受控只读 Tool。
 

@@ -28,6 +28,6 @@ node --env-file=.env scripts/verify-secret-hygiene.mjs --production
 
 ## Known boundaries
 
-- The Windows installer is currently unsigned and may trigger a SmartScreen warning.
+- Electron remains an experimental entry point and has not completed installer implementation, data-directory handling, post-install migration, port/process management, signing, or clean-machine acceptance; it is not a formally delivered desktop release.
 - Local Ollama and custom provider URLs are allowed by the desktop app; public web deployments block private-network provider targets.
 - Real-provider model quality and independent human blind evaluation are not yet release claims.

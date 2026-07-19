@@ -2,7 +2,7 @@
 <!-- 文件名：multi-agent-cross-review-workflow - 多智能体交叉评审工作流 -->
 <!-- 所属目录：design - 产品设计方案 -->
 
-> 状态：**工程实现完成，质量实验部分完成。** 独立候选、结构化 Finding、Evaluator、有限修订、失败降级、ReviewWorkflow、人工裁决、Reporter/ReportArtifact、报告中心、产品工作流调度和Checkpoint均已实现并通过测试；外部真实模型盲评尚未完成。当前事实见 [Phase 5 报告]()、[Phase 6 报告]()与[Checkpoint专题]()。
+> 状态：**工程实现完成，质量实验部分完成。** 独立候选、结构化 Finding、Evaluator、有限修订、失败降级、ReviewWorkflow、人工裁决、Reporter/ReportArtifact、报告中心、产品工作流调度和Checkpoint均已实现并通过测试；外部真实模型盲评尚未完成。当前事实见[Phase 5报告](../remediation - 工程整改实施/phase-5-cross-review-and-evaluation - 交叉评审与评价.md)、[Phase 6报告](../remediation - 工程整改实施/phase-6-dynamic-report-and-ui - 动态报告与产品界面.md)与[Checkpoint专题](../remediation - 工程整改实施/phase-6-workflow-checkpoint-completion - 工作流与Checkpoint恢复.md)。
 
 ## 目标
 

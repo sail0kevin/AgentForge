@@ -1,7 +1,7 @@
 # AgentForge 当前开发状态
 <!-- 文件名：current-status - 当前开发状态 -->
 
-更新时间：2026-07-16（Asia/Shanghai）
+更新时间：2026-07-19（Asia/Shanghai）
 
 ## 当前目标
 
@@ -30,7 +30,7 @@
 - 模型结构化输出机器可读 Schema、默认两次有限重试和稳定失败码
 - PlanningArtifact按 userId/runId持久化成功、待补充和失败终态
 - Markdown保留 H1～H6标题路径和真实行号后切块，长章节子块继承来源
-- TF-IDF保留真实词频、使用正值平滑 IDF和确定性排序，固定3查询基线 Recall@1/MRR=1
+- TF-IDF 保留真实词频、使用正值平滑 IDF 和确定性排序；除原有3查询基线外，新增12类固定意图评测和读取 README/当前状态文档的6意图仓库冒烟评测
 - Document保存 SHA-256、来源类型/URL、版本、许可和审查时间；检索返回完整 citation
 - 前端能力库上传、列出、删除并启用当前账号的服务端 Document，浏览器片段不再注入模型
 - 结构化 `knowledge-search`和 `ui-acceptance-check`只读 Tool，具备 Zod、计划授权、超时、次数、大小、幂等和审计
@@ -40,7 +40,7 @@
 - ReviewWorkflow 按用户、来源计划和独立 Run 持久化；人工裁决幂等且不可被不同请求覆盖
 - `/api/reviews` baseline/model 双模式和 `/api/reviews/:id/approval` 人工确认 API
 - 三类固定需求的 Review 流程契约评估，7项聚合指标均为1；该结果不代表真实模型语义质量
-- P2-4 盲评工具链：冻结模型/RAG/预算元数据，匿名评分包与私有解盲表以材料包哈希绑定，拒绝泄露、漏评、重复和变体缺失后自动汇总；预注册门槛为12个案例、2名独立评分者，尚未填入真实模型结果
+- P2-4 盲评工具链：冻结模型/RAG/预算元数据，匿名评分包与私有解盲表以材料包哈希绑定，并对漏评、重复runId、变体缺失及有限形式的身份泄露执行校验；已冻结12个案例（网站、后台、学习各4个）并提供SHA-256校验，确定性生成五种变体共60个唯一运行任务，提供案例哈希、协议版本和全部runId映射的独立预检命令，并可为每名评分者生成绑定packetId与60个blindId的独立评分模板；合成数据端到端演练已贯通，但仍未填入真实模型结果和2名独立评分者结果
 - DevelopmentReport、Chapter、Claim、SourceManifest和ReportBudget机器可读契约
 - ReportArtifact不可变版本链、parentReportId和generationKey幂等回放
 - baseline/model Reporter、两次有限结构化重试、预算、敏感输入预拦截和失败用量记录
@@ -70,11 +70,10 @@
 ## 核心验收命令
 
 ```bash
-npm run test:e2e:core
-npm run test:e2e:session
-npm run db:validate
-npm run build
+npm run quality:all
 ```
+
+该统一门禁依次执行固定检索夹具、仓库文档检索、盲评清单与运行计划校验、盲评合成端到端演练、单元测试、核心 E2E、Session 隔离 E2E、TypeScript、ESLint 和 Production Build。2026-07-19最终完整运行退出码为 `0`：72/72 Unit、24/24 Core E2E、1/1 Session E2E，仓库文档检索生成31个Chunk且6/6命中目标章节。
 
 ## 正式目标设计
 
@@ -84,11 +83,12 @@ npm run build
 
 ## 已知限制
 
-- RAG仍为 TF-IDF，不是 embedding/pgvector；当前固定评测只有3个查询，尚不足以代表真实项目质量。
+- RAG仍为TF-IDF，不是embedding/pgvector；当前包含12类固定意图评测，以及基于README和当前状态文档的31个Chunk、6个检索意图冒烟评测（2026-07-19最终复跑6/6命中），但仍不足以代表通用检索或真实模型质量。
 - Review当前只有3类确定性流程契约样例；盲评工具链和协议已具备，但尚未完成单 Agent、双 Agent、双 Agent + RAG、交叉评审和人工裁决的真实模型盲评，因此不能宣称报告语义质量已经提升。
+- 盲评基础设施在真实实验前仍需加固：`prepare` 尚未强制串联冻结清单preflight；评分包尚未携带冻结需求与验收重点；预算上限、冻结时间、最低案例/评分者门槛和身份泄露偏差尚未形成不可绕过的声明门禁。当前只能用于合成工具链演练。
 - 当前正式报告导出只有Markdown；PDF/DOCX尚未决定是否纳入交付范围。
 - 对话、报告和工作流已经分为独立页面；Checkpoint当前使用本地SQLite，尚未验证共享Checkpointer和多实例部署。
-- 受控 Tool API和工作流适配器已完成，但模型供应商原生 function/tool calling和 Planner自动任务调度仍未接入。
+- 受控 Tool API和工作流适配器已完成，但模型供应商原生 function/tool calling 和面向任意专业任务的自动调度仍未接入。
 - 0.1正式交付范围为Web MVP；Electron壳仅为实验入口，尚未完成数据目录、安装后migration、端口、签名和干净机器验收，不得描述为已交付桌面版。
 - 完整全项目 lint已通过：Electron `.cjs`保留正确CommonJS格式并使用定向规则，archive从活动代码检查排除，旧生成脚本无效变量已删除。
 - Provider 超时和客户端取消已覆盖当前单进程 Web MVP；反向代理、Serverless 和多实例部署仍需环境验证。

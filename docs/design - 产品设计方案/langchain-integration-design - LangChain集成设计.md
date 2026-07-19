@@ -25,7 +25,7 @@ Agent 运行时按 Planner 的授权调用这些组件。可全局复用不可�
 |---|---|---|
 | ModelFactory | 用统一接口构造模型 | `src/lib/llm/router.ts` |
 | PromptFactory | 稳定系统约束 + 动态变量 | 当前手工 context 组装 |
-| OutputParser | Zod 校验 Planner、报告、评审 | 当前自由文本输出 |
+| OutputParser | Zod 校验 Planner、报告、评审 | 当前已使用Zod/JSON Schema结构化输出与有限重试；统一LangChain OutputParser组件层仍待实现 |
 | RetrieverFactory | 提供检索接口 | `src/lib/rag/retrieval.ts` |
 | ToolRegistry | schema、权限、超时、审计 | `src/lib/tools/registry.ts` |
 | WorkflowFactory | 组装 LangGraph 节点和边 | `src/lib/engine/orchestrator.ts` |
@@ -61,7 +61,7 @@ Planner、候选方案、评审、报告目录和工具参数均用 Zod 校验�
 
 Tool 用于模型主动请求**受控能力**：UI 评审、组件树建议、可访问性检查、数据模型建议等。每个 Tool 必须有 name、description、Zod input schema、权限、timeout、调用次数和审计记录。
 
-当前 `USE_TOOL:` 是文本解析原型；目标是模型结构化 tool call → 服务端校验 → 执行 → ToolMessage/结构化结果回传 → 继续图节点。
+旧 `USE_TOOL:` 文本协议已删除；当前由Planner授权并执行结构化只读Tool。下一目标是接入Provider原生function/tool calling，并将结果作为ToolMessage或结构化结果回传工作流。
 
 ## Tool 与 RAG 的区别
 

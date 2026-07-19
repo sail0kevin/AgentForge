@@ -34,3 +34,9 @@ docs/screenshots/workflow-demo.png
 
 # Personal local-only materials
 local-only/
+
+# Keep job-search and AI handover notes out of the public docs surface
+docs/resume-evidence-plan.md
+docs/resume-project-entry.md
+docs/ai-handover-*.md
+docs/project-memory - 项目长期记忆.md

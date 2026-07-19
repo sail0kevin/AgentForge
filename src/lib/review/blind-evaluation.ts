@@ -82,13 +82,19 @@ export type BlindScoreSheet = z.infer<typeof BlindScoreSheetSchema>;
 const RevealEntrySchema = BlindEvaluationRunSchema.extend({ blindId: z.string().regex(/^B\d{3,}$/), packetCase: z.number().int().positive() });
 type RevealEntry = z.infer<typeof RevealEntrySchema>;
 
-export type BlindEvaluationPacket = {
-  schemaVersion: 1;
-  studyId: string;
-  protocolVersion: string;
-  packetId: string;
-  entries: Array<{ blindId: string; packetCase: number; title: string; reportMarkdown: string }>;
-};
+export const BlindEvaluationPacketSchema = z.object({
+  schemaVersion: z.literal(1),
+  studyId: z.string().min(1),
+  protocolVersion: z.string().min(1),
+  packetId: Sha256Schema,
+  entries: z.array(z.object({
+    blindId: z.string().regex(/^B\d{3,}$/),
+    packetCase: z.number().int().positive(),
+    title: z.string().min(1),
+    reportMarkdown: z.string().min(80),
+  })).min(1),
+});
+export type BlindEvaluationPacket = z.infer<typeof BlindEvaluationPacketSchema>;
 
 export const BlindEvaluationRevealSchema = z.object({
   schemaVersion: z.literal(1),

@@ -15,22 +15,22 @@
 
 ```bash
 git status --short
+git diff --stat
+git diff
 git ls-files .env
 node --env-file=.env scripts/verify-secret-hygiene.mjs --production
-npx prisma validate --schema prisma/schema.prisma
-npx prisma validate --schema prisma/schema.postgres.prisma
-npm run test:unit
-npm run test:e2e:core
-npm run test:e2e:session
-npm run lint
-npm run build
+npm run quality:all
+git diff --check
 ```
 
 ## GitHub 发布前
 
 - 确认 README、Demo、Architecture、Project Report 和 `docs/design/` 链接可打开；
-- 确认公开文案把“当前双 Agent MVP”和“后续 LangGraph/Tool Calling 设计”明确区分；
-- 确认0.1只声明Web MVP；Electron仍为实验壳，不提供未经干净机器验收的桌面安装包声明；
+- 确认公开文案区分“当前产品级Web MVP”“保留的自由双Agent入口”和“尚未完成的真实模型质量实验”；
+- 确认RAG只描述为TF-IDF；不得写成Embedding、RRF或向量数据库；
+- 确认盲评dry-run标明 `synthetic: true`、`modelCalled: false`，不得包装成真实模型质量结论；
+- 确认Checkpoint只描述为本地SQLite能力，Provider原生Tool Calling、共享Checkpointer、PDF/DOCX和Electron正式交付仍标为未完成；
+- 确认README中的仓库检索目标标题未被删除，并重新执行 `npm run quality:rag:repository`；
 - 确认两个默认 Agent 与演示流程可运行；
 - 确认 Agent 编辑页只展示 Key 掩码；
 - 如加入截图，确认截图不含密钥、个人资料、本机绝对路径、调试信息，并已在 README 正确引用；
