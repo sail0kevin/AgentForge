@@ -69,13 +69,13 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 
 当前可以交付的是一个可本地运行、可演示、可测试的 Web MVP：
 
-1. 用户输入开发需求。
+1. 用户输入产品或网站需求。
 2. 系统分析需求完整性，并在必要时暂停追问。
 3. Planner 生成计划、任务依赖和报告目录。
 4. Delivery / Quality 生成不同视角的候选方案。
 5. Reviewer 和 Evaluator 进行带证据的评审与决策。
 6. 用户在高影响冲突处进行全量或任务级人工确认。
-7. Reporter 生成带版本、来源、风险、未决项、成本和 Markdown 导出的开发报告。
+7. Reporter 生成带版本、来源、风险、未决项、成本和 Markdown 导出的产品/UI实施报告。
 8. 工作流可以从 Checkpoint 恢复，报告和运行数据可审计。
 
 ## 面试中可以直接讲的真实结果

@@ -134,7 +134,7 @@ npm run quality:all
 ## 三分钟本地演示
 
 1. 启动项目并进入工作台；不配置 API Key 也可以选择确定性 Baseline 模式。
-2. 新建开发报告需求，查看 Requirement Analysis、Execution Plan 和动态目录。
+2. 新建产品/UI实施需求，查看 Requirement Analysis、Execution Plan 和动态目录。
 3. 对比体验优先、视觉优先和工程优先三套产品/UI方案及交叉评审结果。
 4. 在高影响冲突处提交人工裁决，观察工作流从 Checkpoint 恢复。
 5. 打开报告中心，检查三套产品/UI实施报告、GitHub/UI参考证据、下游 Prompt，导出 Markdown；网站真实运行后可回写通过或需修改。

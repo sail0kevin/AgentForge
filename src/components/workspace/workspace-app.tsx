@@ -200,6 +200,7 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
         if (!response.ok || !sessionActiveRef.current) return;
         let taskSpaces = await response.json() as WorkspaceSnapshot[];
         const preferredAgentNames = ["需求澄清师", "产品/UI报告架构师"];
+        // 仅用于兼容旧工作空间数据，当前默认角色使用产品/UI报告命名。
         const legacyAgentNames = ["需求分析师", "开发报告负责人"];
         const preferredAgents = preferredAgentNames.map((name) => agents.find((agent) => agent.name === name)).filter(Boolean);
         const legacyAgents = legacyAgentNames.map((name) => agents.find((agent) => agent.name === name)).filter(Boolean);
@@ -217,6 +218,7 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
         if (!sessionActiveRef.current) return;
         setWorkspaces(taskSpaces);
         const preferred = taskSpaces.find((workspace) => workspace.name === defaultWorkspaceName)
+          // 仅用于兼容升级前的工作空间名称。
           ?? taskSpaces.find((workspace) => workspace.name === "开发报告生成")
           ?? taskSpaces[0]
           ?? null;

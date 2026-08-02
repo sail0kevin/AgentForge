@@ -41,7 +41,7 @@ Browser / API client
 
 Route负责认证、校验、依赖装配和 SSE；顺序、预算、失败、终态、消息与费用已经抽取到统一 RunService。
 
-### 2.1 产品级开发报告工作流
+### 2.1 产品/UI实施报告工作流
 
 ```text
 /workflows
