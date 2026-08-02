@@ -81,6 +81,12 @@ function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }
     blocked: "已阻塞",
     failed: "失败",
   }[status] ?? status);
+  const reportGroupStatus = (status: string) => ({
+    generated: "已生成",
+    in_review: "验收中",
+    accepted: "已验收",
+    needs_revision: "需要修改",
+  }[status] ?? status);
 
   return (
     <main className="auth-page min-h-screen px-5 pb-12 pt-24 text-slate-900 sm:px-8">
@@ -129,7 +135,7 @@ function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }
           </div>
           <div>
             <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">最近产品/UI报告</h2><Link href="/reports" className="text-sm font-semibold text-indigo-700">查看全部</Link></div>
-            {loading ? <p className="mt-4 text-sm text-slate-500">加载中…</p> : reportGroups.length === 0 ? <p className="mt-4 text-sm text-slate-500">还没有产品/UI报告。</p> : <div className="mt-3 space-y-2">{reportGroups.slice(0, 5).map((group) => <Link key={group.id} href={`/reports?groupId=${encodeURIComponent(group.id)}`} className="block rounded-lg border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/40"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-500">{group.reports.length} 套方案</span><span className="text-xs font-semibold text-emerald-700">{group.status}</span></div><p className="mt-2 line-clamp-2 text-sm font-medium">{group.requirement}</p><p className="mt-1 text-[11px] text-slate-400">{new Date(group.createdAt).toLocaleString("zh-CN")}</p></Link>)}</div>}
+            {loading ? <p className="mt-4 text-sm text-slate-500">加载中…</p> : reportGroups.length === 0 ? <p className="mt-4 text-sm text-slate-500">还没有产品/UI报告。</p> : <div className="mt-3 space-y-2">{reportGroups.slice(0, 5).map((group) => <Link key={group.id} href={`/reports?groupId=${encodeURIComponent(group.id)}`} className="block rounded-lg border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/40"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-500">{group.reports.length} 套完整报告</span><span className="text-xs font-semibold text-emerald-700">{reportGroupStatus(group.status)}</span></div><p className="mt-2 line-clamp-2 text-sm font-medium">{group.requirement}</p><p className="mt-1 text-[11px] text-slate-400">{new Date(group.createdAt).toLocaleString("zh-CN")}</p></Link>)}</div>}
           </div>
         </section>
       </div>
