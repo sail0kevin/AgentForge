@@ -10,7 +10,7 @@ const workspaceInclude = {
   messages: { include: { tokenUsage: true }, orderBy: { createdAt: "asc" as const } },
 };
 
-/** 清空指定对话空间的历史，不删除空间本身或其中的智能体。 */
+/** 清空指定需求任务的消息历史，不删除任务本身或其中的智能体。 */
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }, { status: 401 });

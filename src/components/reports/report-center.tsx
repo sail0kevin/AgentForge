@@ -188,7 +188,21 @@ export function ReportCenter() {
         </header>
 
         {error && <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><span>{error}</span></div>}
-        <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
+        <section className="mb-5 grid gap-3 md:grid-cols-3" aria-label="交付边界">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900"><FileText className="h-4 w-4" />已实现</div>
+              <p className="mt-2 text-xs leading-5 text-emerald-800">需求澄清、评审和三套产品/UI实施规格已生成，可复制 Prompt 或导出 Markdown。</p>
+            </div>
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-indigo-900"><GitBranch className="h-4 w-4" />目标设计</div>
+              <p className="mt-2 text-xs leading-5 text-indigo-800">将当前报告交给下游 AI 编程 Agent，由下游 Agent 生成真实网站或 UI。</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-amber-900"><CheckCircle2 className="h-4 w-4" />尚未验证</div>
+              <p className="mt-2 text-xs leading-5 text-amber-800">真实网站的运行效果、响应式表现和视觉验收，需要生成后回写实际结果。</p>
+            </div>
+          </section>
+          <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
           <aside className="space-y-5">
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><GitBranch className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成报告组</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">必须先完成 Planner、方案评审和必要的人工作决策。每次生成会保留三种独立取舍。</p><label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="review-select">选择已完成评审</label><select id="review-select" value={selectedReviewId} onChange={(event) => setSelectedReviewId(event.target.value)} className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"><option value="">选择工作流</option>{reportableReviews.map((review) => <option key={review.id} value={review.id}>{review.status} · {review.approval.decision ?? "无需裁决"}</option>)}</select><button type="button" disabled={generating || !selectedReviewId} onClick={() => void generate()} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "生成中…" : "生成三套实施报告"}</button></section>
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><h2 className="font-bold">已保存报告组</h2><span className="text-xs text-slate-500">{groups.length} 组</span></div>{loading ? <div className="flex items-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />加载中</div> : groups.length === 0 ? <div className="py-8 text-center text-sm text-slate-500"><FileText className="mx-auto mb-2 h-8 w-8 text-slate-300" />还没有产品/UI报告</div> : <div className="mt-3 space-y-2">{groups.map((group) => <button key={group.id} type="button" onClick={() => setSelectedGroupId(group.id)} className={`w-full rounded-lg border p-3 text-left transition ${group.id === selectedGroupId ? "border-indigo-300 bg-indigo-50" : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"}`}><div className="flex items-start justify-between gap-2"><span className="line-clamp-2 text-sm font-semibold text-slate-800">{group.reports[0]?.productUISpec?.productName ?? "未命名需求"}</span><span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${groupStatusStyles[group.status] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}>{groupStatusLabels[group.status] ?? group.status}</span></div><p className="mt-2 text-[11px] text-slate-500">{new Date(group.createdAt).toLocaleString("zh-CN")}</p></button>)}</div>}</section>

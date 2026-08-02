@@ -77,10 +77,10 @@ export function TopBar({ t, activePage, notice, language, setLanguage, theme, se
   return (
     <header className="top-bar mb-6 flex items-start justify-between gap-5">
       <div className="min-w-0">
-        <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#5965F2]">
-          <Activity className="h-3.5 w-3.5" />
-          AgentForge / {isZh ? "智能协作空间" : "Intelligent workspace"}
-        </div>
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#5965F2]">
+           <Activity className="h-3.5 w-3.5" />
+          AgentForge / {isZh ? "产品/UI报告工作台" : "Product/UI report workspace"}
+          </div>
         <h1 className="page-title truncate text-[26px] font-bold tracking-[-0.035em]">{t.nav[activePage]}</h1>
         <p className="page-description mt-1.5 text-sm leading-6 text-slate-500">{t.topDescription}</p>
       </div>

@@ -32,7 +32,7 @@ export function ToolLibrary({ t, tools, setTools, documents, uploading, onUpload
       </Panel>
       <Panel title={t.localRagKnowledge} desc={t.localRagDesc}>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p className="max-w-xl text-sm text-slate-700">{t.language === "语言" ? "文档属于当前账号的共享知识库。只有在“创建智能体”中绑定了 RAG Retrieval 的智能体，才会在所属对话空间运行前检索这些资料。" : "Documents belong to the current account's shared knowledge library. Only agents bound to RAG Retrieval retrieve them before runs in their task spaces."}</p>
+          <p className="max-w-xl text-sm text-slate-700">{t.language === "语言" ? "文档属于当前账号的共享知识库。只有在“创建智能体”中绑定了 RAG Retrieval 的智能体，才会在产品/UI报告生成前检索这些资料。" : "Documents belong to the current account's shared knowledge library. Only agents bound to RAG Retrieval retrieve them before product/UI report runs."}</p>
           <label className="primary-button h-9 cursor-pointer px-3">
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{t.addKnowledge}
             <input type="file" className="sr-only" disabled={uploading} accept=".txt,.md,.markdown,.json,.csv,.log,.yaml,.yml,.ts,.js,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.h,.css,.html,.xml,.sh,.sql" onChange={(event) => { const file = event.target.files?.[0]; if (file) void onUpload(file); event.currentTarget.value = ""; }} />

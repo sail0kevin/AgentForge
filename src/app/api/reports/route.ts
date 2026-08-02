@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
   const workspaceId = `report-run-${user.id}`;
   await prisma.workspace.upsert({
     where: { id: workspaceId }, update: {},
-    create: { id: workspaceId, userId: user.id, name: "Report Generator", description: "Versioned dynamic development report generation", mode: "sequential", budgetLimit: 9_999 },
+    create: { id: workspaceId, userId: user.id, name: "Product UI Report Workspace", description: "Versioned product and UI implementation report generation", mode: "sequential", budgetLimit: 9_999 },
   });
   let handle: Awaited<ReturnType<typeof createPrismaRunHandle>> | null = null;
   let completed = false;

@@ -1,15 +1,15 @@
 ﻿// UI strings - auto-generated, do not edit by hand
 export const zh={
   "nav": {
-    "chat": "对话空间",
+    "chat": "产品/UI报告工作台",
     "creator": "创建智能体",
     "tools": "能力装配",
     "dashboard": "运行看板",
     "settings": "基础设置"
   },
   "productSubtitle": "本地多智能体工作平台",
-  "siderHint": "当前版本优先保证本地可用。先创建智能体，再到对话空间发送消息。",
-  "topDescription": "创建智能体，发送消息，已启用的 Agent 将在同一对话里按顺序回复。",
+  "siderHint": "先创建智能体，再输入产品需求，生成可交给下游 AI 编程 Agent 的产品/UI实施报告。",
+  "topDescription": "输入需求并补充关键信息，已启用的 Agent 会协作生成多套产品/UI实施报告。",
   "language": "语言",
   "zh": "中文",
   "en": "English",
@@ -54,7 +54,7 @@ export const zh={
   "capabilityCount": "个能力",
   "createAgent": "创建智能体",
   "editAgentTitle": "编辑智能体：{name}",
-  "createAgentDesc": "填写模型连接信息后，智能体会加入对话空间。",
+  "createAgentDesc": "填写模型连接信息后，智能体会加入产品/UI报告工作台。",
   "editingHint": "当前正在修改已有智能体，保存后会覆盖原有配置。",
   "cancelEdit": "取消编辑",
   "agentName": "智能体名称",
@@ -74,7 +74,7 @@ export const zh={
   "chooseCapabilities": "选择能力",
   "cancel": "取消",
   "saveChanges": "保存修改",
-  "addToChat": "添加到对话空间",
+  "addToChat": "加入报告工作台",
   "localRagKnowledge": "本地 RAG 知识库",
   "localRagDesc": "添加本地知识片段后，绑定 RAG Retrieval 能力的 Agent 会在每次对话前后用这些内容做检索补强。",
   "knowledgeTitlePlaceholder": "知识标题，例如：产品定位",
@@ -123,15 +123,15 @@ export const zh={
 } as const;
 export const en={
   "nav": {
-    "chat": "Chat",
+    "chat": "Product/UI Reports",
     "creator": "Agents",
     "tools": "Capabilities",
     "dashboard": "Dashboard",
     "settings": "Settings"
   },
   "productSubtitle": "Local Multi-Agent Workspace",
-  "siderHint": "This version prioritizes local reliability. Create agents first, then send messages in the workspace.",
-  "topDescription": "Create agents, send messages, enabled agents reply sequentially.",
+  "siderHint": "Create agents first, then enter a product requirement to generate implementation reports for downstream coding agents.",
+  "topDescription": "Enter a requirement and clarify key constraints so enabled agents can produce multiple product/UI implementation reports.",
   "language": "Language",
   "zh": "中文",
   "en": "English",
@@ -176,7 +176,7 @@ export const en={
   "capabilityCount": "capabilities",
   "createAgent": "Create agent",
   "editAgentTitle": "Edit agent: {name}",
-  "createAgentDesc": "After saving model connection details, the agent joins the chat workspace.",
+  "createAgentDesc": "After saving model connection details, the agent joins the product/UI report workspace.",
   "editingHint": "You are editing an existing agent. Saving will overwrite its configuration.",
   "cancelEdit": "Cancel edit",
   "agentName": "Agent name",
@@ -196,7 +196,7 @@ export const en={
   "chooseCapabilities": "Choose capabilities",
   "cancel": "Cancel",
   "saveChanges": "Save changes",
-  "addToChat": "Add to chat",
+  "addToChat": "Join report workspace",
   "capabilityLibraryTitle": "Capability library",
   "capabilityLibraryDesc": "RAG, tool calling, memory, and semantic cache should live in the platform layer, then be bound per agent.",
   "localRagKnowledge": "Local RAG knowledge",

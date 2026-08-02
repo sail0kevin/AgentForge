@@ -54,7 +54,7 @@ export function analyzeRequirementBaseline(requirement: string): RequirementAnal
     inScope: profile.scope,
     outOfScope: ["未经确认的自动部署与生产环境运维", "需求之外的原生客户端开发"],
     constraints,
-    assumptions: ["当前阶段输出开发方案与详细报告，不直接替用户执行生产部署"],
+    assumptions: ["当前阶段输出产品/UI实施报告和下游 Prompt，不直接替用户执行生产部署"],
     missingInformation,
     risks: [{ id: `${projectType}-scope-risk`, description: profile.risk, severity: "medium", mitigation: "在计划执行前确认关键问题，并在报告中记录依据、假设与验收口径。" }],
     complexity: normalized.length > 300 ? "high" : normalized.length > 80 ? "medium" : "low",
@@ -132,8 +132,8 @@ export function createBaselinePlan(analysis: RequirementAnalysis, budget: Budget
   }));
   return {
     schemaVersion: 1,
-    title: `${analysis.summary.slice(0, 80)}：开发方案规划`,
-    rationale: `根据 ${analysis.projectType} 项目的用户、范围和主要风险，按依赖顺序组织专业分析，并让每项任务直接提供报告章节证据。`,
+    title: `${analysis.summary.slice(0, 80)}：产品/UI实施规划`,
+    rationale: `根据 ${analysis.projectType} 项目的用户、范围和主要风险，按依赖顺序组织产品、UI 和工程分析，并让每项任务直接提供报告章节证据。`,
     tasks,
     reportSections: selected.map((section, index) => ({ id: section.id, title: section.title, purpose: section.purpose, order: index + 1, required: true, sourceTaskIds: [`task-${section.id}`] })),
     evaluationDimensions: ["需求覆盖与可追溯性", "技术可行性与取舍", "风险控制与可测试性", "报告清晰度与可执行性"],

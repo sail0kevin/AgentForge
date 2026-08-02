@@ -141,12 +141,12 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...input, mode: "sequential", budgetLimit: 10 }),
     });
-    if (!response.ok) throw new Error(await getApiErrorMessage(response, "创建对话空间失败。"));
+    if (!response.ok) throw new Error(await getApiErrorMessage(response, "创建需求任务失败。"));
     const workspace = await response.json() as WorkspaceSnapshot;
     setWorkspaces((items) => [...items, workspace]);
     setActiveWorkspaceId(workspace.id);
     setWorkspace(workspace);
-    setNotice(t.language === "语言" ? `已创建对话空间：${workspace.name}` : `Task space created: ${workspace.name}`);
+    setNotice(t.language === "语言" ? `已创建需求任务：${workspace.name}` : `Requirement task created: ${workspace.name}`);
   }
 
   async function updateTaskWorkspace(id: string, input: { name: string; description: string; agentIds: string[] }) {
@@ -156,12 +156,12 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...input, mode: current?.mode ?? "sequential", budgetLimit: current?.budgetLimit ?? 10 }),
     });
-    if (!response.ok) throw new Error(await getApiErrorMessage(response, "更新对话空间失败。"));
+    if (!response.ok) throw new Error(await getApiErrorMessage(response, "更新需求任务失败。"));
     const workspace = await response.json() as WorkspaceSnapshot;
     setWorkspaces((items) => items.map((item) => item.id === workspace.id ? workspace : item));
     setActiveWorkspaceId(workspace.id);
     setWorkspace(workspace);
-    setNotice(t.language === "语言" ? `已更新对话空间：${workspace.name}` : `Task space updated: ${workspace.name}`);
+    setNotice(t.language === "语言" ? `已更新需求任务：${workspace.name}` : `Requirement task updated: ${workspace.name}`);
   }
 
   /** 删除入口统一处理确认、进行中状态、失败反馈和编辑状态复位。 */

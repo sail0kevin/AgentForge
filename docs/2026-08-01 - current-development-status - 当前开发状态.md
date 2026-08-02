@@ -61,7 +61,7 @@
 - DevelopmentWorkflow、WorkflowNode、独立SQLite Checkpoint、节点幂等键、乐观版本和30分钟故障恢复租约
 - Workflow列表、详情、resume、recover均按当前用户隔离；浏览器不接收完整Checkpoint
 - Workspace创建会校验当前用户Agent归属、拒绝重复ID并按请求顺序原子创建WorkspaceAgent关联
-- 聊天页已改用持久任务对话空间：可按任务命名、选择成员、切换独立历史，并默认建立“开发报告生成（需求分析师 + 开发报告负责人）”；清空历史不会删除空间或成员
+- 工作台已改用持久需求任务：可按任务命名、选择成员、切换独立历史，并默认建立“产品/UI报告生成（需求分析师 + 产品/UI报告负责人）”；清空历史不会删除任务或成员
 - Workspace前端已按控制器、文案、类型、导航、对话、Agent、知识/Tool、看板和设置拆分；主控制器约1550行降至约458行
 - 持久工作区已具备 Run、activeRunId所有权、LangGraph、RAG能力判断和统一 SSE取消
 - 能力库的知识文档按账号共享；只有绑定 `RAG Retrieval` 的智能体会在所属空间的运行前检索文档。普通对话不会自动执行 Tool Calling，受控 Tool只在授权的计划/工作流调用中执行并审计

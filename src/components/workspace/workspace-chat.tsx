@@ -66,7 +66,7 @@ export function ChatWorkspace(props: {
       else await props.onCreateWorkspace(input);
       setEditorMode(null);
     } catch (error) {
-      setWorkspaceError(error instanceof Error ? error.message : "Failed to save task space.");
+      setWorkspaceError(error instanceof Error ? error.message : "Failed to save requirement task.");
     } finally {
       setSavingWorkspace(false);
     }
@@ -93,6 +93,11 @@ export function ChatWorkspace(props: {
           <div>
             <div className="text-sm font-semibold text-slate-950">{props.activeWorkspace?.name ?? props.t.currentChat}</div>
             <div className="text-xs text-slate-500">{props.activeWorkspace?.description || props.t.chatTargetHint}</div>
+            <div className="mt-1 text-[11px] leading-5 text-slate-500">
+              {props.t.language === "语言" ? "主交付物：三套产品/UI实施报告" : "Primary output: three product/UI reports"}
+              <span className="mx-1 text-slate-300">·</span>
+              {props.t.language === "语言" ? "下游 AI 生成网站 · 报告中心记录验收" : "Downstream AI builds the site · acceptance returns to Reports"}
+            </div>
           </div>
           <button type="button" onClick={props.onClearChat} disabled={props.isRunning || !props.activeWorkspace} className="secondary-button h-9 px-3 disabled:cursor-not-allowed disabled:opacity-50">{props.t.clearChat}</button>
         </div>

@@ -28,7 +28,7 @@ AgentForge 是一个 **local-first Web MVP**，目标是把零散产品需求转
 | 工作流闭环 | 版本化报告 | 新版统一工作台 |
 |---|---|---|
 | ![完成的工作流](docs/screenshots/workflow-completed.png) | ![报告中心](docs/screenshots/report-demo.png) | ![新版工作台](docs/screenshots/workspace-redesign.png) |
-| 从规划到人工裁决与报告生成 | 动态目录、来源、风险与版本记录 | 持久任务对话空间、Agent 成员和统一导航 |
+| 从规划到人工裁决与报告生成 | 动态目录、来源、风险与版本记录 | 持久需求任务、Agent 成员和统一导航 |
 
 ## 核心工作流
 
