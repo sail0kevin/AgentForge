@@ -31,7 +31,6 @@
     "test:e2e": "node scripts/run-isolated-e2e.mjs",
     "test:e2e:core": "node scripts/run-isolated-e2e.mjs e2e/core.spec.ts",
     "test:e2e:session": "node scripts/run-isolated-e2e.mjs --auth-mode=session e2e/session-isolation.spec.ts",
-<<<<<<< HEAD
     "test:unit": "tsx --test src/lib/*.test.ts src/lib/client/*.test.ts src/lib/engine/*.test.ts src/lib/engine/langgraph/*.test.ts src/lib/llm/*.test.ts src/lib/observability/*.test.ts src/lib/pilot/*.test.ts src/lib/planner/*.test.ts src/lib/rag/*.test.ts src/lib/report/*.test.ts src/lib/review/*.test.ts src/lib/scenarios/*.test.ts src/lib/tools/*.test.ts src/lib/workflow/*.test.ts",
     "test:coverage": "node --experimental-test-coverage --test-coverage-include=src/lib/** --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 --import tsx --test src/lib/*.test.ts src/lib/client/*.test.ts src/lib/engine/*.test.ts src/lib/engine/langgraph/*.test.ts src/lib/llm/*.test.ts src/lib/observability/*.test.ts src/lib/pilot/*.test.ts src/lib/planner/*.test.ts src/lib/rag/*.test.ts src/lib/report/*.test.ts src/lib/review/*.test.ts src/lib/scenarios/*.test.ts src/lib/tools/*.test.ts src/lib/workflow/*.test.ts",
     "test:integration:postgres-checkpoint": "tsx --test src/lib/workflow/postgres-checkpointer.integration.ts",
@@ -55,12 +54,6 @@
     "rag:embeddings:backfill": "tsx scripts/rag-embedding-backfill.ts",
     "quality:all": "npm run security:verify-secrets && npm run quality:rag:baseline && npm run quality:rag:golden && npm run quality:rag:repository && npm run quality:blind:manifest && npm run quality:blind:plan && npm run quality:blind:dry-run && npm run test:unit && npm run test:coverage && npm run test:e2e:core && npm run test:e2e:session && npm run typecheck && npm run lint && node scripts/verify-document-links.mjs && npm run build",
     "quality:pilot": "npm run pilot:readiness:production && npm run quality:all",
-=======
-    "test:unit": "tsx --test src/lib/*.test.ts src/lib/client/*.test.ts src/lib/engine/*.test.ts src/lib/engine/langgraph/*.test.ts src/lib/llm/*.test.ts src/lib/planner/*.test.ts src/lib/rag/*.test.ts src/lib/report/*.test.ts src/lib/review/*.test.ts src/lib/tools/*.test.ts src/lib/workflow/*.test.ts",
-    "quality:rag:baseline": "tsx scripts/rag-evaluation.ts",
-    "quality:rag:repository": "tsx scripts/rag-repository-evaluation.ts",
-    "quality:all": "npm run quality:rag:baseline && npm run quality:rag:repository && npm run quality:blind:manifest && npm run quality:blind:plan && npm run quality:blind:dry-run && npm run test:unit && npm run test:e2e:core && npm run test:e2e:session && npm run typecheck && npm run lint && npm run build",
->>>>>>> origin/agent/agentforge-publish-2026-07-20
     "quality:blind:prepare": "tsx scripts/blind-evaluation.ts prepare",
     "quality:blind:analyze": "tsx scripts/blind-evaluation.ts analyze",
     "quality:blind:manifest": "tsx scripts/blind-case-manifest.ts",
@@ -68,7 +61,6 @@
     "quality:blind:preflight": "tsx scripts/blind-study-preflight.ts",
     "quality:blind:score-template": "tsx scripts/blind-score-template.ts",
     "quality:blind:dry-run": "tsx scripts/blind-evaluation-dry-run.ts",
-<<<<<<< HEAD
     "quality:agent-comparison": "tsx --env-file=.env scripts/agent-comparison.ts",
     "quality:ablation:plan": "tsx scripts/agent-ablation-plan.ts",
     "quality:ablation:authorization-preflight": "tsx scripts/agent-ablation-authorization-preflight.ts",
@@ -84,8 +76,6 @@
     "quality:agent-metrics:human-intervention": "tsx scripts/agent-metrics/human-intervention-rate.ts",
     "quality:agent-metrics:latency-and-cost": "tsx scripts/agent-metrics/latency-and-cost.ts",
     "quality:fault-recovery": "tsx scripts/agent-metrics/fault-recovery-rate.ts",
-=======
->>>>>>> origin/agent/agentforge-publish-2026-07-20
     "security:verify-secrets": "node scripts/verify-secret-hygiene.mjs",
     "security:audit:production": "npm audit --omit=dev --registry=https://registry.npmjs.org",
     "pilot:readiness": "tsx scripts/pilot-readiness.ts",

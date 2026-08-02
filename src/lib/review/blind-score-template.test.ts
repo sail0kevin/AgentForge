@@ -11,11 +11,8 @@ const packet = {
     blindId: `B${String(index + 1).padStart(3, "0")}`,
     packetCase: index + 1,
     title: `Anonymous report B${String(index + 1).padStart(3, "0")}`,
-<<<<<<< HEAD
     requirement: "Build a traceable workflow with independent review, measurable acceptance criteria, recovery handling, auditability, and clear scope for the anonymous evaluation packet.",
     acceptanceFocus: ["workflow", "security", "testing"],
-=======
->>>>>>> origin/agent/agentforge-publish-2026-07-20
     reportMarkdown: "Anonymous report content with requirements, architecture, risks, evidence, tests, and delivery steps.".repeat(2),
   })),
 };

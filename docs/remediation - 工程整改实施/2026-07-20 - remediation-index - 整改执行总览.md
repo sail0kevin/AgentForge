@@ -5,35 +5,21 @@
 开始时间：2026-07-15（Asia/Shanghai）
 最后更新：2026-07-20（Asia/Shanghai）
 总体状态：Phase 1～7工程闭环已完成；Phase 0密钥轮换待外部确认，Phase 5真实模型盲评待执行
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md
 问题来源：[2026-07-15 代码与文档评审](../reviews - 历史评审复查/2026-07-15 - code-and-documentation-review - 代码与文档评审.md)
 
 路线依据：[AgentForge正式设计](../design - 产品设计方案/旧 - design-index - 设计文档总入口.md)与[设计对齐复查](../reviews - 历史评审复查/2026-07-15 - design-alignment-review - 设计对齐复查.md)。Phase 0～2解决可靠执行底座；Phase 3～6实现产品核心；Phase 7负责工程和交付收口。
-=======
-问题来源：[2026-07-15 代码与文档评审](../reviews - 历史评审复查/2026-07-15-code-and-documentation-review - 代码与文档评审.md)
-
-路线依据：[AgentForge正式设计](../design - 产品设计方案/README - 设计文档总入口.md)与[设计对齐复查](../reviews - 历史评审复查/2026-07-15-design-alignment-review - 设计对齐复查.md)。Phase 0～2解决可靠执行底座；Phase 3～6实现产品核心；Phase 7负责工程和交付收口。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/README - 整改执行总览.md
 
 ## 1. 使用方式
 
 本目录用于记录评审问题的实际整改过程。
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md
 报告详细度和表达方式统一遵循[答辩级工程报告写作规范](./2026-07-15 - reporting-standard - 答辩级报告写作规范.md)：证据达到论文级完整度，但每章必须先用白话解释，让非技术读者也能理解。
-=======
-报告详细度和表达方式统一遵循[答辩级工程报告写作规范](reporting-standard - 答辩级报告写作规范.md)：证据达到论文级完整度，但每章必须先用白话解释，让非技术读者也能理解。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/README - 整改执行总览.md
 
 - 本文件只维护总体进度、阶段状态、验证摘要和下一步。
 - 详细修改步骤写入对应阶段报告，不在总览重复粘贴。
 - 每完成一个可验证修改单元，同时更新代码、测试和阶段报告。
 - 只有验收通过后，问题状态才能标记为“已完成”。
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md
 - 已确认的最终能力同步到 `docs/2026-08-01 - current-development-status - 当前开发状态.md`，运行链路与工程边界同步到 `docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md`。
-=======
-- 已确认的最终能力同步到 `docs/current-status - 当前开发状态.md`，运行链路与工程边界同步到 `docs/architecture - 当前运行架构.md`。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/README - 整改执行总览.md
 
 状态统一使用：`待处理`、`处理中`、`部分完成`、`已完成`、`阻塞`、`暂缓`。
 
@@ -41,7 +27,6 @@
 
 | 阶段 | 内容 | 当前状态 | 已完成/总数 | 阶段报告 |
 |---|---|---|---:|---|
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md
 | Phase 0 | 安全与数据库初始化 | 部分完成 | 1/2 | [查看](./2026-07-16 - phase-0-security-and-database - 安全与数据库初始化.md) |
 | Phase 1 | 运行正确性、隔离、超时与取消 | 已完成 | 5/5 | [查看](./2026-07-15 - phase-1-runtime-correctness - 运行正确性与隔离.md) |
 | Phase 2 | 统一 RunService 和事件语义 | 已完成 | 1/1 | [查看](./2026-07-15 - phase-2-run-service - 统一运行服务.md) |
@@ -50,16 +35,6 @@
 | Phase 5 | 候选方案、交叉评审与评价 | 部分完成 | 2/3 | [查看](./2026-07-15 - phase-5-cross-review-and-evaluation - 交叉评审与评价.md) |
 | Phase 6 | Artifact、动态报告与产品页面 | 已完成 | 3/3 | [主报告](./2026-07-15 - phase-6-dynamic-report-and-ui - 动态报告与产品界面.md) / [Checkpoint专题](./2026-07-15 - phase-6-workflow-checkpoint-completion - 工作流与Checkpoint恢复.md) |
 | Phase 7 | 前端质量、评测与交付 | 已完成 | 3/3 | [查看](./2026-07-15 - phase-7-quality-and-release - 质量与交付边界.md) |
-=======
-| Phase 0 | 安全与数据库初始化 | 部分完成 | 1/2 | [查看](phase-0-security-and-database - 安全与数据库初始化.md) |
-| Phase 1 | 运行正确性、隔离、超时与取消 | 已完成 | 5/5 | [查看](phase-1-runtime-correctness - 运行正确性与隔离.md) |
-| Phase 2 | 统一 RunService 和事件语义 | 已完成 | 1/1 | [查看](phase-2-run-service - 统一运行服务.md) |
-| Phase 3 | 需求分析、Planner 与结构化输出 | 已完成 | 3/3 | [查看](phase-3-planner-and-structured-output - Planner与结构化输出.md) |
-| Phase 4 | 本地知识、RAG 与受控 Tools | 已完成 | 4/4 | [查看](phase-4-knowledge-and-tools - 知识库与受控工具.md) |
-| Phase 5 | 候选方案、交叉评审与评价 | 部分完成 | 2/3 | [查看](phase-5-cross-review-and-evaluation - 交叉评审与评价.md) |
-| Phase 6 | Artifact、动态报告与产品页面 | 已完成 | 3/3 | [主报告](phase-6-dynamic-report-and-ui - 动态报告与产品界面.md) / [Checkpoint专题](phase-6-workflow-checkpoint-completion - 工作流与Checkpoint恢复.md) |
-| Phase 7 | 前端质量、评测与交付 | 已完成 | 3/3 | [查看](phase-7-quality-and-release - 质量与交付边界.md) |
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/README - 整改执行总览.md
 
 ## 3. 问题进度
 
@@ -146,12 +121,6 @@
 
 ## 8. 最终交付
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md
 [工程整改与开发总报告](./2026-07-19 - final-report - 工程整改与开发总报告.md)已经完成当前阶段的完整汇总，可直接用于答辩和开发交接。后续每完成一个问题或阶段，持续更新其中的当前结果、证据、风险和结论；未实现项必须写明依赖和验收条件，不保留“待填写”占位。
 
 旧版Phase 3～5路线已保存在[历史归档](../archive - 历史归档资料/2026-07-15 - archive-index - 历史归档说明.md)，不再作为当前执行依据。
-=======
-[工程整改与开发总报告](final-report - 工程整改与开发总报告.md)已经完成当前阶段的完整汇总，可直接用于答辩和开发交接。后续每完成一个问题或阶段，持续更新其中的当前结果、证据、风险和结论；未实现项必须写明依赖和验收条件，不保留“待填写”占位。
-
-旧版Phase 3～5路线已保存在[历史归档](../archive - 历史归档资料/README - 历史归档说明.md)，不再作为当前执行依据。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/README - 整改执行总览.md

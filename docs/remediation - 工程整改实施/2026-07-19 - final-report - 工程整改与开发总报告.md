@@ -6,13 +6,8 @@
 报告版本：2026-07-19.1
 统计时间：2026-07-19（Asia/Shanghai）
 项目目录：`Multi-Agent-Workspace`
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 写作标准：[答辩级工程报告写作规范](./2026-07-15 - reporting-standard - 答辩级报告写作规范.md)
 事实来源：[当前开发状态](../2026-08-01 - current-development-status - 当前开发状态.md)、[整改总览](./2026-07-20 - remediation-index - 整改执行总览.md)、[正式设计](../design - 产品设计方案/旧 - design-index - 设计文档总入口.md)及自动化验证结果
-=======
-写作标准：[答辩级工程报告写作规范](reporting-standard - 答辩级报告写作规范.md)
-事实来源：[当前开发状态](../current-status - 当前开发状态.md)、[整改总览](README - 整改执行总览.md)、[正式设计](../design - 产品设计方案/README - 设计文档总入口.md)及自动化验证结果
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 > 本报告已经完整描述“当前做到哪里、如何证明、还缺什么以及下一步怎么做”。后续阶段尚未实现的能力不会伪装成完成，而是以目标、依赖和验收条件的形式保留。
 
@@ -460,11 +455,7 @@ E2E 证明：第一个 Agent 超时后第二个 Agent没有启动；客户端取
 
 模型 Prompt直接包含机器可读 JSON Schema。结构化输出默认最多重试两次；每次同时经过 Zod和服务端语义校验。Agent/Tool白名单、DAG无环、依赖存在性、任务数、轮次、Token、预计费用及任务/章节双向引用任一失败，均不能标记完成。
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 新增PlanningArtifact，以唯一runId关联需求分析、计划、目录、补充请求或失败码，并按userId隔离。官网、后台和学习工具三类fixture生成不同目录；核心E2E验证成功持久化、补充终态和非法模型两次失败；Session E2E验证A的规划记录对B不可见。完整证据见[Phase 3报告](./2026-07-15 - phase-3-planner-and-structured-output - Planner与结构化输出.md)。
-=======
-新增PlanningArtifact，以唯一runId关联需求分析、计划、目录、补充请求或失败码，并按userId隔离。官网、后台和学习工具三类fixture生成不同目录；核心E2E验证成功持久化、补充终态和非法模型两次失败；Session E2E验证A的规划记录对B不可见。完整证据见[Phase 3报告](phase-3-planner-and-structured-output - Planner与结构化输出.md)。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 ### 9.3 Phase 4：知识、RAG 与 Tools
 
@@ -474,11 +465,7 @@ Markdown标题在解析和切块中保留，Chunk记录 headingPath与真实行�
 
 Registry只注册两个真实只读 Tool：`knowledge-search`和 `ui-acceptance-check`。调用必须经过 Zod、Run用户归属、ExecutionPlan授权、次数、大小、AbortSignal和超时校验；ToolInvocation记录 toolCallId、状态、错误码和耗时，并支持完成结果幂等回放。旧占位 Web Search和 `USE_TOOL:`自由文本协议已删除。
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 固定夹具和仓库文档评测只作为离线回归：12类固定意图在无噪声k=1与共享噪声k=5下的Recall、MRR和引用完整率均为1；README与当前状态文档生成31个Chunk，6个检索意图6/6命中目标章节。它们不代表通用检索或模型语义质量。核心E2E证明“来源文档上传 → Planner授权 → Tool返回引用 → 幂等回放 → 未授权失败审计”，Session E2E证明不同账号不能读取对方文档、Run或Tool结果。完整证据见[Phase 4报告](./2026-07-15 - phase-4-knowledge-and-tools - 知识库与受控工具.md)。
-=======
-固定夹具和仓库文档评测只作为离线回归：12类固定意图在无噪声k=1与共享噪声k=5下的Recall、MRR和引用完整率均为1；README与当前状态文档生成31个Chunk，6个检索意图6/6命中目标章节。它们不代表通用检索或模型语义质量。核心E2E证明“来源文档上传 → Planner授权 → Tool返回引用 → 幂等回放 → 未授权失败审计”，Session E2E证明不同账号不能读取对方文档、Run或Tool结果。完整证据见[Phase 4报告](phase-4-knowledge-and-tools - 知识库与受控工具.md)。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 ### 9.4 Phase 5：候选方案和交叉评审
 
@@ -486,21 +473,13 @@ Registry只注册两个真实只读 Tool：`knowledge-search`和 `ui-acceptance-
 
 ReviewWorkflow已关联当前用户、PlanningArtifact和独立 Run，并保存候选、Review、Evaluation、失败、预算、轮次和人工裁决。相同裁决重试幂等，不同裁决不能覆盖第一次决定；跨用户审批返回404。
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 当前有3类固定需求的流程契约评估，7项聚合指标均为1；这只证明契约和安全状态机，不代表真实模型语义质量。P2-4已新增[匿名盲评协议](../quality - 质量评测/2026-07-19 - blind-evaluation-protocol - 真实模型盲评协议.md)，冻结12案例并生成5变体共60项计划，具备预检、匿名发卷、评分模板、私有解盲和汇总工具；仍需完成60次真实模型运行和至少2名独立评分者结果。因此Phase 5状态为“工程完成、真实实验未完成”。
-=======
-当前有3类固定需求的流程契约评估，7项聚合指标均为1；这只证明契约和安全状态机，不代表真实模型语义质量。P2-4已新增[匿名盲评协议](../quality - 质量评测/blind-evaluation-protocol - 真实模型盲评协议.md)，冻结12案例并生成5变体共60项计划，具备预检、匿名发卷、评分模板、私有解盲和汇总工具；仍需完成60次真实模型运行和至少2名独立评分者结果。因此Phase 5状态为“工程完成、真实实验未完成”。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 ### 9.5 Phase 6：Artifact 与动态报告
 
 ReportArtifact工程闭环已完成：Reporter读取需求、计划、已审计知识、候选、Review和人工决定，严格按Planner动态目录生成带Claim来源的报告，并区分completed、partial、blocked和inconclusive。报告按版本不可变保存，parentReportId形成链；相同generationKey重试只回放原版本。真实Reporter受两次结构化尝试、Token/费用、超时、取消、敏感输入预拦截和来源二次校验约束。
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 `/reports`独立报告中心展示版本、状态、动态目录、决策、风险、未决项和来源；Markdown导出前重新加载来源链并验证。`/workflows`把Planner、双候选、Reviewer、Evaluator、人工确认和Reporter统一为baseline/model产品图，支持clarification/approval暂停、持久Checkpoint、相同thread恢复、节点幂等和租约故障恢复。Phase 6状态为已完成（3/3）。详细证据见[Phase 6报告](./2026-07-15 - phase-6-dynamic-report-and-ui - 动态报告与产品界面.md)与[Checkpoint技术专题](./2026-07-15 - phase-6-workflow-checkpoint-completion - 工作流与Checkpoint恢复.md)。
-=======
-`/reports`独立报告中心展示版本、状态、动态目录、决策、风险、未决项和来源；Markdown导出前重新加载来源链并验证。`/workflows`把Planner、双候选、Reviewer、Evaluator、人工确认和Reporter统一为baseline/model产品图，支持clarification/approval暂停、持久Checkpoint、相同thread恢复、节点幂等和租约故障恢复。Phase 6状态为已完成（3/3）。详细证据见[Phase 6报告](phase-6-dynamic-report-and-ui - 动态报告与产品界面.md)与[Checkpoint技术专题](phase-6-workflow-checkpoint-completion - 工作流与Checkpoint恢复.md)。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 完成证据：报告结论可追溯到来源；刷新恢复不重复副作用；导出不包含密钥、原始内部错误或完整 Checkpoint。
 
@@ -508,11 +487,7 @@ ReportArtifact工程闭环已完成：Reporter读取需求、计划、已审计�
 
 Phase 7已按3/3完成。`workspace-app.tsx`由约1550行降至约458行，控制器、文案、类型、导航、对话、Agent、知识/Tool、看板和设置形成独立模块；乱码文本与关键动态状态可访问语义同步修正。Workspace POST现在校验agentIds归属与重复，在一次嵌套写入中按请求顺序创建关联，失败不留下半成品。
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 0.1正式交付范围确定为Web MVP；Electron只保留实验入口，桌面安装包未完成且不计入完成度。Lint、Unit、E2E、Schema与Build均达到当前工程门槛，构建原NFT tracing警告已消除。完整过程见[Phase 7报告](./2026-07-15 - phase-7-quality-and-release - 质量与交付边界.md)。
-=======
-0.1正式交付范围确定为Web MVP；Electron只保留实验入口，桌面安装包未完成且不计入完成度。Lint、Unit、E2E、Schema与Build均达到当前工程门槛，构建原NFT tracing警告已消除。完整过程见[Phase 7报告](phase-7-quality-and-release - 质量与交付边界.md)。
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 ---
 
@@ -796,7 +771,6 @@ AgentForge 的产品方向已经明确：它不是普通多 Agent 聊天工具�
 
 ### 20.1 当前事实与设计
 
-<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md
 - [文档总索引](../2026-08-01 - document-index - 文档索引.md)
 - [当前开发状态](../2026-08-01 - current-development-status - 当前开发状态.md)
 - [核心架构](../2026-08-01 - current-runtime-architecture - 当前运行架构.md)
@@ -818,29 +792,6 @@ AgentForge 的产品方向已经明确：它不是普通多 Agent 聊天工具�
 - [多 Agent 交叉评审](../design - 产品设计方案/旧 - multi-agent-cross-review-workflow - 多智能体交叉评审工作流.md)
 - [Web UI/UX 知识工具](../design - 产品设计方案/旧 - web-ui-ux-knowledge-tool-design - Web界面知识工具设计.md)
 - [来源与许可](../design - 产品设计方案/2026-07-12 - design-references-and-license - 设计参考与许可说明.md)
-=======
-- [文档总索引](../README - 文档索引.md)
-- [当前开发状态](../current-status - 当前开发状态.md)
-- [核心架构](../architecture - 当前运行架构.md)
-- [正式设计入口](../design - 产品设计方案/README - 设计文档总入口.md)
-- [当前开发状态](../current-status - 当前开发状态.md)
-
-### 20.2 评审与整改
-
-- [2026-07-15 代码与文档评审](../reviews - 历史评审复查/2026-07-15-code-and-documentation-review - 代码与文档评审.md)
-- [2026-07-15 设计对齐复查](../reviews - 历史评审复查/2026-07-15-design-alignment-review - 设计对齐复查.md)
-- [Phase 0：安全与数据库](phase-0-security-and-database - 安全与数据库初始化.md)
-- [Phase 1：运行正确性](phase-1-runtime-correctness - 运行正确性与隔离.md)
-- [整改执行总览](README - 整改执行总览.md)
-
-### 20.3 目标专题设计
-
-- [LangGraph 工作流架构](../design - 产品设计方案/langgraph-workflow-architecture - LangGraph工作流架构.md)
-- [LangChain 集成设计](../design - 产品设计方案/langchain-integration-design - LangChain集成设计.md)
-- [多 Agent 交叉评审](../design - 产品设计方案/multi-agent-cross-review-workflow - 多智能体交叉评审工作流.md)
-- [Web UI/UX 知识工具](../design - 产品设计方案/web-ui-ux-knowledge-tool-design - Web界面知识工具设计.md)
-- [来源与许可](../design - 产品设计方案/references - 设计参考与许可说明.md)
->>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/final-report - 工程整改与开发总报告.md
 
 ---
 

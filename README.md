@@ -17,17 +17,10 @@ AgentForge 是一个 **local-first Web MVP**。它不是把多个聊天框放在
 
 | 招聘方关心什么 | 项目中的实际实现 |
 |---|---|
-<<<<<<< HEAD
 | 核心难点 | LangGraph 状态图、可切换 SQLite/PostgreSQL Checkpoint、interrupt / resume、节点幂等 |
 | Agent 如何协作 | 结构化 PlanningArtifact、Candidate、Finding、ReportArtifact，而不是自然语言互相转发 |
 | 如何保证可追溯 | Markdown 标题路径与行号引用、来源清单、风险/未决项、Token/费用/工具审计 |
 | 如何验证 | 单元/E2E、RAG Golden Set、冻结消融协议与专用 PostgreSQL 集成测试入口 |
-=======
-| 核心难点 | LangGraph 状态图、SQLite Checkpoint、interrupt / resume、节点幂等 |
-| Agent 如何协作 | 结构化 PlanningArtifact、Candidate、Finding、ReportArtifact，而不是自然语言互相转发 |
-| 如何保证可追溯 | Markdown 标题路径与行号引用、来源清单、风险/未决项、Token/费用/工具审计 |
-| 如何验证 | 72/72 Unit、24/24 Core E2E、1/1 Session Isolation E2E、仓库文档检索 6/6 命中 |
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 | 当前状态 | Web MVP 已形成闭环；真实模型盲评、生产级多实例和 Electron 正式交付仍在推进 |
 
 ## 产品体验
@@ -56,11 +49,7 @@ flowchart LR
 
 ### 可恢复执行
 
-<<<<<<< HEAD
 七节点 LangGraph 工作流默认写入 SQLite Checkpoint，也可切换到 PostgreSQL；刷新、中断和人工等待后可从同一 thread 恢复，并通过节点幂等避免重复生成 Artifact。
-=======
-七节点 LangGraph 工作流将状态写入 SQLite Checkpoint；刷新、中断和人工等待后可从同一 thread 恢复，并通过节点幂等避免重复生成 Artifact。
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 
 ### 结构化候选与交叉评审
 
@@ -85,19 +74,13 @@ Markdown 文档按 H1–H6 标题路径和真实行号切块，检索结果带 c
 | Web | Next.js 16、React 19、TypeScript 5、Tailwind CSS 4、Zustand |
 | Agent / Workflow | LangGraph、LangChain、结构化输出、SSE |
 | Model | Ollama、OpenAI、Anthropic、DeepSeek、OpenAI-compatible Provider |
-<<<<<<< HEAD
 | Data | Prisma 7、SQLite 默认后端、PostgreSQL 应用 schema / migration、可切换 LangGraph Checkpointer |
 | Retrieval | 默认 TF-IDF；可选 bge-m3 Embedding + RRF 混合检索、文档分块、来源引用 |
-=======
-| Data | Prisma 7、SQLite；提供 PostgreSQL Schema |
-| Retrieval | 轻量 TF-IDF、文档分块、来源引用 |
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 | Quality | Node Test Runner、Playwright、ESLint、TypeScript、Production Build |
 | Desktop | Electron 43 实验性入口与打包配置 |
 
 ## 可复现的质量证据
 
-<<<<<<< HEAD
 ### 当前可信基线（2026-08-01）
 
 - 当前工作区包含未提交的 V1 后续实现；以下状态以工作区代码、测试和路线图完成记录为准，历史页面中的 2026-07-19 结果仍仅代表当时的发布快照。
@@ -112,12 +95,6 @@ Markdown 文档按 H1–H6 标题路径和真实行号切块，检索结果带 c
 
 ```text
 Unit tests                193 / 193
-=======
-最近一次 `npm run quality:all` 会串联以下门禁；数字以本文档收口后的最终复跑结果为准：
-
-```text
-Unit tests                 72 / 72
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 Core Playwright E2E        24 / 24
 Session isolation E2E       1 / 1
 TypeScript / ESLint / Build passed
@@ -132,11 +109,7 @@ npm run quality:all
 - `npm run quality:rag:baseline`：12 类固定检索意图，分别验证无噪声 `k=1` 与共享噪声 `k=5` 的 Recall、MRR、无关结果率和引用完整率。这是确定性夹具，只证明检索与引用指标实现。
 - `npm run quality:rag:repository`：读取 `README.md` 与当前开发状态文档，按标题路径和真实行号生成项目文档 Chunk，验证 6 个检索意图是否命中目标章节；任一未命中即以非零退出码阻断门禁。最终 Chunk 数和命中数见下方“最新验证结果”。
 
-<<<<<<< HEAD
 这些结果不是通用检索准确率，也不是模型语义质量结论。2026-07-19 的发布快照当时仅覆盖 TF-IDF；当前工作区已有受控的 Embedding 与 RRF 运行时路径，可信边界见上方“当前可信基线”。
-=======
-这些结果不是通用检索准确率，也不是模型语义质量结论。当前 RAG 仍是 TF-IDF，没有使用 Embedding、RRF 或向量数据库。
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 
 ### 真实模型盲评工具链
 
@@ -146,20 +119,12 @@ npm run quality:all
 
 ### 最新验证结果
 
-<<<<<<< HEAD
 2026-08-01 在当前工作区完整运行 `npm run quality:all`，最终退出码为 `0`：
-=======
-2026-07-19 在当前工作区完整运行 `npm run quality:all`，最终退出码为 `0`：
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 
 - 固定检索夹具：12 类意图；无噪声 `k=1` 与共享噪声 `k=5` 的 Recall、MRR、引用完整率均为 `1`；共享噪声无关结果率为 `0.5862068965517241`。
 - 仓库文档检索：2份真实项目文档生成 **31个Chunk**，6个检索意图 **6/6命中目标章节**。
 - 盲评工具链：12 个冻结案例、5 种变体、60 项运行计划；合成 dry-run 贯通 60 项运行和 2 名合成评分者，未调用模型。
-<<<<<<< HEAD
 - 自动化验证：**193/193 Unit、24/24 Core E2E、1/1 Session Isolation E2E**；`src/lib/**` 覆盖率为行 `92.30%`、分支 `87.62%`、函数 `89.49%`；TypeScript、ESLint 与生产构建通过。核心与 Session E2E 使用并在结束后清理专用 `.next-e2e` 构建目录，避免 Playwright 的 `next dev` 产物污染后续类型检查。
-=======
-- 自动化验证：**72/72 Unit、24/24 Core E2E、1/1 Session Isolation E2E**；TypeScript、ESLint 与 Production Build 通过。
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 
 以上是当前工作区的离线工程门禁结果，不是公开在线服务、真实模型盲评或多 Agent 质量收益结论。
 
@@ -171,11 +136,7 @@ npm run quality:all
 4. 在高影响冲突处提交人工裁决，观察工作流从 Checkpoint 恢复。
 5. 打开报告中心，检查来源、风险、未决项、成本和版本记录，并导出 Markdown。
 
-<<<<<<< HEAD
 完整步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
-=======
-完整步骤见[本地演示指南](<docs/demo - 本地演示指南.md>)。
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 
 ## 快速开始
 
@@ -197,7 +158,6 @@ Windows PowerShell可将环境文件复制命令替换为：
 Copy-Item .env.example .env
 ```
 
-<<<<<<< HEAD
 访问 `http://localhost:3000`。模型 Provider、认证模式和数据库配置见 `.env.example` 与[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
 
 ## 当前边界
@@ -205,22 +165,12 @@ Copy-Item .env.example .env
 - Hybrid RAG 是 opt-in 路径，仍待本地 Ollama、既有文档向量回填和人工标注知识库实测；12 条满分 fixture 没有区分性，在扩大 Golden Set 前不应表述为“召回率提升 X%”。
 - 已有受控只读工具，但尚未完成统一的 Provider 原生 Tool Calling 接入。
 - SQLite 是默认 Checkpoint 后端；PostgreSQL Checkpointer 的跨实例恢复与租约 / Fencing 已在 WSL 专用临时库完成实测。Docker/CI 环境复验、生产负载、后台队列与 exactly-once 语义仍不在已验证范围内。
-=======
-访问 `http://localhost:3000`。模型 Provider、认证模式和数据库配置见 `.env.example` 与[本地演示指南](<docs/demo - 本地演示指南.md>)。
-
-## 当前边界
-
-- RAG 当前是轻量 TF-IDF，不应表述为 Embedding / 向量检索 / RRF。
-- 已有受控只读工具，但尚未完成统一的 Provider 原生 Tool Calling 接入。
-- Checkpoint 当前使用本地 SQLite，尚未验证多实例共享 Checkpointer。
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 - Markdown 导出可用，PDF / DOCX 导出尚未完成。
 - Electron 为实验性入口，尚未完成代码签名、安装后迁移和干净机器验收。
 - 真实模型盲评尚未完成；当前没有“质量提升 X%”“幻觉下降 X%”等结论。
 
 ## 文档
 
-<<<<<<< HEAD
 - [文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
 - [当前运行架构](<./docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
 - [当前开发状态](<./docs/2026-08-01 - current-development-status - 当前开发状态.md>)
@@ -228,15 +178,6 @@ Copy-Item .env.example .env
 - [当前项目报告](<./docs/reports - 对外发布报告/2026-07-19 - project-report - 当前项目报告.md>)
 - [本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)
 - [截图说明](./docs/screenshots/2026-07-19 - screenshot-index - 公开截图说明.md)
-=======
-- [文档索引](<docs/README - 文档索引.md>)
-- [当前运行架构](<docs/architecture - 当前运行架构.md>)
-- [当前开发状态](<docs/current-status - 当前开发状态.md>)
-- [质量评测说明](<docs/quality - 质量评测/README - 质量评测说明.md>)
-- [当前项目报告](<docs/reports - 对外发布报告/project-report - 当前项目报告.md>)
-- [本地演示指南](<docs/demo - 本地演示指南.md>)
-- [截图说明](docs/screenshots/README.md)
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 - [安全策略](SECURITY.md)
 
 ## English summary

@@ -90,12 +90,9 @@ export const BlindEvaluationPacketSchema = z.object({
     blindId: z.string().regex(/^B\d{3,}$/),
     packetCase: z.number().int().positive(),
     title: z.string().min(1),
-<<<<<<< HEAD
     // 评分者必须看到同一份冻结需求和验收重点，才可评价“需求覆盖度”。
     requirement: z.string().min(60),
     acceptanceFocus: z.array(z.string().min(2)).min(3),
-=======
->>>>>>> origin/agent/agentforge-publish-2026-07-20
     reportMarkdown: z.string().min(80),
   })).min(1),
 });

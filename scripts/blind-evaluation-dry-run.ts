@@ -36,11 +36,7 @@ async function main() {
   };
 
   const input = validateBlindStudyAgainstPlan(rawInput, manifest);
-<<<<<<< HEAD
   const prepared = prepareBlindEvaluation(input, manifest, "synthetic-dry-run-seed");
-=======
-  const prepared = prepareBlindEvaluation(input, "synthetic-dry-run-seed");
->>>>>>> origin/agent/agentforge-publish-2026-07-20
   const scoreSheets = ["synthetic-rater-a", "synthetic-rater-b"].map((raterId, raterIndex) => ({
     schemaVersion: 1 as const,
     studyId: prepared.packet.studyId,

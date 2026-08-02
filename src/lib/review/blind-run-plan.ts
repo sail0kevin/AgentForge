@@ -1,11 +1,7 @@
 import { z } from "zod";
 import type { BlindCaseManifest } from "./blind-case-manifest";
 import { hashBlindCaseManifest } from "./blind-case-manifest";
-<<<<<<< HEAD
 import { BlindEvaluationVariantSchema } from "./blind-evaluation-variants";
-=======
-import { BlindEvaluationVariantSchema } from "./blind-evaluation";
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 
 const BlindRunPlanEntrySchema = z.object({
   caseId: z.string().regex(/^case-\d{2}$/),

@@ -57,7 +57,6 @@ function run(args) {
 }
 
 function removeTemporaryFile(filePath) {
-<<<<<<< HEAD
   let lastError;
 
   for (let attempt = 0; attempt <= cleanupRetryCount; attempt += 1) {
@@ -78,15 +77,6 @@ function removeTemporaryFile(filePath) {
     `Could not remove temporary E2E file after ${cleanupRetryCount * cleanupRetryDelayMs}ms ${filePath}:`,
     lastError instanceof Error ? lastError.message : lastError,
   );
-=======
-  try {
-    // SQLite/Prisma may release Windows file handles a few milliseconds after
-    // the child process exits. Retry cleanup without turning passing tests red.
-    rmSync(filePath, { force: true, maxRetries: 8, retryDelay: 250 });
-  } catch (error) {
-    console.warn(`Could not remove temporary E2E file ${filePath}:`, error instanceof Error ? error.message : error);
-  }
->>>>>>> origin/agent/agentforge-publish-2026-07-20
 }
 
 let exitCode = 1;
@@ -103,7 +93,6 @@ try {
     exitCode = run(["playwright", "test", ...playwrightArgs]);
   }
 } finally {
-<<<<<<< HEAD
   if (keepDb) {
     console.log(`\n[--keep-db] Preserved test database at: ${databasePath}`);
     console.log(`[--keep-db] Run agent-metrics against it with: DATABASE_URL="file:${databasePath}" npm run quality:agent-metrics`);
@@ -112,11 +101,6 @@ try {
       removeTemporaryFile(`${databasePath}${suffix}`);
       removeTemporaryFile(`${checkpointDatabasePath}${suffix}`);
     }
-=======
-  for (const suffix of ["", "-journal", "-shm", "-wal"]) {
-    removeTemporaryFile(`${databasePath}${suffix}`);
-    removeTemporaryFile(`${checkpointDatabasePath}${suffix}`);
->>>>>>> origin/agent/agentforge-publish-2026-07-20
   }
   rmSync(e2eNextDirectory, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
 }
