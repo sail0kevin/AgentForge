@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, FileText, GitBranch, Loader2, RefreshCw, Scale, ShieldAlert, Sparkles } from "lucide-react";
 
 type Evidence = { id: string; repositoryName: string; repositoryUrl: string; commitOrTag: string; path: string; license: string; evidenceStatus?: string; reusePolicy: string; insight: string };
@@ -123,7 +124,13 @@ export function ReportCenter() {
       setGroups(groupData.groups);
       setLegacyReports(legacyReportData.reports);
       setReviews(reviewData.reviews);
-      setSelectedGroupId((current) => current && groupData.groups.some((group) => group.id === current) ? current : groupData.groups[0]?.id ?? null);
+      // 工作流页会携带当前报告组 ID，优先打开用户刚完成的那一组，避免多需求并存时误选最近报告。
+      const requestedGroupId = new URLSearchParams(window.location.search).get("groupId");
+      setSelectedGroupId((current) => requestedGroupId && groupData.groups.some((group) => group.id === requestedGroupId)
+        ? requestedGroupId
+        : current && groupData.groups.some((group) => group.id === current)
+          ? current
+          : groupData.groups[0]?.id ?? null);
       setSelectedLegacyId((current) => current && legacyReportData.reports.some((report) => report.id === current) ? current : legacyReportData.reports[0]?.id ?? null);
       setSelectedReviewId((current) => current || reviewData.reviews.find((review) => review.approval.status !== "pending" && review.status !== "needs_human")?.id || "");
     } catch (loadError) {
@@ -210,7 +217,10 @@ export function ReportCenter() {
       <div className="mx-auto max-w-[1600px]">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div><div className="flex items-center gap-2 text-sm font-semibold text-indigo-600"><Sparkles className="h-4 w-4" />AgentForge</div><h1 className="mt-2 text-3xl font-bold tracking-tight">产品/UI 实施报告中心</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">把已评审需求整理成多套可比较、可导出、可交给下游 AI 编程 Agent 的完整实现规格；网站生成后，再回到这里记录真实验收结果。</p></div>
-          <button type="button" onClick={() => void load()} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50" title="刷新报告中心"><RefreshCw className="h-4 w-4" />刷新</button>
+          <div className="flex items-center gap-2">
+            <Link href="/workflows" className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"><GitBranch className="h-4 w-4" />返回工作流</Link>
+            <button type="button" onClick={() => void load()} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50" title="刷新报告中心"><RefreshCw className="h-4 w-4" />刷新</button>
+          </div>
         </header>
 
         {error && <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><span>{error}</span></div>}
