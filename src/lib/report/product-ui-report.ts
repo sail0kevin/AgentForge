@@ -10,7 +10,7 @@ import {
   type ProductUITraceability,
   type ReportSourceReference,
 } from "./contracts";
-import { DEFAULT_GITHUB_UI_EVIDENCE, hasPinnedGitHubCommit } from "./github-ui-evidence";
+import { DEFAULT_GITHUB_UI_EVIDENCE, deriveGitHubEvidenceAuditStatus, hasPinnedGitHubCommit, isGitHubEvidenceFullyVerified } from "./github-ui-evidence";
 import { createBaselineDevelopmentReport, type ReportGenerationInput } from "./report-service";
 
 const SOLUTION_TYPES: ProductUISolutionType[] = ["experience_first", "visual_first", "engineering_first"];
@@ -102,7 +102,7 @@ function traceability(input: ReportGenerationInput, solutionType: ProductUISolut
     id: `github-${item.id}`,
     area: "github" as const,
     statement: `GitHub/UI参考：${item.repositoryName} 的 ${item.path}，洞察：${item.insight}`,
-    status: hasPinnedGitHubCommit(item) ? "verified" as const : "unverified" as const,
+    status: isGitHubEvidenceFullyVerified(item) ? "verified" as const : "unverified" as const,
     sourceRefs: [source("github_evidence", item.id, `${item.repositoryName} UI参考`, item.path)],
   })));
   items.push({
@@ -238,7 +238,7 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
     components: components(solutionType),
     responsiveRules: ["桌面端使用稳定的两栏或三栏布局，内容区设置最大宽度，避免长行影响阅读。", "平板端收起次要侧栏，证据和目录改为可展开区域。", "移动端将流程、候选方案和验收清单改为纵向顺序，主操作固定在可见区域。", "表格在窄屏转换为带字段标签的堆叠行，不允许横向滚动隐藏关键操作。", "页面和组件使用稳定的尺寸约束，加载、错误和长文本状态不得造成布局跳动。"],
     interactionStates: ["初始化时显示当前阶段和可用操作，不展示假进度。", "模型调用中显示预算和取消入口，完成后明确产物版本。", "需求不完整时进入澄清状态，保留原始输入和待回答问题。", "评审发现高风险问题时，提供定向修改和人工确认路径。", "导出被阻止时说明缺失证据或验证状态，不生成看似完整的文件。", "权限不足时隐藏不可执行操作并说明需要的权限。"],
-    implementationConstraints: ["报告内容必须区分事实、假设、目标设计、已验证项和未验证项。", "GitHub 参考必须记录仓库 URL、固定的 commit SHA、路径、许可证和复用策略；任一条未固定时，整份报告保持 not_yet_verified。", "公开仓库只能作为参考，是否复用代码必须经过许可证和版本审计。", "下游 Prompt 不得编造页面截图、性能数字、召回率或视觉验收结果。", "每套方案必须独立生成唯一 solutionId，并保留自己的取舍和验收内容。", "实现时应优先复用项目现有组件、状态持久化、权限和可观测性边界。"],
+    implementationConstraints: ["报告内容必须区分事实、假设、目标设计、已验证项和未验证项。", "GitHub 参考必须记录仓库 URL、commit SHA、路径、许可证、复用策略和三项独立核验状态；固定 SHA 只保证引用快照可复现，不代表仓库、路径或许可证已审计。", "公开仓库只能作为参考，是否复用代码必须经过许可证和版本审计。", "下游 Prompt 不得编造页面截图、性能数字、召回率或视觉验收结果。", "每套方案必须独立生成唯一 solutionId，并保留自己的取舍和验收内容。", "实现时应优先复用项目现有组件、状态持久化、权限和可观测性边界。"],
     visualAcceptanceCriteria: ["首屏能识别产品目标、当前阶段和主要操作，且不需要阅读长段说明。", "所有页面都有 loading、empty、error、success 和移动端状态的实现或明确占位。", "用户可以从报告内容追溯到需求、计划、评审 Finding 或带固定 SHA 的 GitHub 证据。", "组件交互有键盘路径、焦点可见性、错误描述和非颜色语义。", "运行生成的网站后，验收者可以按页面、流程、响应式和视觉层级逐项记录结果。", "没有真实截图或自动化检查结果时，界面不得宣称已经通过视觉验收。"],
     deliveryBoundary: {
       included: input.analysis.inScope.slice(0, 12).length > 0 ? input.analysis.inScope.slice(0, 12) : ["结构化产品/UI实施报告", "页面、流程和验收契约"],
@@ -248,6 +248,7 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
     traceability: traceability(input, solutionType, evidence),
     evidence,
     evidenceStatus: evidence.length > 0 && evidence.every(hasPinnedGitHubCommit) ? "sha_pinned" as const : "not_yet_verified" as const,
+    evidenceAuditStatus: deriveGitHubEvidenceAuditStatus(evidence),
   };
   return ProductUISpecSchema.parse(spec);
 }
@@ -258,7 +259,7 @@ function reportForSolution(input: ReportGenerationInput, solutionType: ProductUI
   const report: DevelopmentReport = {
     ...base,
     title: `${base.title} · ${SOLUTION_LABELS[solutionType]}`,
-    executiveSummary: `${base.executiveSummary} 本版本增加一套可交给下游 AI 编程 Agent 的产品/UI实施规格；GitHub 参考已固定为可审查的 commit SHA，但页面、视觉方向和验收标准仍属于目标设计，不代表下游网站已经生成或通过验收。`,
+    executiveSummary: `${base.executiveSummary} 本版本增加一套可交给下游 AI 编程 Agent 的产品/UI实施规格；GitHub 参考的 commit SHA 用于固定可复现快照，仓库、路径和许可证核验状态独立记录；页面、视觉方向和验收标准仍属于目标设计，不代表下游网站已经生成或通过验收。`,
     productUISpec: spec,
   };
   return DevelopmentReportSchema.parse(report);

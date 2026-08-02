@@ -39,6 +39,7 @@ export type ProductUIHandoffSolution = {
   solutionId: string;
   solutionType: ProductUISpec["solutionType"];
   evidenceStatus: ProductUISpec["evidenceStatus"];
+  evidenceAuditStatus: ProductUISpec["evidenceAuditStatus"];
   runtimeAcceptance: {
     status: "pending" | "pass" | "needs_revision";
     note: string | null;
@@ -77,6 +78,9 @@ function evidenceMarkdown(spec: ProductUISpec) {
     `  - 路径：${item.path}${item.locator ? ` · ${item.locator}` : ""}`,
     `  - 许可证：${item.license}`,
     `  - 复用策略：${item.reusePolicy}`,
+    `  - 仓库核验：${item.repositoryVerification}`,
+    `  - 路径核验：${item.pathVerification}`,
+    `  - 许可证核验：${item.licenseVerification}`,
     `  - 参考洞察：${item.insight}`,
   ].join("\n")).join("\n");
 }
@@ -124,6 +128,7 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     `- 方案类型：${spec.solutionType}`,
     `- 生成时间：${generatedAt}`,
     `- 证据状态：${spec.evidenceStatus}`,
+    `- 证据审计状态：${spec.evidenceAuditStatus}`,
     "",
     "> 本文档是 AgentForge 已实现的规格导出能力生成的目标设计稿。页面和视觉结果只有在下游 AI 实际生成、运行并完成验收后，才能标记为已验证。",
     "",
@@ -206,8 +211,8 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "",
     "- 已实现：AgentForge 可以生成并导出结构化产品/UI规格、页面清单、组件状态、响应式要求和下游 Prompt。",
     "- 已实现：每套规格保留 GitHub 仓库、版本字段、路径、许可证和复用策略。",
-    "- 已实现：默认 GitHub/UI 参考使用完整 commit SHA，报告会记录仓库、版本、路径、许可证和复用策略。",
-    "- 未验证：固定 SHA 只保证引用快照可复现，不等于许可证复用审计、语义复核或下游网站视觉验收已经完成。",
+    "- 已实现：默认 GitHub/UI 参考使用完整 commit SHA，并分别记录仓库、路径和许可证核验状态。",
+    `- 当前状态：${spec.evidenceStatus}；证据审计：${spec.evidenceAuditStatus}。固定 SHA 只保证引用快照可复现，不等于仓库、路径或许可证审计已经完成。`,
     "- 目标设计：页面、视觉风格、运行截图和最终网站效果需要由下游 AI 生成并经过实际运行验收。",
   ].join("\n");
 }
@@ -226,8 +231,9 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
     "3. 让键盘操作、焦点管理、错误描述和非颜色语义可以被验收。",
     "4. 运行网站后输出实际使用的启动命令、页面截图路径和未通过的验收项。",
     "5. 不得把 GitHub 参考仓库整页复制到产品中；复用前检查许可证和固定版本。",
-    "6. 先阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
-    "7. 完成后必须回传真实交付证据；没有启动命令、预览地址和截图时，不得声称网站已经通过验收。",
+    "6. 固定 SHA 只保证引用快照可复现；只有仓库、路径和许可证核验均为 verified 时，才能把来源审计标记为 fully_verified。",
+    "7. 先阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
+    "8. 完成后必须回传真实交付证据；没有启动命令、预览地址和截图时，不得声称网站已经通过验收。",
     "",
     "回传交付证据（只能填写真实值，不得使用臆造结果）：",
     "```json",
@@ -297,6 +303,7 @@ export function buildProductUIHandoffBundle(
         solutionId: spec.solutionId,
         solutionType: spec.solutionType,
         evidenceStatus: spec.evidenceStatus,
+        evidenceAuditStatus: spec.evidenceAuditStatus,
         runtimeAcceptance: buildRuntimeAcceptance(group.feedback, spec.solutionId),
         handoffContract: PRODUCT_UI_HANDOFF_CONTRACT,
         report,

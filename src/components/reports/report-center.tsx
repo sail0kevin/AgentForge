@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, FileText, GitBranch, Loader2, RefreshCw, Scale, ShieldAlert, Sparkles } from "lucide-react";
 
-type Evidence = { id: string; repositoryName: string; repositoryUrl: string; commitOrTag: string; path: string; license: string; evidenceStatus?: string; reusePolicy: string; insight: string };
+type Evidence = { id: string; repositoryName: string; repositoryUrl: string; commitOrTag: string; path: string; license: string; evidenceStatus?: string; reusePolicy: string; insight: string; repositoryVerification: "not_checked" | "verified"; pathVerification: "not_checked" | "verified"; licenseVerification: "not_checked" | "verified" };
 type ProductUISpec = {
   solutionId: string;
   solutionType: string;
@@ -24,6 +24,7 @@ type ProductUISpec = {
   traceability: Array<{ id: string; area: string; statement: string; status: string; sourceRefs: Array<{ sourceType: string; refId: string; label: string; locator: string | null }> }>;
   evidence: Evidence[];
   evidenceStatus: string;
+  evidenceAuditStatus: "not_checked" | "partially_verified" | "fully_verified";
 };
 type ProductUIReport = { id: string; title: string; executiveSummary: string; productUISpec?: ProductUISpec };
 type RuntimeEvidence = { launchCommand: string; previewUrl: string; screenshotPaths: string[]; verificationNotes: string[] };
@@ -47,6 +48,7 @@ type ReviewRecord = { id: string; status: string; approval: { status: string; de
 
 const solutionLabels: Record<string, string> = { experience_first: "体验优先", visual_first: "视觉优先", engineering_first: "工程优先" };
 const traceabilityStatusLabels: Record<string, string> = { implemented: "已实现", target_design: "目标设计", verified: "已验证来源", unverified: "未验证" };
+const evidenceAuditLabels: Record<string, string> = { not_checked: "未完成审计", partially_verified: "部分已核验", fully_verified: "已完成核验" };
 const groupStatusLabels: Record<string, string> = { generated: "已生成", in_review: "验收中", accepted: "已验收", needs_revision: "需要修改" };
 const groupStatusStyles: Record<string, string> = { generated: "border-sky-200 bg-sky-50 text-sky-700", in_review: "border-amber-200 bg-amber-50 text-amber-800", accepted: "border-emerald-200 bg-emerald-50 text-emerald-700", needs_revision: "border-red-200 bg-red-50 text-red-700" };
 
@@ -272,7 +274,20 @@ export function ReportCenter() {
                 <Section title="组件契约"><div className="grid gap-3 md:grid-cols-2">{selectedSpec.components.map((component) => <article key={component.name} className="rounded-lg border border-slate-200 p-4"><h4 className="font-semibold">{component.name}</h4><p className="mt-2 text-sm leading-6 text-slate-600">{component.responsibility}</p><p className="mt-2 text-xs leading-5 text-slate-500">变体：{component.variants.join("、")}<br />状态：{component.states.join("、")}</p><p className="mt-2 text-xs leading-5 text-slate-500">无障碍：{component.accessibility.join("；")}</p></article>)}</div></Section>
                 <Section title="响应式、交互与视觉验收"><div className="grid gap-5 md:grid-cols-3"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">响应式</p><List items={selectedSpec.responsiveRules} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">交互状态</p><List items={selectedSpec.interactionStates} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">验收标准</p><List items={selectedSpec.visualAcceptanceCriteria} /></div></div></Section>
                 <Section title="交付边界与来源映射"><div className="grid gap-5 md:grid-cols-2"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">本方案包含</p><List items={selectedSpec.deliveryBoundary.included} /><p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">本方案不包含</p><List items={selectedSpec.deliveryBoundary.excluded} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">下游交接</p><p className="text-sm leading-6 text-slate-700">{selectedSpec.deliveryBoundary.handoff}</p><div className="mt-4 space-y-2">{selectedSpec.traceability.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-500">{item.area}</span><span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">{traceabilityStatusLabels[item.status] ?? item.status}</span></div><p className="mt-2 text-xs leading-5 text-slate-700">{item.statement}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">来源：{item.sourceRefs.map((reference) => `${reference.sourceType}:${reference.refId}`).join("、")}</p></article>)}</div></div></div></Section>
-                <Section title="GitHub/UI 参考证据"><div className="space-y-3">{selectedSpec.evidence.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><h4 className="font-semibold">{item.repositoryName}</h4><p className="mt-1 text-xs text-slate-500">{item.path} · {item.commitOrTag}</p></div><span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">{selectedSpec.evidenceStatus === "sha_pinned" ? "SHA 已固定" : "尚未验证"}</span></div><p className="mt-2 text-sm leading-6 text-slate-600">{item.insight}</p><p className="mt-2 text-xs text-slate-500">许可证：{item.license} · 复用：{item.reusePolicy}</p></article>)}</div></Section>
+               <Section title="GitHub/UI 参考证据">
+                 <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                   <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">证据审计：{evidenceAuditLabels[selectedSpec.evidenceAuditStatus] ?? selectedSpec.evidenceAuditStatus}</span><span>引用状态：{selectedSpec.evidenceStatus === "sha_pinned" ? "SHA 已固定" : "尚未固定"}</span></div>
+                   <p className="mt-1">固定 SHA 只保证引用快照可复现，不等于仓库、路径和许可证已经完成真实核验。</p>
+                 </div>
+                 <div className="space-y-3">
+                   {selectedSpec.evidence.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-4">
+                     <div className="flex flex-wrap items-start justify-between gap-2"><div><h4 className="font-semibold">{item.repositoryName}</h4><p className="mt-1 text-xs text-slate-500">{item.path} · {item.commitOrTag}</p></div><span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">{item.repositoryVerification === "verified" && item.pathVerification === "verified" && item.licenseVerification === "verified" ? "已核验" : "未完成核验"}</span></div>
+                     <p className="mt-2 text-sm leading-6 text-slate-600">{item.insight}</p>
+                     <p className="mt-2 text-xs text-slate-500">许可证：{item.license} · 复用：{item.reusePolicy}</p>
+                     <div className="mt-3 grid gap-2 text-[11px] text-slate-600 sm:grid-cols-3"><span>仓库：{item.repositoryVerification}</span><span>路径：{item.pathVerification}</span><span>许可证：{item.licenseVerification}</span></div>
+                   </article>)}
+                 </div>
+               </Section>
               </div>
             </>}
           </section>

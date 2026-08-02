@@ -5,7 +5,8 @@ export const ReportSourceTypeSchema = z.enum([
   "requirement", "plan_task", "report_section", "candidate", "finding", "evaluation", "human_decision", "human_task_edit", "knowledge", "github_evidence",
 ]);
 
-// GitHub 仓库中的 UI 参考证据，必须记录版本、路径和复用限制。
+// GitHub 仓库中的 UI 参考证据，必须记录版本、路径、核验状态和复用限制。
+export const GitHubEvidenceVerificationStatusSchema = z.enum(["not_checked", "verified"]);
 export const GitHubEvidenceSchema = z.object({
   id: z.string().min(1).max(120),
   repositoryUrl: z.string().url().max(500),
@@ -18,9 +19,13 @@ export const GitHubEvidenceSchema = z.object({
   insight: z.string().min(10).max(1_000),
   applicableWhen: z.array(z.string().min(3).max(300)).min(1).max(12),
   reusePolicy: z.enum(["reference_only", "adapt_with_license_review", "approved_reuse"]),
+  repositoryVerification: GitHubEvidenceVerificationStatusSchema.default("not_checked"),
+  pathVerification: GitHubEvidenceVerificationStatusSchema.default("not_checked"),
+  licenseVerification: GitHubEvidenceVerificationStatusSchema.default("not_checked"),
 });
 
 export const ProductUISolutionTypeSchema = z.enum(["experience_first", "visual_first", "engineering_first"]);
+export const ProductUIEvidenceAuditStatusSchema = z.enum(["not_checked", "partially_verified", "fully_verified"]);
 
 export const ProductUIPageSchema = z.object({
   id: z.string().min(1).max(100),
@@ -106,6 +111,7 @@ export const ProductUISpecSchema = z.object({
   traceability: z.array(ProductUITraceabilitySchema).min(4).max(40),
   evidence: z.array(GitHubEvidenceSchema).min(1).max(30),
   evidenceStatus: z.enum(["curated_reference", "sha_pinned", "not_yet_verified"]),
+  evidenceAuditStatus: ProductUIEvidenceAuditStatusSchema,
 });
 
 export const ReportSourceReferenceSchema = z.object({
@@ -193,6 +199,7 @@ export type ReportClaim = z.infer<typeof ReportClaimSchema>;
 export type DevelopmentReport = z.infer<typeof DevelopmentReportSchema>;
 export type ReportBudget = z.infer<typeof ReportBudgetSchema>;
 export type GitHubEvidence = z.infer<typeof GitHubEvidenceSchema>;
+export type ProductUIEvidenceAuditStatus = z.infer<typeof ProductUIEvidenceAuditStatusSchema>;
 export type ProductUISolutionType = z.infer<typeof ProductUISolutionTypeSchema>;
 export type ProductUIPage = z.infer<typeof ProductUIPageSchema>;
 export type ProductUIFlow = z.infer<typeof ProductUIFlowSchema>;

@@ -133,11 +133,12 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.ok(group.reports.every((report) => report.productUISpec?.evidence.length === DEFAULT_GITHUB_UI_EVIDENCE.length));
   assert.ok(DEFAULT_GITHUB_UI_EVIDENCE.every(hasPinnedGitHubCommit));
   assert.ok(group.reports.every((report) => report.productUISpec?.evidenceStatus === "sha_pinned"));
+  assert.ok(group.reports.every((report) => report.productUISpec?.evidenceAuditStatus === "not_checked"));
   assert.ok(new Set(group.reports.map((report) => report.productUISpec?.designDirection.name)).size === 3);
   assert.ok(group.reports.every((report) => (report.productUISpec?.deliveryBoundary.included.length ?? 0) > 0));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.area === "requirement")));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "target_design")));
-  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.filter((item) => item.area === "github").every((item) => item.status === "verified")));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.filter((item) => item.area === "github").every((item) => item.status === "unverified")));
 
   const report = group.reports[0];
   const markdown = renderProductUISpecMarkdown(report, { generatedAt: "2026-08-02T00:00:00.000Z" });
@@ -147,7 +148,9 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.match(markdown, /\/workspace/);
   assert.match(markdown, /GitHub/);
   assert.doesNotMatch(markdown, /main 分支版本尚未冻结 commit SHA/);
+  assert.match(markdown, /证据审计状态：not_checked/);
   assert.match(markdown, /固定 SHA 只保证引用快照可复现/);
+  assert.match(markdown, /仓库核验：not_checked/);
   assert.match(markdown, /交付边界与来源映射/);
   assert.match(markdown, /需求目标：/);
   assert.match(prompt, /loading/);
@@ -161,6 +164,16 @@ test("product/UI report group generates three distinct downstream-ready target d
   const mixedEvidenceGroup = createProductUIReportGroup(input, { evidence: mixedEvidence });
   assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.evidenceStatus === "not_yet_verified"));
   assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.traceability.some((trace) => trace.area === "github" && trace.status === "unverified")));
+
+  const fullyVerifiedEvidence = DEFAULT_GITHUB_UI_EVIDENCE.map((item) => ({
+    ...item,
+    repositoryVerification: "verified" as const,
+    pathVerification: "verified" as const,
+    licenseVerification: "verified" as const,
+  }));
+  const fullyVerifiedGroup = createProductUIReportGroup(input, { evidence: fullyVerifiedEvidence, solutionTypes: ["experience_first", "visual_first"] });
+  assert.ok(fullyVerifiedGroup.reports.every((item) => item.productUISpec?.evidenceAuditStatus === "fully_verified"));
+  assert.ok(fullyVerifiedGroup.reports.every((item) => item.productUISpec?.traceability.some((trace) => trace.area === "github" && trace.status === "verified")));
 });
 
 test("product/UI feedback status requires runtime evidence before acceptance", async () => {

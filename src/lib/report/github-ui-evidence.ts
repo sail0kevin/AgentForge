@@ -1,4 +1,4 @@
-import { GitHubEvidenceSchema, type GitHubEvidence, type ReportSourceReference } from "./contracts";
+import { GitHubEvidenceSchema, type GitHubEvidence, type ProductUIEvidenceAuditStatus, type ReportSourceReference } from "./contracts";
 
 // 固定 SHA 让 GitHub/UI 参考快照可复现；它不代表代码已获复用许可，也不代表下游网站已经通过验收。
 // 仅接受完整且未标记为待冻结的提交 SHA，避免把分支名或短哈希误判为可复现证据。
@@ -7,6 +7,21 @@ const GITHUB_COMMIT_SHA_PATTERN = /\b[0-9a-f]{40}\b/i;
 export function hasPinnedGitHubCommit(evidence: Pick<GitHubEvidence, "commitOrTag">) {
   return GITHUB_COMMIT_SHA_PATTERN.test(evidence.commitOrTag)
     && !evidence.commitOrTag.includes("待冻结");
+}
+
+// 三项都经过人工或自动审计后，才允许把 GitHub 证据标记为已核验。
+export function isGitHubEvidenceFullyVerified(evidence: Pick<GitHubEvidence, "repositoryVerification" | "pathVerification" | "licenseVerification">) {
+  return evidence.repositoryVerification === "verified"
+    && evidence.pathVerification === "verified"
+    && evidence.licenseVerification === "verified";
+}
+
+// 汇总单条证据的审计进度；固定 SHA 只影响可复现性，不改变审计结论。
+export function deriveGitHubEvidenceAuditStatus(evidence: GitHubEvidence[]): ProductUIEvidenceAuditStatus {
+  const verifiedCount = evidence.filter(isGitHubEvidenceFullyVerified).length;
+  if (verifiedCount === evidence.length && evidence.length > 0) return "fully_verified";
+  if (verifiedCount > 0 || evidence.some((item) => item.repositoryVerification === "verified" || item.pathVerification === "verified" || item.licenseVerification === "verified")) return "partially_verified";
+  return "not_checked";
 }
 export const DEFAULT_GITHUB_UI_EVIDENCE: GitHubEvidence[] = GitHubEvidenceSchema.array().parse([
   {
