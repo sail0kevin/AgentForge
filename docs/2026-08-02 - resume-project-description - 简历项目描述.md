@@ -7,7 +7,7 @@
 
 ## 一句话简介
 
-AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MVP，将零散开发需求转化为包含需求澄清、任务拆解、依赖、风险、证据和验收要求的可追溯开发方案报告，并通过多角色候选、交叉评审、人工裁决和 Checkpoint 恢复形成可审计的工作流闭环。
+AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MVP，将产品或网站需求转化为三套可交给下游 AI 编程 Agent 的产品/UI实施报告。系统通过需求澄清、多方案生成、证据化交叉评审、人工裁决、Checkpoint 恢复、Markdown 导出和真实网站验收反馈，形成可追溯的交付闭环。
 
 ## 技术栈
 
@@ -17,16 +17,16 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 
 ## 简历精简版
 
-**AgentForge｜开发方案生成平台**
+**AgentForge｜需求到产品/UI实施报告平台**
 
-基于 Next.js、LangGraph、Prisma 构建可恢复的多智能体开发方案生成平台，将需求转化为包含任务、依赖、风险、证据和验收标准的结构化报告。
+基于 Next.js、LangGraph、Prisma 构建可恢复的多智能体产品/UI实施报告平台，将需求转化为体验优先、视觉优先和工程优先三套包含页面、流程、状态、设计系统、组件、证据和验收标准的结构化报告。
 
-- 设计并实现 Planner → Delivery / Quality 双候选 → Reviewer → Evaluator → Human Approval → Reporter 的 LangGraph 工作流；Planner 先执行需求完整性判断，信息不足时通过持久化 `interrupt/resume` 追问，补充后从同一 `threadId` 继续执行。
-- 以 `PlanningArtifact`、`Candidate`、`Finding`、`EvaluationResult` 和 `ReportArtifact` 作为 Agent 间结构化交接产物，加入计划授权、依赖 DAG、来源引用、证据绑定、预算和失败状态校验，避免自然语言结果直接向下游扩散。
+- 设计并实现 Planner → Delivery / Quality 双候选 → Reviewer → Evaluator → Human Approval → Reporter 的 LangGraph 工作流；Planner 先判断需求是否足够，信息不足时通过持久化 `interrupt/resume` 追问，补充后从同一 `threadId` 继续执行。
+- 以 `PlanningArtifact`、`Candidate`、`Finding`、`EvaluationResult`、`ReportArtifact` 和 `ProductUIReportGroup` 作为 Agent 间结构化交接产物，加入计划授权、依赖 DAG、来源引用、证据绑定、预算和失败状态校验，避免自然语言结果直接向下游扩散。
 - 实现交叉评审和有限修订闭环：Delivery 关注交付效率，Quality 关注工程风险；Reviewer 输出带来源的 Finding，Evaluator 根据证据和冲突决定自动通过、定向修订或人工确认，最终生成不可变版本化报告。
 - 实现 SQLite / PostgreSQL Checkpoint 可切换、跨实例恢复、工作流租约和单调递增 Fencing Token；旧持有者的续租和状态写入会被条件更新拒绝，降低多实例并发下的重复执行和旧状态覆盖风险。
 - 建立 RAG 证据链和离线质量门禁：支持标题路径与真实行号引用、TF-IDF 检索、可选 Embedding + RRF 混合路径、来源快照和 Golden Set 回归；当前 fixture 回归通过，但尚无真实人工知识库 Recall@5 结论。
-- 建立工程质量基线：本地质量门禁为 `193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E，`src/lib/**` 行/分支/函数覆盖率为 `92.30% / 87.62% / 89.49%`，并通过 TypeScript、ESLint、文档链接检查和生产构建。
+- 实现产品/UI报告组持久化、用户隔离、幂等、单套/整组 Markdown 导出、下游 AI 编程 Prompt 和真实网站验收反馈回写；GitHub/UI参考证据默认标为 `not_yet_verified`，不把目标设计误写成已生成网站。
 
 ## 详细职责与成果
 
@@ -80,20 +80,20 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 
 ## 面试中可以直接讲的真实结果
 
-- 当前本地自动化门禁：`193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E。
+- 历史完整门禁（2026-08-01）：`193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E；本轮聚焦验证（2026-08-02）为 `208/208` Unit，并通过 `db:validate`、`db:validate:postgres`、TypeScript、ESLint 和生产构建。
 - 当前 `src/lib/**` 覆盖率：行 `92.30%`、分支 `87.62%`、函数 `89.49%`。
 - PostgreSQL：WSL 专用随机临时数据库完成 migration、跨 Saver/Graph Checkpoint 恢复、多进程租约领取/续租/接管、Fencing Token 旧写入拒绝。
 - RAG：12 条确定性 Golden Set fixture 的 `Recall@1`、共享噪声 `Recall@5` 和 `NDCG@10` 回归门禁通过；这不是生产知识库召回率。
 - 消融实验：已完成 24 案例 × 5 重复 × 4 臂，共 480 条无模型 preflight；实际 Provider 调用为 0，实际外部支出为 `$0`。真实四臂质量结果尚未产生。
-- 真实 24-case 探索性对比中，单 Agent 覆盖率为 `99.3%`，完整多 Agent 为 `86.2%`。该结果基于关键词 checklist 且存在模型波动，当前不能声称多 Agent 相较单 Agent 有质量提升；它直接促成了后续四臂消融协议和评测治理建设。
+- 历史 24-case 探索性对比中，单 Agent 覆盖率为 `99.3%`，完整多 Agent 为 `86.2%`；该结果基于关键词 checklist 且存在模型波动，当前不能声称多 Agent 相较单 Agent 有质量提升，因此只作为后续四臂消融协议的动机，不作为简历效果数字。
 
 ## 已实现、已验证与待实测边界
 
 | 类别 | 当前内容 |
 |---|---|
-| 已实现 | LangGraph 产品工作流、Planner 澄清、双候选、Reviewer、Evaluator、人工审批、增量审批、Reporter、版本化 Artifact、SQLite/PostgreSQL Checkpoint 分支、租约/Fencing、RAG 检索链、RAG Golden Set 工具、OTel 导出边界、Code Review/Bug Diagnosis 场景图、测试与质量门禁 |
-| 已验证 | 本地单元/E2E/Session 隔离、类型检查、ESLint、生产构建、WSL 专用 PostgreSQL 临时库恢复和租约验收、确定性 RAG fixture 回归、消融计划和授权预检 |
-| 待实测 | 真实四臂消融质量结果、人工标注多来源 Golden Set 的真实 Recall@5/MRR/NDCG、真实 Provider 的 Token/延迟/成本收益、Docker Compose、当前提交对应的远程 CI PostgreSQL job、目标环境备份恢复、生产并发负载和真实用户试点反馈 |
+| 已实现 | LangGraph 产品工作流、Planner 澄清、双候选、Reviewer、Evaluator、人工审批、增量审批、三套产品/UI报告组、持久化、Markdown 导出、下游 Prompt、验收反馈回写、SQLite/PostgreSQL Checkpoint 分支、租约/Fencing、RAG 检索链、OTel 导出边界、Code Review/Bug Diagnosis 场景图 |
+| 已验证 | 历史完整门禁、本轮 208/208 Unit、schema 校验、类型检查、ESLint、生产构建、报告契约与 Markdown 导出测试、WSL 专用 PostgreSQL 临时库恢复和租约验收、确定性 RAG fixture 回归、消融计划和授权预检 |
+| 待实测 | 真实四臂消融质量结果、人工标注多来源 Golden Set 的真实 Recall@5/MRR/NDCG、真实 Provider 的 Token/延迟/成本收益、GitHub 参考证据的 SHA/许可证复核、真实网站视觉验收、真实数据库持久化集成、Docker Compose、远程 CI、生产并发负载和用户试点反馈 |
 | 目标设计 | 后台任务队列、exactly-once 语义、多地域部署、生产级 NLI 语义验证、通用仓库 Code Review、自动修复、Electron 正式交付和 PDF/DOCX 导出 |
 
 ## 不建议写进简历的表述
@@ -106,14 +106,14 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 
 ## 面试展开顺序
 
-1. 先讲产品问题：单 Agent 输出容易遗漏约束，且缺少独立检查和恢复机制。
-2. 再讲状态图：Planner 澄清、双候选、评审、Evaluator、人工确认和报告生成。
+1. 先讲产品问题：零散需求很难直接交给编程 Agent，单 Agent 输出容易遗漏约束，也缺少独立检查和恢复机制。
+2. 再讲交付链：Planner 澄清、多方案生成、评审、Evaluator、人工确认、三套产品/UI报告和下游 Prompt。
 3. 再讲工程难点：结构化 Artifact、证据绑定、Checkpoint、幂等、租约/Fencing 和用户隔离。
-4. 再讲质量方法：193/193、E2E、覆盖率、RAG fixture、四臂消融协议和真实结果边界。
+4. 再讲质量方法：历史 193/193 全门禁、本轮 208/208 Unit、RAG fixture、四臂消融协议和真实结果边界。
 5. 最后主动讲限制：多 Agent 质量收益尚未被证明，真实模型实验、人工 RAG 集和生产环境验收仍在推进。
 
 ## 推荐简历最终表述
 
-**AgentForge｜开发方案生成平台**
+**AgentForge｜需求到产品/UI实施报告平台**
 
-独立设计并实现基于 Next.js、LangGraph、Prisma 的 local-first 多智能体开发方案生成平台。将需求分析、计划拆解、交付/质量双候选、证据化交叉评审、Evaluator、人工审批和版本化报告组织为可暂停、可恢复、可审计的状态图；通过结构化 Artifact、服务端计划校验、来源引用、预算审计和任务级增量审批降低 Agent 间错误传递。实现 SQLite/PostgreSQL Checkpoint 切换、工作流租约与 Fencing Token、多用户/Session 隔离、TF-IDF + 可选 Embedding/RRF 检索、OTLP 可观测性边界及 Code Review/Bug Diagnosis 场景图。本地门禁通过 `193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E，`src/lib/**` 覆盖率为 `92.30% / 87.62% / 89.49%`；同时通过四臂消融实验协议识别并保留“多 Agent 质量收益尚未证明”的真实结论。
+独立设计并实现基于 Next.js、LangGraph、Prisma 的 local-first 多智能体需求到产品/UI实施报告平台。将需求澄清、计划拆解、交付/质量双候选、证据化交叉评审、Evaluator、人工审批和三套产品/UI报告组织为可暂停、可恢复、可审计的状态图；报告包含页面、路由、状态、流程、设计方向、组件、无障碍和视觉验收标准，可导出 Markdown 并复制给下游 AI 编程 Agent。实现 ProductUIReportGroup 持久化、SQLite/PostgreSQL Checkpoint 切换、工作流租约与 Fencing Token、多用户/Session 隔离、TF-IDF + 可选 Embedding/RRF 检索、OTLP 可观测性边界及 Code Review/Bug Diagnosis 场景图；网站真实生成和 GitHub 证据复核明确作为下游/后续验收边界。本轮通过 `208/208` Unit、schema 校验、TypeScript、ESLint 和生产构建；历史完整门禁与真实模型质量结果分别按日期和证据边界说明。

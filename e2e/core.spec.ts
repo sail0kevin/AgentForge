@@ -628,7 +628,7 @@ test("报告中心展示动态目录、决策、来源和可导出的不可变�
   const report = await reportResponse.json() as { report: { title: string } };
 
   await page.goto("/reports");
-  await expect(page.getByRole("heading", { name: "动态开发报告中心" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "产品/UI 实施报告中心" })).toBeVisible();
   await expect(page.getByRole("heading", { name: report.report.title })).toBeVisible();
   await expect(page.getByText("最终决策", { exact: true })).toBeVisible();
   await expect(page.getByText("动态目录", { exact: true })).toBeVisible();

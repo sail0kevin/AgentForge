@@ -1,8 +1,8 @@
 # AgentForge
 
-> 面向开发方案生成的可恢复多智能体工作流平台。
+> 面向“需求到产品/UI实施报告”的可恢复多智能体工作流平台。
 >
-> 把需求分析、独立候选、交叉评审、人工裁决和正式报告组织成一条可暂停、可恢复、可审计的工程闭环。
+> 把需求澄清、多套产品/UI方案、交叉评审、人工裁决、下游 AI 编程 Prompt 和真实验收反馈组织成一条可暂停、可恢复、可审计的交付闭环。
 
 [![CI](https://github.com/sail0kevin/AgentForge/actions/workflows/ci.yml/badge.svg)](https://github.com/sail0kevin/AgentForge/actions/workflows/ci.yml)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
@@ -11,7 +11,7 @@
 
 ![AgentForge 工作流完成页](docs/screenshots/workflow-completed.png)
 
-AgentForge 是一个 **local-first Web MVP**。它不是把多个聊天框放在一起，而是让不同 Agent 围绕结构化 Artifact 协作：Planner 生成计划，Delivery / Quality 生成独立候选，Reviewer 提交带证据的 Finding，Evaluator 在必要时进入人工裁决，Reporter 最终生成可追溯报告。
+AgentForge 是一个 **local-first Web MVP**，目标是把零散产品需求转成可交给下游 AI 编程 Agent 的多套完整产品/UI实施报告。它不是把多个聊天框放在一起，而是让不同 Agent 围绕结构化 Artifact 协作：Planner 先澄清需求，Delivery / Quality 生成独立候选，Reviewer 提交带证据的 Finding，Evaluator 在必要时进入人工裁决，Reporter 最终生成体验优先、视觉优先和工程优先三套报告；用户可以导出 Markdown、复制下游 Prompt，并在网站真实运行后回写验收结果。
 
 ## 30 秒看懂这个项目
 
@@ -21,7 +21,7 @@ AgentForge 是一个 **local-first Web MVP**。它不是把多个聊天框放在
 | Agent 如何协作 | 结构化 PlanningArtifact、Candidate、Finding、ReportArtifact，而不是自然语言互相转发 |
 | 如何保证可追溯 | Markdown 标题路径与行号引用、来源清单、风险/未决项、Token/费用/工具审计 |
 | 如何验证 | 单元/E2E、RAG Golden Set、冻结消融协议与专用 PostgreSQL 集成测试入口 |
-| 当前状态 | Web MVP 已形成闭环；真实模型盲评、生产级多实例和 Electron 正式交付仍在推进 |
+| 当前状态 | 产品/UI报告生成、持久化、导出和验收反馈链路已实现；真实网站由下游 AI Agent 生成，GitHub 证据冻结和真实模型质量仍需单独验证 |
 
 ## 产品体验
 
@@ -44,7 +44,10 @@ flowchart LR
     F -->|高影响冲突| G[人工裁决]
     F -->|无需裁决| H[Reporter]
     G -->|Checkpoint Resume| H
-    H --> I[版本化 ReportArtifact]
+    H --> I[三套产品/UI实施报告]
+     I --> J[下游 AI 编程 Agent]
+     J --> K[真实网站/UI运行验收]
+     K -->|反馈回写| I
 ```
 
 ### 可恢复执行
@@ -83,18 +86,18 @@ Markdown 文档按 H1–H6 标题路径和真实行号切块，检索结果带 c
 
 ### 当前可信基线（2026-08-01）
 
-- 当前工作区包含未提交的 V1 后续实现；以下状态以工作区代码、测试和路线图完成记录为准，历史页面中的 2026-07-19 结果仍仅代表当时的发布快照。
+- 当前状态以 2026-08-02 工作区代码和本轮聚焦验证为准；历史页面中的 2026-07-19、2026-08-01 结果仍仅代表各自日期的发布或门禁快照。
 - `WORKFLOW_CHECKPOINT_BACKEND=postgres` 已可启用 `PostgresSaver`，SQLite 仍是默认本地后端；2026-08-01 已在 WSL 随机专用临时 PostgreSQL 库完成三条 migration、跨实例 crash recovery 和多进程租约 / Fencing Token 验收，且测试资源已清理。Docker/CI 仍是待补充的独立环境证据；这不构成生产负载、队列、exactly-once 或多地域验收。
 - **已实现**：默认 TF-IDF 检索；设置 `RAG_EMBEDDINGS_ENABLED=true` 后，上传会在文档主事务成功后尝试持久化 bge-m3 向量，只有语料向量同模型、同维度且完整时才使用 RRF 混合检索，否则确定性回退到 TF-IDF。
 - **已验证**：12 条确定性 fixture 的 Golden Gate 覆盖 clean `Recall@1`、shared-noise `Recall@5` 与 `NDCG@10`，当前均为 1.0。它验证 fixture 的 TF-IDF 回归，不是 bge-m3 或生产知识库的召回提升结论。
 - **待实测**：本地 Ollama/bge-m3 实际调用、既有文档向量回填、多来源人工标注 Golden Set 以及 RRF 参数比较。
 - 已完成 24 条真实 LongCat-2.0 的单 Agent / 完整多 Agent 对比：单 Agent 覆盖率 99.3%，完整多 Agent 覆盖率 86.2%。这是关键词 checklist 的探索性结果，存在模型波动，不能用于声称任一方案的质量提升。
-- 当前本地门禁记录：`npm run quality:all` 已通过，包含 `193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E、`src/lib/**` 覆盖率门禁、TypeScript、ESLint、50 份 Markdown 的命名/本地链接校验和生产构建；覆盖率为行 `92.30%`、分支 `87.62%`、函数 `89.49%`。本次未调用真实 Provider。四臂消融实验已完成 480 条冻结运行的无模型 preflight，实际外部支出为 `$0`；这不是质量实验结论。授权模板生成器已实现并验证，但 `pending` 模板不是外部费用审批，真实模型运行仍待负责人完成授权。
+- 2026-08-02 本轮聚焦验证通过：`208/208` Unit、`npm run db:validate`、`npm run db:validate:postgres`、TypeScript、ESLint 和生产构建；本轮未运行完整 E2E、真实 Provider 或数据库持久化集成测试。此前 2026-08-01 的 `quality:all` 结果仍保留为历史全门禁快照，不与本轮结果混写。四臂消融实验的 480 条记录仍是无模型 preflight，实际外部支出为 `$0`，不是质量实验结论。授权模板生成器的 `pending` 文件也不是外部费用审批。
 
 最近一次 `npm run quality:all` 会串联以下门禁；数字以本文档收口后的最终复跑结果为准：
 
 ```text
-Unit tests                193 / 193
+Unit tests                193 / 193 (2026-08-01 full gate)
 Core Playwright E2E        24 / 24
 Session isolation E2E       1 / 1
 TypeScript / ESLint / Build passed
@@ -132,9 +135,9 @@ npm run quality:all
 
 1. 启动项目并进入工作台；不配置 API Key 也可以选择确定性 Baseline 模式。
 2. 新建开发报告需求，查看 Requirement Analysis、Execution Plan 和动态目录。
-3. 对比 Delivery / Quality 两个独立候选及交叉评审结果。
+3. 对比体验优先、视觉优先和工程优先三套产品/UI方案及交叉评审结果。
 4. 在高影响冲突处提交人工裁决，观察工作流从 Checkpoint 恢复。
-5. 打开报告中心，检查来源、风险、未决项、成本和版本记录，并导出 Markdown。
+5. 打开报告中心，检查三套产品/UI实施报告、GitHub/UI参考证据、下游 Prompt，导出 Markdown；网站真实运行后可回写通过或需修改。
 
 完整步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
 
@@ -182,7 +185,7 @@ Copy-Item .env.example .env
 
 ## English summary
 
-AgentForge is a local-first Web MVP for evidence-backed development reports. It combines structured planning, independent delivery and quality candidates, cross-review, human approval, checkpoint recovery, immutable report versions, controlled tools, cost auditing, and user/session isolation. Real-model evaluation and production-grade desktop delivery remain roadmap items.
+AgentForge is a local-first Web MVP for turning product requirements into evidence-aware product/UI implementation report sets. It combines requirement clarification, independent candidate generation, cross-review, human approval, checkpoint recovery, persisted report groups, downstream coding-agent prompts, Markdown export, and post-run acceptance feedback. The generated website is produced by a downstream AI coding agent; GitHub evidence verification, real-model quality evaluation, and production-grade deployment remain separate validation work.
 
 ## License
 

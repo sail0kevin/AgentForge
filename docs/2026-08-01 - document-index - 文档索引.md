@@ -3,7 +3,15 @@
 
 更新时间：2026-08-02（Asia/Shanghai）
 
-本目录同时保存当前事实、正式设计、质量评测、公开说明、整改记录和历史材料。当前正式交付边界是 local-first Web MVP；真实模型盲评和 Electron 正式交付尚未完成。PostgreSQL Checkpointer、独立 migration 和分布式 lease/fencing 已实现，且已在 WSL 专用临时 PostgreSQL 环境完成迁移、跨实例恢复与租约/fencing 验收；Docker、远程 CI、目标环境备份恢复和生产负载仍待独立验证。
+本目录同时保存当前事实、正式设计、质量评测、公开说明、整改记录和历史材料。当前正式交付边界是 local-first Web MVP：用户需求经多 Agent 规划与评审后，可生成三套产品/UI实施报告（体验优先、视觉优先、工程优先），并完成报告组持久化、Markdown 导出、下游 AI 编程 Prompt 和真实验收反馈入口；网站本身仍由下游 AI 编程 Agent 生成，AgentForge 当前不宣称已自动生成真实网站。GitHub 参考证据冻结、真实模型盲评和 Electron 正式交付尚未完成。PostgreSQL Checkpointer、独立 migration 和分布式 lease/fencing 已实现，且已在 WSL 专用临时 PostgreSQL 环境完成迁移、跨实例恢复与租约/fencing 验收；Docker、远程 CI、目标环境备份恢复和生产负载仍待独立验证。
+
+## 当前证据时间线
+
+- 2026-07-19：历史收口结果，完整 `npm run quality:all` 通过；单元测试 `72/72`，核心 SQLite E2E `24/24`，Session 隔离 E2E `1/1`。
+- 2026-08-01：历史完整门禁结果，单元测试 `193/193`，覆盖率和核心 E2E 结果见当前开发状态文档。
+- 2026-08-02：本轮聚焦验证通过 `208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和 Next.js Production Build；本轮未将结果冒充完整 E2E、真实 Provider 运行或 `quality:all`。
+
+上述时间线只记录已经执行的命令和结果。真实模型质量、人工 RAG Golden Set、目标环境 PostgreSQL 持久化、Docker/远程 CI、真实网站视觉验收和生产负载仍需独立证据。
 
 ## 推荐阅读顺序
 
@@ -60,7 +68,7 @@
 npm run quality:all
 ```
 
-2026-07-19 的 72/72 Unit、24/24 Core E2E、1/1 Session E2E 是历史发布快照。当前 V2 最近一次本地无外部费用验证为 193/193 Unit、24/24 Core E2E、1/1 Session E2E，`src/lib/**` 覆盖率为行 92.30%、分支 87.62%、函数 89.49%，且 TypeScript、ESLint、生产构建和 50 份 Markdown 文档检查均通过。完整边界见 [V2 证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md) 与 [内部试点交付计划](./2026-08-02 - internal-pilot-delivery-plan - 内部试点交付计划.md)；盲评 dry-run 只验证工具链，不是实际模型质量实验。
+2026-07-19 的 72/72 Unit、24/24 Core E2E、1/1 Session E2E 是历史发布快照；2026-08-01 的 193/193 Unit、24/24 Core E2E、1/1 Session E2E 是历史完整门禁快照。2026-08-02 本轮聚焦验证为 208/208 Unit，并通过 SQLite/PostgreSQL schema 校验、TypeScript、ESLint 和生产构建；本轮未运行完整 E2E、真实 Provider 或数据库持久化集成测试。完整边界见 [V2 证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md) 与 [内部试点交付计划](./2026-08-02 - internal-pilot-delivery-plan - 内部试点交付计划.md)；盲评 dry-run 只验证工具链，不是实际模型质量实验。
 
 ## 简历入口
 

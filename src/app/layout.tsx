@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AgentForge｜多智能体协作开发报告平台",
-  description: "A local-first sequential multi-agent workspace for requirement analysis and development report generation.",
+  title: "AgentForge｜需求到产品/UI实施报告平台",
+  description: "A local-first multi-agent workspace that turns product requirements into evidence-aware product/UI implementation reports.",
 };
 
 export default function RootLayout({

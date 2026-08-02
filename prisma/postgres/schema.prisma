@@ -21,6 +21,7 @@ model User {
   planningArtifacts    PlanningArtifact[]
   reviewWorkflows      ReviewWorkflow[]
   reportArtifacts      ReportArtifact[]
+  productUIReportGroups ProductUIReportGroup[]
   developmentWorkflows DevelopmentWorkflow[]
   pilotFeedback        PilotFeedback[]
   toolInvocations      ToolInvocation[]
@@ -179,6 +180,7 @@ model ReviewWorkflow {
   planningArtifact           PlanningArtifact     @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
   user                       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   reportArtifacts            ReportArtifact[]
+  productUIReportGroups      ProductUIReportGroup[]
   developmentWorkflow        DevelopmentWorkflow?
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
@@ -218,6 +220,28 @@ model ReportArtifact {
   @@index([planningArtifactId, createdAt])
   @@index([userId, createdAt])
   @@index([parentReportId])
+}
+
+// 一组产品/UI实施方案。一个组包含多套可比较的下游实现规格。
+model ProductUIReportGroup {
+  id                String           @id @default(cuid())
+  groupId           String
+  userId            String
+  reviewWorkflowId  String
+  requirement       String
+  reportsJson       String
+  comparisonJson    String
+  status            String           @default("generated")
+  feedbackJson      String           @default("[]")
+  schemaVersion     Int              @default(1)
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewWorkflow    ReviewWorkflow   @relation(fields: [reviewWorkflowId], references: [id], onDelete: Cascade)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([userId, groupId])
+  @@index([userId, createdAt])
+  @@index([reviewWorkflowId, createdAt])
 }
 
 model DevelopmentWorkflow {

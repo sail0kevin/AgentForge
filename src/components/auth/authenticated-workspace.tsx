@@ -14,7 +14,7 @@ type AuthMode = "login" | "register";
 const initialWorkspace: WorkspaceSnapshot = {
   id: "local",
   name: "AgentForge Local Workspace",
-  description: "Local sequential agent workspace for requirement analysis and development reports",
+  description: "Local multi-agent workspace for requirement clarification and product/UI implementation reports",
   mode: "sequential",
   budgetLimit: 999999,
   agents: [],

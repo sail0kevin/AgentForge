@@ -7,6 +7,7 @@ import { runReviewWorkflow } from "@/lib/review/review-service";
 import { DEFAULT_GITHUB_UI_EVIDENCE } from "./github-ui-evidence";
 import { buildDownstreamAgentPrompt, renderProductUIReportGroupMarkdown, renderProductUISpecMarkdown } from "./product-ui-export";
 import { createProductUIReportGroup } from "./product-ui-report";
+import { deriveProductUIReportGroupStatus } from "./product-ui-group-service";
 import { createBaselineDevelopmentReport, validateDevelopmentReport, type ReportGenerationInput } from "./report-service";
 
 async function fixture(requirement: string): Promise<ReportGenerationInput> {
@@ -138,6 +139,21 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.equal(groupMarkdown.split("\n\n---\n\n").length, 3);
 });
 
+test("product/UI feedback status only accepts known solutions and closes after all pass", () => {
+  const solutionIds = ["experience", "visual", "engineering"];
+  assert.equal(deriveProductUIReportGroupStatus([], solutionIds), "generated");
+  assert.equal(deriveProductUIReportGroupStatus([{ solutionId: "experience", outcome: "pass", note: "页面已运行", checkedAt: "2026-08-02T00:00:00.000Z" }], solutionIds), "in_review");
+  assert.equal(deriveProductUIReportGroupStatus([
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds), "accepted");
+  assert.equal(deriveProductUIReportGroupStatus([
+    { solutionId: "experience", outcome: "needs_revision", note: "移动端需要调整", checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds), "needs_revision");
+});
 test("GitHub evidence provenance is required for product/UI references", async () => {
   const input = await fixture("Build a product workspace with accessible navigation, report pages and responsive delivery.");
   const report = createBaselineDevelopmentReport(input);

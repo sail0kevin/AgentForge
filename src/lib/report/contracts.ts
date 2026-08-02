@@ -143,6 +143,13 @@ export const ProductUIReportGroupSchema = z.object({
     strengths: z.array(z.string().min(5).max(500)).min(1).max(10),
     tradeoffs: z.array(z.string().min(5).max(500)).min(1).max(10),
   })).min(2).max(6),
+  status: z.enum(["generated", "in_review", "accepted", "needs_revision"]).default("generated"),
+  feedback: z.array(z.object({
+    solutionId: z.string().min(1).max(120),
+    outcome: z.enum(["pass", "needs_revision"]),
+    note: z.string().min(1).max(2_000),
+    checkedAt: z.string().datetime(),
+  })).default([]),
 });
 
 export const ReportBudgetSchema = z.object({

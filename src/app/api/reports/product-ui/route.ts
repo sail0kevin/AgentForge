@@ -5,6 +5,8 @@ import { loadReportGenerationInput } from "@/lib/report/prisma-report";
 import { GitHubEvidenceSchema, ProductUISolutionTypeSchema } from "@/lib/report/contracts";
 import { buildDownstreamAgentPrompt, renderProductUIReportGroupMarkdown } from "@/lib/report/product-ui-export";
 import { createProductUIReportGroup } from "@/lib/report/product-ui-report";
+import { mapProductUIReportGroup, saveProductUIReportGroup } from "@/lib/report/product-ui-group-service";
+import { prisma } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -14,6 +16,17 @@ const requestSchema = z.object({
   solutionTypes: z.array(ProductUISolutionTypeSchema).min(2).max(3).optional(),
   evidence: GitHubEvidenceSchema.array().min(1).max(30).optional(),
 });
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return Response.json({ error: { code: "UNAUTHORIZED", message: "Authentication required." } }, { status: 401 });
+  const records = await prisma.productUIReportGroup.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  return Response.json({ groups: records.map(mapProductUIReportGroup) });
+}
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -34,13 +47,16 @@ export async function POST(request: NextRequest) {
       solutionTypes: body.solutionTypes,
       evidence: body.evidence,
     });
+    const saved = await saveProductUIReportGroup({ userId: user.id, reviewWorkflowId: body.reviewWorkflowId, group });
+    const persistedGroup = saved.record;
     return Response.json({
-      group,
-      markdown: renderProductUIReportGroupMarkdown(group.reports, { generatedAt: new Date().toISOString() }),
-      prompts: group.reports.map((report) => ({ solutionId: report.productUISpec?.solutionId, prompt: buildDownstreamAgentPrompt(report) })),
-      persistence: "not_persisted",
-      status: "target_design_generated",
-    }, { status: 200 });
+      group: persistedGroup,
+      markdown: renderProductUIReportGroupMarkdown(persistedGroup.reports, { generatedAt: persistedGroup.createdAt }),
+      prompts: persistedGroup.reports.map((report) => ({ solutionId: report.productUISpec?.solutionId, prompt: buildDownstreamAgentPrompt(report) })),
+      persistence: "persisted",
+      status: persistedGroup.status,
+      replayed: saved.replayed,
+    }, { status: saved.replayed ? 200 : 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message.split(":")[0] : "PRODUCT_UI_REPORT_FAILED";
     const status = code === "REVIEW_NOT_FOUND" ? 404 : code === "REPORT_APPROVAL_REQUIRED" ? 409 : 422;
