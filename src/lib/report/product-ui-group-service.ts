@@ -1,15 +1,15 @@
-import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { ProductUIReportGroupSchema, type ProductUIReportGroup } from "./contracts";
+import { z } from "zod";
+import {
+  ProductUIReportFeedbackSchema,
+  ProductUIReportGroupSchema,
+  ProductUIRuntimeEvidenceSchema,
+  type ProductUIReportFeedback,
+  type ProductUIReportGroup,
+  type ProductUIRuntimeEvidence,
+} from "./contracts";
 
-const feedbackSchema = z.object({
-  solutionId: z.string().min(1).max(120),
-  outcome: z.enum(["pass", "needs_revision"]),
-  note: z.string().min(1).max(2_000),
-  checkedAt: z.string().datetime(),
-});
-
-export type ProductUIReportGroupFeedback = z.infer<typeof feedbackSchema>;
+export type ProductUIReportGroupFeedback = ProductUIReportFeedback;
 
 // 反馈状态只反映已经记录的真实验收结果，不把目标设计误写成网站已通过。
 export function deriveProductUIReportGroupStatus(
@@ -17,7 +17,12 @@ export function deriveProductUIReportGroupStatus(
   solutionIds: string[],
 ): "generated" | "in_review" | "accepted" | "needs_revision" {
   if (feedback.some((item) => item.outcome === "needs_revision")) return "needs_revision";
-  if (solutionIds.length > 0 && solutionIds.every((solutionId) => feedback.some((item) => item.solutionId === solutionId && item.outcome === "pass"))) return "accepted";
+  // 只有每套方案均包含结构化运行证据且通过，才能标记为已验收。
+  if (solutionIds.length > 0 && solutionIds.every((solutionId) => feedback.some((item) => (
+    item.solutionId === solutionId
+    && item.outcome === "pass"
+    && item.runtimeEvidence
+  )))) return "accepted";
   return feedback.length > 0 ? "in_review" : "generated";
 }
 
@@ -99,10 +104,12 @@ export async function updateProductUIReportFeedback(input: {
   solutionId: string;
   outcome: "pass" | "needs_revision";
   note: string;
+  runtimeEvidence: ProductUIRuntimeEvidence;
 }) {
   const existing = await prisma.productUIReportGroup.findFirst({ where: { id: input.id, userId: input.userId } });
   if (!existing) throw new Error("PRODUCT_UI_GROUP_NOT_FOUND");
-  const feedback = z.array(feedbackSchema).parse(JSON.parse(existing.feedbackJson));
+  const feedback = z.array(ProductUIReportFeedbackSchema).parse(JSON.parse(existing.feedbackJson));
+  const runtimeEvidence = ProductUIRuntimeEvidenceSchema.parse(input.runtimeEvidence);
   const group = ProductUIReportGroupSchema.parse({
     schemaVersion: existing.schemaVersion,
     groupId: existing.groupId,
@@ -118,6 +125,7 @@ export async function updateProductUIReportFeedback(input: {
     solutionId: input.solutionId,
     outcome: input.outcome,
     note: input.note,
+    runtimeEvidence,
     checkedAt: new Date().toISOString(),
   }];
   const nextStatus = deriveProductUIReportGroupStatus(nextFeedback, solutionIds);

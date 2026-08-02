@@ -25,7 +25,8 @@ type ProductUISpec = {
   evidenceStatus: string;
 };
 type ProductUIReport = { id: string; title: string; executiveSummary: string; productUISpec?: ProductUISpec };
-type Feedback = { solutionId: string; outcome: "pass" | "needs_revision"; note: string; checkedAt: string };
+type RuntimeEvidence = { launchCommand: string; previewUrl: string; screenshotPaths: string[]; verificationNotes: string[] };
+type Feedback = { solutionId: string; outcome: "pass" | "needs_revision"; note: string; runtimeEvidence: RuntimeEvidence | null; checkedAt: string };
 type ReportGroup = { id: string; groupId: string; reviewWorkflowId: string; requirement: string; status: string; feedback: Feedback[]; reports: ProductUIReport[]; comparison: Array<{ solutionId: string; strengths: string[]; tradeoffs: string[] }>; createdAt: string };
 type SourceRef = { sourceType: string; refId: string; label: string; locator: string | null; usedByClaimIds: string[] };
 type Claim = { id: string; kind: string; statement: string; confidence: string; sourceRefs: Array<Omit<SourceRef, "usedByClaimIds">> };
@@ -47,6 +48,11 @@ const solutionLabels: Record<string, string> = { experience_first: "体验优先
 const traceabilityStatusLabels: Record<string, string> = { implemented: "已实现", target_design: "目标设计", verified: "已验证来源", unverified: "未验证" };
 const groupStatusLabels: Record<string, string> = { generated: "已生成", in_review: "验收中", accepted: "已验收", needs_revision: "需要修改" };
 const groupStatusStyles: Record<string, string> = { generated: "border-sky-200 bg-sky-50 text-sky-700", in_review: "border-amber-200 bg-amber-50 text-amber-800", accepted: "border-emerald-200 bg-emerald-50 text-emerald-700", needs_revision: "border-red-200 bg-red-50 text-red-700" };
+
+// 将多行文本转换成结构化证据数组，便于后端校验和后续复核。
+function evidenceLines(value: string) {
+  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+}
 
 function List({ items, empty = "暂无" }: { items: string[]; empty?: string }) {
   if (items.length === 0) return <p className="text-sm text-slate-500">{empty}</p>;
@@ -95,6 +101,10 @@ export function ReportCenter() {
   const [selectedReviewId, setSelectedReviewId] = useState("");
   const [feedbackNote, setFeedbackNote] = useState("");
   const [feedbackOutcome, setFeedbackOutcome] = useState<Feedback["outcome"]>("pass");
+  const [launchCommand, setLaunchCommand] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [screenshotPathsText, setScreenshotPathsText] = useState("");
+  const [verificationNotesText, setVerificationNotesText] = useState("");
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,14 +169,27 @@ export function ReportCenter() {
   }
 
   async function saveFeedback() {
-    if (!selectedGroup || !selectedSpec || !feedbackNote.trim()) { setError("请填写本次运行验收的具体结果。 "); return; }
+    const runtimeEvidence = {
+      launchCommand: launchCommand.trim(),
+      previewUrl: previewUrl.trim(),
+      screenshotPaths: evidenceLines(screenshotPathsText),
+      verificationNotes: evidenceLines(verificationNotesText),
+    };
+    if (!selectedGroup || !selectedSpec || !feedbackNote.trim() || !runtimeEvidence.launchCommand || !runtimeEvidence.previewUrl || runtimeEvidence.screenshotPaths.length === 0 || runtimeEvidence.verificationNotes.length === 0) {
+      setError("请填写完整的运行验收证据和具体结果。 ");
+      return;
+    }
     setSavingFeedback(true); setError(null);
     try {
-      const response = await fetch(`/api/reports/product-ui/${selectedGroup.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ solutionId: selectedSpec.solutionId, outcome: feedbackOutcome, note: feedbackNote.trim() }) });
+      const response = await fetch(`/api/reports/product-ui/${selectedGroup.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ solutionId: selectedSpec.solutionId, outcome: feedbackOutcome, note: feedbackNote.trim(), runtimeEvidence }) });
       const data = await response.json() as { group?: ReportGroup; error?: { message?: string } };
       if (!response.ok || !data.group) throw new Error(data.error?.message ?? "验收结果保存失败。 ");
       setGroups((current) => current.map((group) => group.id === data.group!.id ? data.group! : group));
       setFeedbackNote("");
+      setLaunchCommand("");
+      setPreviewUrl("");
+      setScreenshotPathsText("");
+      setVerificationNotesText("");
     } catch (feedbackError) { setError(feedbackError instanceof Error ? feedbackError.message : "验收结果保存失败。 "); } finally { setSavingFeedback(false); }
   }
 
@@ -232,7 +255,23 @@ export function ReportCenter() {
             {selectedGroup && selectedSpec && <>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><Clipboard className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">下游 Prompt</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">把当前方案交给 AI 编程 Agent 时使用。它只描述目标设计，不声称网站已经生成。</p><button type="button" onClick={() => void copyPrompt()} disabled={!prompt} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" title="复制下游 Prompt">{copied ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}{copied ? "已复制" : "复制当前 Prompt"}</button><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><Download className="h-4 w-4" />导出当前方案</a></section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-bold">方案取舍</h2><div className="mt-3 space-y-3">{selectedGroup.comparison.map((item) => <div key={item.solutionId} className={`rounded-lg p-3 ${item.solutionId === selectedSpec.solutionId ? "bg-indigo-50" : "bg-slate-50"}`}><p className="text-sm font-semibold">{solutionLabels[selectedGroup.reports.find((report) => report.productUISpec?.solutionId === item.solutionId)?.productUISpec?.solutionType ?? ""] ?? item.solutionId}</p><p className="mt-2 text-xs leading-5 text-emerald-800">优势：{item.strengths.join("；")}</p><p className="mt-1 text-xs leading-5 text-amber-800">取舍：{item.tradeoffs.join("；")}</p></div>)}</div></section>
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成后验收</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">网站实际运行后，按当前方案记录通过或需要修改的结果。没有运行证据时不要标记通过。</p><div className="mt-3 flex gap-2"><button type="button" onClick={() => setFeedbackOutcome("pass")} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${feedbackOutcome === "pass" ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-300 text-slate-600"}`}><CheckCircle2 className="mx-auto mb-1 h-4 w-4" />通过</button><button type="button" onClick={() => setFeedbackOutcome("needs_revision")} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${feedbackOutcome === "needs_revision" ? "border-red-500 bg-red-50 text-red-700" : "border-slate-300 text-slate-600"}`}><AlertTriangle className="mx-auto mb-1 h-4 w-4" />需修改</button></div><textarea value={feedbackNote} onChange={(event) => setFeedbackNote(event.target.value)} className="mt-3 min-h-24 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-indigo-500" placeholder="记录浏览器、页面、响应式或视觉验收中的真实结果" /><button type="button" disabled={savingFeedback || !feedbackNote.trim()} onClick={() => void saveFeedback()} className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{savingFeedback && <Loader2 className="h-4 w-4 animate-spin" />}保存验收结果</button>{selectedGroup.feedback.length > 0 && <div className="mt-4 border-t border-slate-200 pt-3">{selectedGroup.feedback.map((item) => <div key={item.solutionId} className="mb-2 text-xs leading-5 text-slate-600"><span className="font-semibold">{item.outcome === "pass" ? "通过" : "需修改"}</span> · {item.note}</div>)}</div>}</section>
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成后验收</h2></div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">网站实际运行后，记录真实启动信息和验收证据。没有运行证据时不能标记通过。</p>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => setFeedbackOutcome("pass")} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${feedbackOutcome === "pass" ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-300 text-slate-600"}`}><CheckCircle2 className="mx-auto mb-1 h-4 w-4" />通过</button>
+                  <button type="button" onClick={() => setFeedbackOutcome("needs_revision")} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${feedbackOutcome === "needs_revision" ? "border-red-500 bg-red-50 text-red-700" : "border-slate-300 text-slate-600"}`}><AlertTriangle className="mx-auto mb-1 h-4 w-4" />需修改</button>
+                </div>
+                <label className="mt-3 block text-xs font-semibold text-slate-600">实际启动命令<input value={launchCommand} onChange={(event) => setLaunchCommand(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-indigo-500" placeholder="例如 npm run dev" /></label>
+                <label className="mt-3 block text-xs font-semibold text-slate-600">实际访问地址<input type="url" value={previewUrl} onChange={(event) => setPreviewUrl(event.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-indigo-500" placeholder="例如 http://localhost:3000" /></label>
+                <label className="mt-3 block text-xs font-semibold text-slate-600">截图路径（每行一个）<textarea value={screenshotPathsText} onChange={(event) => setScreenshotPathsText(event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-indigo-500" placeholder="artifacts/home-desktop.png
+artifacts/home-mobile.png" /></label>
+                <label className="mt-3 block text-xs font-semibold text-slate-600">测试与验收记录（每行一个）<textarea value={verificationNotesText} onChange={(event) => setVerificationNotesText(event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-indigo-500" placeholder="Chrome 桌面端：首页和表单检查通过。
+移动端：布局无溢出。" /></label>
+                <textarea value={feedbackNote} onChange={(event) => setFeedbackNote(event.target.value)} className="mt-3 min-h-24 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-indigo-500" placeholder="补充本次真实验收结论或需要修改的内容" />
+                <button type="button" disabled={savingFeedback || !feedbackNote.trim() || !launchCommand.trim() || !previewUrl.trim() || evidenceLines(screenshotPathsText).length === 0 || evidenceLines(verificationNotesText).length === 0} onClick={() => void saveFeedback()} className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{savingFeedback && <Loader2 className="h-4 w-4 animate-spin" />}保存验收结果</button>
+                {selectedGroup.feedback.length > 0 && <div className="mt-4 border-t border-slate-200 pt-3">{selectedGroup.feedback.map((item) => <div key={item.solutionId} className="mb-3 text-xs leading-5 text-slate-600"><span className="font-semibold">{item.outcome === "pass" ? "通过" : "需修改"}</span> · {item.note}{item.runtimeEvidence && <div className="mt-1 space-y-1 text-slate-500"><div>地址：{item.runtimeEvidence.previewUrl}</div><div>截图：{item.runtimeEvidence.screenshotPaths.length} 张 · 验收记录：{item.runtimeEvidence.verificationNotes.length} 条</div></div>}</div>)}</div>}
+              </section>
             </>}
           </aside>
         </div>

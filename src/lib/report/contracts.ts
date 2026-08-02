@@ -152,6 +152,23 @@ export const DevelopmentReportSchema = z.object({
   productUISpec: ProductUISpecSchema.optional(),
 });
 
+// 下游网站必须回传可复核的运行证据，避免只凭文字备注标记为已验收。
+export const ProductUIRuntimeEvidenceSchema = z.object({
+  launchCommand: z.string().trim().min(3).max(1_000),
+  previewUrl: z.string().url().max(1_000),
+  screenshotPaths: z.array(z.string().trim().min(1).max(1_000)).min(1).max(20),
+  verificationNotes: z.array(z.string().trim().min(3).max(1_000)).min(1).max(30),
+});
+
+export const ProductUIReportFeedbackSchema = z.object({
+  solutionId: z.string().min(1).max(120),
+  outcome: z.enum(["pass", "needs_revision"]),
+  note: z.string().min(1).max(2_000),
+  // 保持旧数据可读取；旧的自由文本反馈不能将报告组推进到 accepted。
+  runtimeEvidence: ProductUIRuntimeEvidenceSchema.nullable().default(null),
+  checkedAt: z.string().datetime(),
+});
+
 export const ProductUIReportGroupSchema = z.object({
   schemaVersion: z.literal(1),
   groupId: z.string().min(1).max(120),
@@ -163,12 +180,7 @@ export const ProductUIReportGroupSchema = z.object({
     tradeoffs: z.array(z.string().min(5).max(500)).min(1).max(10),
   })).min(2).max(6),
   status: z.enum(["generated", "in_review", "accepted", "needs_revision"]).default("generated"),
-  feedback: z.array(z.object({
-    solutionId: z.string().min(1).max(120),
-    outcome: z.enum(["pass", "needs_revision"]),
-    note: z.string().min(1).max(2_000),
-    checkedAt: z.string().datetime(),
-  })).default([]),
+  feedback: z.array(ProductUIReportFeedbackSchema).default([]),
 });
 
 export const ReportBudgetSchema = z.object({
@@ -187,3 +199,5 @@ export type ProductUIFlow = z.infer<typeof ProductUIFlowSchema>;
 export type ProductUITraceability = z.infer<typeof ProductUITraceabilitySchema>;
 export type ProductUISpec = z.infer<typeof ProductUISpecSchema>;
 export type ProductUIReportGroup = z.infer<typeof ProductUIReportGroupSchema>;
+export type ProductUIRuntimeEvidence = z.infer<typeof ProductUIRuntimeEvidenceSchema>;
+export type ProductUIReportFeedback = z.infer<typeof ProductUIReportFeedbackSchema>;

@@ -1,6 +1,7 @@
 import { z, ZodError } from "zod";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
+import { ProductUIRuntimeEvidenceSchema } from "@/lib/report/contracts";
 import { buildDownstreamAgentPrompt } from "@/lib/report/product-ui-export";
 import { mapProductUIReportGroup, updateProductUIReportFeedback } from "@/lib/report/product-ui-group-service";
 
@@ -10,6 +11,7 @@ const feedbackSchema = z.object({
   solutionId: z.string().min(1).max(120),
   outcome: z.enum(["pass", "needs_revision"]),
   note: z.string().trim().min(1).max(2_000),
+  runtimeEvidence: ProductUIRuntimeEvidenceSchema,
 });
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {

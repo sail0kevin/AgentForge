@@ -8,6 +8,7 @@ import { DEFAULT_GITHUB_UI_EVIDENCE } from "./github-ui-evidence";
 import { buildDownstreamAgentPrompt, renderProductUIReportGroupMarkdown, renderProductUISpecMarkdown } from "./product-ui-export";
 import { createProductUIReportGroup } from "./product-ui-report";
 import { deriveProductUIReportGroupStatus } from "./product-ui-group-service";
+import { ProductUIReportGroupSchema } from "./contracts";
 import { createBaselineDevelopmentReport, validateDevelopmentReport, type ReportGenerationInput } from "./report-service";
 
 async function fixture(requirement: string): Promise<ReportGenerationInput> {
@@ -145,20 +146,34 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.equal(groupMarkdown.split("\n\n---\n\n").length, 3);
 });
 
-test("product/UI feedback status only accepts known solutions and closes after all pass", () => {
+test("product/UI feedback status requires runtime evidence before acceptance", async () => {
   const solutionIds = ["experience", "visual", "engineering"];
+  const runtimeEvidence = {
+    launchCommand: "npm run dev",
+    previewUrl: "http://localhost:3000",
+    screenshotPaths: ["artifacts/home-desktop.png"],
+    verificationNotes: ["Chrome 桌面端：首页、表单和移动端检查通过。"],
+  };
   assert.equal(deriveProductUIReportGroupStatus([], solutionIds), "generated");
-  assert.equal(deriveProductUIReportGroupStatus([{ solutionId: "experience", outcome: "pass", note: "页面已运行", checkedAt: "2026-08-02T00:00:00.000Z" }], solutionIds), "in_review");
   assert.equal(deriveProductUIReportGroupStatus([
-    { solutionId: "experience", outcome: "pass", note: "页面已运行", checkedAt: "2026-08-02T00:00:00.000Z" },
-    { solutionId: "visual", outcome: "pass", note: "视觉已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
-    { solutionId: "engineering", outcome: "pass", note: "交互已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence: null, checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds), "in_review");
+  assert.equal(deriveProductUIReportGroupStatus([
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
   ], solutionIds), "accepted");
   assert.equal(deriveProductUIReportGroupStatus([
-    { solutionId: "experience", outcome: "needs_revision", note: "移动端需要调整", checkedAt: "2026-08-02T00:00:00.000Z" },
-    { solutionId: "visual", outcome: "pass", note: "视觉已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
-    { solutionId: "engineering", outcome: "pass", note: "交互已验收", checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "experience", outcome: "needs_revision", note: "移动端需要调整", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
   ], solutionIds), "needs_revision");
+  const generatedGroup = createProductUIReportGroup(await fixture("Build a legacy-compatible product UI report group."));
+  const legacyGroup = ProductUIReportGroupSchema.parse({
+    ...generatedGroup,
+    feedback: [{ solutionId: "experience", outcome: "pass", note: "旧反馈", checkedAt: "2026-08-02T00:00:00.000Z" }],
+  });
+  assert.equal(legacyGroup.feedback[0]?.runtimeEvidence, null);
 });
 test("GitHub evidence provenance is required for product/UI references", async () => {
   const input = await fixture("Build a product workspace with accessible navigation, report pages and responsive delivery.");
