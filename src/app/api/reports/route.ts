@@ -21,13 +21,13 @@ const createReportSchema = z.object({
 const DEFAULT_REPORT_BUDGET = ReportBudgetSchema.parse({});
 
 function apiError(error: unknown) {
-  if (error instanceof StructuredOutputError) return { status: 422, code: error.code, message: "Reporter produced invalid structured output twice; no ReportArtifact was saved." };
+  if (error instanceof StructuredOutputError) return { status: 422, code: error.code, message: "Reporter produced invalid product/UI report output twice; no ReportArtifact was saved." };
   const code = error instanceof Error ? error.message.split(":")[0] : "REPORT_GENERATION_FAILED";
   if (code === "REVIEW_NOT_FOUND") return { status: 404, code, message: "Review not found." };
   if (code === "REPORT_APPROVAL_REQUIRED") return { status: 409, code, message: "A pending high-impact decision must be confirmed before report generation." };
   if (["REVIEW_NOT_REPORTABLE", "PLANNING_ARTIFACT_NOT_READY", "REVIEW_INCOMPLETE", "REPORT_VALIDATION_FAILED"].includes(code)) return { status: 422, code, message: "The source chain is incomplete or does not satisfy the report contract." };
   if (code === "WORKSPACE_ALREADY_RUNNING") return { status: 409, code, message: "Another report generation is already running for this user." };
-  if (code === "REPORTER_AGENT_NOT_FOUND") return { status: 404, code, message: "Reporter Agent not found for the current user." };
+  if (code === "REPORTER_AGENT_NOT_FOUND") return { status: 404, code, message: "Product/UI report Reporter Agent not found for the current user." };
   if (code === "REPORT_BUDGET_EXCEEDED") return { status: 422, code, message: "Reporter stopped at the configured Token or cost budget." };
   if (code === "REPORT_SOURCE_SENSITIVE") return { status: 422, code, message: "Reporter input contains credential-like material and was blocked before the model call." };
   return { status: 500, code: "REPORT_GENERATION_FAILED", message: "Report generation stopped safely." };

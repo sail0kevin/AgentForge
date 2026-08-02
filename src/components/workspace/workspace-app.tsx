@@ -199,18 +199,27 @@ export function WorkspaceApp({ initialWorkspace }: { initialWorkspace: Workspace
         const response = await fetch("/api/workspaces");
         if (!response.ok || !sessionActiveRef.current) return;
         let taskSpaces = await response.json() as WorkspaceSnapshot[];
-        const defaultAgentIds = agents.filter((agent) => agent.name === "需求分析师" || agent.name === "开发报告负责人").map((agent) => agent.id);
-        if (!taskSpaces.some((workspace) => workspace.name === "开发报告生成") && defaultAgentIds.length === 2) {
+        const preferredAgentNames = ["需求澄清师", "产品/UI报告架构师"];
+        const legacyAgentNames = ["需求分析师", "开发报告负责人"];
+        const preferredAgents = preferredAgentNames.map((name) => agents.find((agent) => agent.name === name)).filter(Boolean);
+        const legacyAgents = legacyAgentNames.map((name) => agents.find((agent) => agent.name === name)).filter(Boolean);
+        const defaultAgents = preferredAgents.length === 2 ? preferredAgents : legacyAgents;
+        const defaultAgentIds = defaultAgents.map((agent) => agent!.id);
+        const defaultWorkspaceName = "产品/UI报告工作空间";
+        if (!taskSpaces.some((workspace) => workspace.name === defaultWorkspaceName) && defaultAgentIds.length === 2) {
           const createDefault = await fetch("/api/workspaces", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "开发报告生成", description: "需求分析师与开发报告负责人协作生成详细开发报告。", mode: "sequential", budgetLimit: 10, agentIds: defaultAgentIds }),
+            body: JSON.stringify({ name: defaultWorkspaceName, description: "需求澄清师与产品/UI报告架构师协作生成可交给下游 AI 编程 Agent 的实施报告。", mode: "sequential", budgetLimit: 10, agentIds: defaultAgentIds }),
           });
           if (createDefault.ok) taskSpaces = [...taskSpaces, await createDefault.json() as WorkspaceSnapshot];
         }
         if (!sessionActiveRef.current) return;
         setWorkspaces(taskSpaces);
-        const preferred = taskSpaces.find((workspace) => workspace.name === "开发报告生成") ?? taskSpaces[0] ?? null;
+        const preferred = taskSpaces.find((workspace) => workspace.name === defaultWorkspaceName)
+          ?? taskSpaces.find((workspace) => workspace.name === "开发报告生成")
+          ?? taskSpaces[0]
+          ?? null;
         if (preferred) {
           setActiveWorkspaceId(preferred.id);
           setWorkspace(preferred);

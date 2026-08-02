@@ -320,7 +320,7 @@ export function WorkflowCenter() {
     <main className="secondary-page min-h-screen text-slate-900">
       <header className="secondary-header border-b border-slate-200 bg-white px-5 py-4">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4"><Link href="/" className="icon-button" aria-label="返回工作台"><ArrowLeft /></Link><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-600">AgentForge</p><h1 className="text-xl font-bold">开发工作流</h1><p className="mt-1 text-xs text-slate-500">需求 → Planner → 交叉评审 → 人工确认 → 动态报告</p></div></div>
+          <div className="flex items-center gap-4"><Link href="/" className="icon-button" aria-label="返回工作台"><ArrowLeft /></Link><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-600">AgentForge</p><h1 className="text-xl font-bold">产品/UI报告工作流</h1><p className="mt-1 text-xs text-slate-500">需求澄清 → 候选方案 → 交叉评审 → 人工确认 → 三套实施报告</p></div></div>
           <div className="flex gap-2"><Link href="/reports" className="secondary-button h-9 px-3"><FileText />报告中心</Link><button type="button" className="secondary-button h-9 px-3" onClick={() => void load()}><RefreshCw />刷新</button></div>
         </div>
       </header>
@@ -329,7 +329,7 @@ export function WorkflowCenter() {
       <div className="mx-auto grid max-w-[1500px] gap-5 p-5 lg:grid-cols-[320px_minmax(0,1fr)_340px]">
         <aside className="space-y-4">
           <form onSubmit={createWorkflow} className="secondary-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3"><h2 className="font-bold">开始新工作流</h2><button type="button" className="text-xs font-semibold text-violet-700 hover:text-violet-900" onClick={() => { setRequirement(DEMO_REQUIREMENT); setMode("baseline"); }}>填入演示需求</button></div><p className="mt-1 text-xs leading-5 text-slate-500">基线模式用于低成本验证；模型模式把六个角色接入同一条可暂停、可恢复的 Artifact 链。</p>
+            <div className="flex items-center justify-between gap-3"><h2 className="font-bold">生成产品/UI报告</h2><button type="button" className="text-xs font-semibold text-violet-700 hover:text-violet-900" onClick={() => { setRequirement(DEMO_REQUIREMENT); setMode("baseline"); }}>填入演示需求</button></div><p className="mt-1 text-xs leading-5 text-slate-500">基线模式用于低成本验证；模型模式把六个角色接入同一条可暂停、可恢复的 Artifact 链，并生成三套可交给下游 AI 的实施报告。</p>
             <label className="mt-3 grid gap-2 text-sm font-medium">项目需求<textarea className="field min-h-32" value={requirement} onChange={(event) => setRequirement(event.target.value)} minLength={20} maxLength={20_000} required placeholder="说明项目目标、用户、核心流程、限制和验收要求。" /></label>
             <fieldset className="mt-3 grid grid-cols-2 gap-2"><legend className="mb-2 text-sm font-bold">执行模式</legend>{([['baseline','确定性基线'],['model','真实模型']] as const).map(([value,label]) => <label key={value} className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs"><input type="radio" name="workflow-mode" checked={mode === value} onChange={() => setMode(value)} />{label}</label>)}</fieldset>
             {mode === "model" && <div className="mt-3 space-y-2 accent-card rounded-xl border border-violet-200 bg-violet-50 p-3"><p className="text-xs font-bold text-violet-900">模型角色</p>{agents.length === 0 ? <p className="text-xs leading-5 text-amber-800">还没有可选 Agent，请先回到工作台创建并配置凭证。</p> : <>

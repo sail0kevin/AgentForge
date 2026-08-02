@@ -159,9 +159,9 @@ export function createBaselineDevelopmentReport(input: ReportGenerationInput): D
   const allClaims = [...sections.flatMap((section) => section.claims), ...assumptions, ...risks, ...unresolvedItems];
   const report = DevelopmentReportSchema.parse({
     schemaVersion: 1,
-    title: `${input.plan.title}——开发方案报告`,
+    title: `${input.plan.title}——产品/UI实施报告`,
     status: reportStatus(input.reviewWorkflow),
-    executiveSummary: `本报告面向${input.analysis.targetUsers.join("、")}，目标是${input.analysis.goals.join("；")}。正文按照 Planner 为 ${input.analysis.projectType} 项目生成的${sections.length}个动态章节组织，并保留候选取舍、风险、假设、失败和人工决定。`,
+    executiveSummary: `本报告面向${input.analysis.targetUsers.join("、")}，目标是${input.analysis.goals.join("；")}。正文按照 Planner 为 ${input.analysis.projectType} 项目生成的${sections.length}个动态章节组织，服务于下游产品/UI实施，并保留候选取舍、风险、假设、失败和人工决定。`,
     decisionSummary: decisionSummary(input.reviewWorkflow),
     sections,
     assumptions,

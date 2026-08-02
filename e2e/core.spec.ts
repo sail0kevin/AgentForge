@@ -674,7 +674,7 @@ test("产品工作流页展示节点并使用持久 Checkpoint 暂停、恢复�
 
   const decision = { kind: "approval", decision: "hybrid", note: "权限和审计是硬门槛，其余功能按风险分批。" };
   await page.goto("/workflows");
-  await expect(page.getByRole("heading", { name: "开发工作流" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "产品/UI报告工作流" })).toBeVisible();
   await expect(page.getByText(marker, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "工作流已安全暂停" })).toBeVisible();
   await expect(page.getByText("完整Checkpoint不会发送到浏览器", { exact: true })).toBeVisible();

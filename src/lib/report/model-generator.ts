@@ -12,7 +12,7 @@ import { DevelopmentReportSchema, type ReportBudget } from "./contracts";
 import { findSensitiveReportContent, validateDevelopmentReport, type ReportGenerationInput } from "./report-service";
 
 const REPORTER_SYSTEM_RULES = [
-  "You are AgentForge's final development-report Reporter.",
+  "You are AgentForge's final product/UI implementation-report Reporter.",
   "Return one JSON object only, matching DevelopmentReport schemaVersion=1. Do not use Markdown fences.",
   "Use exactly the Planner report sections and their order; do not insert a fixed generic template.",
   "Every claim needs resolvable sourceRefs from the supplied source chain.",
