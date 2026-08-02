@@ -23,10 +23,15 @@ async function login(page: Page, email: string) {
 
 async function logout(page: Page) {
   await page.getByRole("button", { name: "退出登录" }).click();
-  await expect(page.getByRole("heading", { name: "登录工作台" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登录 AgentForge" })).toBeVisible();
 }
 
 async function openKnowledge(page: Page) {
+  // 首页现在默认展示交付台；只有进入支撑工作台后才显示能力库导航。
+  const workspaceEntry = page.getByRole("button", { name: "进入 Agent 配置与调试" });
+  if (await workspaceEntry.isVisible().catch(() => false)) {
+    await workspaceEntry.click();
+  }
   await page.getByRole("button", { name: "能力库" }).click();
   await expect(page.getByText("本地 RAG 知识", { exact: true })).toBeVisible();
 }

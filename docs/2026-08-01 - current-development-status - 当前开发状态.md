@@ -18,7 +18,7 @@
 - **已实现**：报告 Markdown 和下游 Prompt 会导出上述映射；报告中心可查看包含/不包含范围、下游交接说明和每条结论的来源，避免把目标设计误认为已上线网站。
 - **已实现**：生成后验收要求结构化保存实际启动命令、访问地址、截图路径和测试/验收记录；缺少任一运行证据时，即使填写“通过”，报告组也只能保持 `in_review`。旧的自由文本反馈仍可读取，但不会推进到 `accepted`。
 - **目标设计 / 未验证**：启动命令、访问地址、截图和验收记录必须来自下游真实运行环境；当前仓库只负责保存、展示和判定证据是否齐全，不宣称网站视觉、响应式或交互结果已经通过。
-- **已验证**：报告生成契约测试覆盖三套方案、唯一方案标识、完整 SHA 的 GitHub/UI 参考证据，以及混合未固定证据仍保持 `not_yet_verified` 的边界；2026-08-02 本轮通过 209/209 Unit、SQLite/PostgreSQL schema 校验、TypeScript、ESLint 和生产构建。
+- **已验证**：报告生成契约测试覆盖三套方案、唯一方案标识、完整 SHA 的 GitHub/UI 参考证据，以及混合未固定证据仍保持 `not_yet_verified` 的边界；2026-08-02 最新完整门禁通过 209/209 Unit、25/25 Core E2E、1/1 Session E2E、SQLite/PostgreSQL schema 校验、TypeScript、ESLint、文档命名/本地链接校验和生产构建。
 - **目标设计**：下游 AI 编程 Agent 根据 Prompt 生成真实网站/UI，再将截图、交互和响应式结果提交回来验收；AgentForge 当前不声称自己已经生成网站。
 - **未验证**：GitHub 参考目录已固定默认 SHA，但许可证复用审计、语义内容复核、真实 Provider 质量、真实视觉验收和生产 PostgreSQL 备份恢复仍需独立运行。
 ## 已完成
@@ -99,6 +99,12 @@ npm run quality:all
 
 该统一门禁依次执行固定检索夹具、仓库文档检索、盲评清单与运行计划校验、盲评合成端到端演练、单元测试、核心 E2E、Session 隔离 E2E、TypeScript、ESLint 和 Production Build。2026-08-01 最近一次完整运行退出码为 `0`：157/157 Unit、24/24 Core E2E、1/1 Session E2E，类型检查、ESLint 和 Production Build 均通过；仓库文档检索仍为固定 6-case 冒烟验证，不能替代真实语义质量评测。该次修复了 E2E `next dev` 生成的临时 `.next/dev/types` 污染后续类型检查的问题：E2E 现在使用并在结束后清理专用 `.next-e2e` 构建目录，完整门禁已按该顺序复验。
 
+## 2026-08-02 最新完整门禁补充
+
+- `npm run quality:all` 最新完整运行退出码为 `0`：`209/209` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、50 份 Markdown 文档命名/本地链接校验和 Next.js Production Build 均通过。
+- Session 隔离 E2E 已适配当前首页默认进入“交付台”的流程，并验证进入“Agent 配置与调试”、能力库访问和登出后返回“登录 AgentForge”。
+- 仓库文档检索仍是固定 6-case 冒烟验证；真实 Provider 消融实验、人工 RAG Golden Set、目标环境 PostgreSQL/Docker/远程 CI、生产负载和下游网站视觉验收仍未完成。
+
 ## 正式目标设计
 
 ## 2026-08-02 当前推进记录
@@ -114,7 +120,7 @@ npm run quality:all
 
 - 已实现：Tier 2 证据核验的可选注入接口，支持 `entailed`、`not_entailed`、`unknown`，并在主评审流程中披露结果；未配置或核验失败时不会伪造语义支持，也不会改变现有人工审批门禁。
 - 已实现：新增内部试点配置预检命令 `npm run pilot:readiness` 与 `npm run pilot:readiness:production`。预检不会自行读取 `.env`、连接数据库、执行迁移、调用 Provider 或输出密钥；生产目标要求 session 鉴权、长度不少于 32 的非占位密钥、PostgreSQL `DATABASE_URL`、PostgreSQL Checkpointer，以及关闭 Checkpointer 自动建表。
-- 已验证（历史中间快照，后续已增加试点反馈测试）：Tier 2 聚焦测试与当时主链测试通过；当时本地完整单元测试为 `185/185`，TypeScript、ESLint、生产构建和 `src/lib/**` 覆盖率门禁通过，覆盖率为行 `92.43%`、分支 `87.59%`、函数 `89.67%`。本机开发预检通过并如实提示临时开发加密密钥；本机生产预检因未配置目标环境密钥、PostgreSQL 与 Checkpointer 而按预期失败，说明它能阻止未配置环境被误作为试点发布。当前完整门禁数字以本文件“质量与交付状态”一节的 `193/193` 记录为准。
+- 已验证（历史中间快照，后续已增加试点反馈测试）：Tier 2 聚焦测试与当时主链测试通过；当时本地完整单元测试为 `185/185`，TypeScript、ESLint、生产构建和 `src/lib/**` 覆盖率门禁通过，覆盖率为行 `92.43%`、分支 `87.59%`、函数 `89.67%`。本机开发预检通过并如实提示临时开发加密密钥；本机生产预检因未配置目标环境密钥、PostgreSQL 与 Checkpointer 而按预期失败，说明它能阻止未配置环境被误作为试点发布。该数字仅作历史中间快照，当前完整门禁以本节 2026-08-02 记录为准。
 - 已实现并已验证（WSL 专用临时库）：PostgreSQL 验收入口与 CI job 现在先执行 Prisma migration，再独立执行 `npm run db:setup:workflow-checkpoints`；跨实例恢复测试不再自行建表，只验证已初始化表。最新 WSL 随机库已完成 5 条 migration（含 `20260802010000_add_pilot_feedback`）、Checkpointer 初始化、跨 Saver/Graph 恢复和多进程租约/Fencing 测试，随后删除数据库与角色。本地 Docker 验收入口已扩展到备份恢复演练，但当前 Windows 主机没有 Docker CLI，尚未产生 Docker 运行证据。该结果不等同于 Docker、远程 CI、目标环境备份恢复或生产负载验收。
 - 已验证：文档命名与本地链接校验通过，当前共 `50` 份 Markdown 文档；新增内部试点交付计划和简历项目描述，明确了可交付边界和不可承诺事项。
 - 待实测：真实本地 NLI 模型、语义错误语料、阈值、Precision/Recall、延迟和资源消耗；当前仍不能称为生产级语义蕴含能力。
@@ -159,8 +165,8 @@ npm run quality:all
 ### 已验证
 
 - 本机 `npm run quality:all` 已成功退出，未调用 Provider、未产生外部费用。
-- 历史完整门禁（2026-08-01）：单元测试 `193/193`；`src/lib/**` 覆盖率：行 `92.30%`、分支 `87.62%`、函数 `89.49%`。本轮聚焦验证（2026-08-02）另通过 `208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和生产构建；未把本轮结果写成完整 E2E 或 `quality:all`。
-- 核心 E2E `24/24`、Session 隔离 E2E `1/1` 通过；TypeScript、ESLint、50 份 Markdown 的命名/本地链接校验和 Next.js 生产构建通过。
+- 历史完整门禁（2026-08-01）：单元测试 `193/193`；`src/lib/**` 覆盖率：行 `92.30%`、分支 `87.62%`、函数 `89.49%`。历史聚焦验证（2026-08-02）：`208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和生产构建通过；当时未把结果写成完整 E2E 或 `quality:all`。
+- 最新完整门禁（2026-08-02）：`209/209` Unit、核心 E2E `25/25`、Session 隔离 E2E `1/1` 通过；TypeScript、ESLint、50 份 Markdown 的命名/本地链接校验和 Next.js 生产构建通过。
 
 ### 2026-08-02 P0-1 最新无费用证据
 
