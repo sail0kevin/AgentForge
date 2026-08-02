@@ -60,6 +60,7 @@ const workflowInclude = {
   planningArtifact: { select: { id: true, status: true, executionPlan: true, createdAt: true } },
   reviewWorkflow: { select: { id: true, status: true, approvalStatus: true, approvalDecision: true, evaluationJson: true, createdAt: true } },
   reportArtifact: { select: { id: true, status: true, version: true, title: true, createdAt: true } },
+  productUIReportGroup: { select: { id: true, groupId: true, status: true, schemaVersion: true, createdAt: true, updatedAt: true } },
 };
 
 function parseInterrupt(value: string | null): InterruptPayload | null {
@@ -149,6 +150,14 @@ export function mapDevelopmentWorkflow(record: Awaited<ReturnType<typeof loadDev
         createdAt: record.reviewWorkflow.createdAt.toISOString(),
       } : null,
       report: record.reportArtifact ? { ...record.reportArtifact, createdAt: record.reportArtifact.createdAt.toISOString() } : null,
+      productUI: record.productUIReportGroup ? {
+        id: record.productUIReportGroup.id,
+        groupId: record.productUIReportGroup.groupId,
+        status: record.productUIReportGroup.status,
+        schemaVersion: record.productUIReportGroup.schemaVersion,
+        createdAt: record.productUIReportGroup.createdAt.toISOString(),
+        updatedAt: record.productUIReportGroup.updatedAt.toISOString(),
+      } : null,
     },
     checkpoint: record.checkpointId ? { id: record.checkpointId, namespace: record.checkpointNamespace } : null,
     lastErrorCode: record.lastErrorCode,
@@ -259,6 +268,7 @@ async function syncGraphState(input: {
         planningArtifactId: state.planningArtifactId,
         reviewWorkflowId: state.reviewWorkflowId,
         reportArtifactId: state.reportArtifactId,
+        productUIReportGroupId: state.productUIReportGroupId,
         checkpointId,
         checkpointNamespace: WORKFLOW_CHECKPOINT_NAMESPACE,
         interruptJson: interrupt ? JSON.stringify(interrupt) : null,

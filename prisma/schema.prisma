@@ -234,6 +234,7 @@ model ProductUIReportGroup {
   schemaVersion     Int              @default(1)
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviewWorkflow    ReviewWorkflow   @relation(fields: [reviewWorkflowId], references: [id], onDelete: Cascade)
+  developmentWorkflow DevelopmentWorkflow?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -254,6 +255,7 @@ model DevelopmentWorkflow {
   planningArtifactId  String?           @unique
   reviewWorkflowId    String?           @unique
   reportArtifactId    String?           @unique
+  productUIReportGroupId String?         @unique
   checkpointId        String?
   checkpointNamespace String            @default("")
   interruptJson       String?
@@ -270,6 +272,7 @@ model DevelopmentWorkflow {
   planningArtifact    PlanningArtifact? @relation(fields: [planningArtifactId], references: [id], onDelete: SetNull)
   reviewWorkflow      ReviewWorkflow?   @relation(fields: [reviewWorkflowId], references: [id], onDelete: SetNull)
   reportArtifact      ReportArtifact?   @relation(fields: [reportArtifactId], references: [id], onDelete: SetNull)
+  productUIReportGroup ProductUIReportGroup? @relation(fields: [productUIReportGroupId], references: [id], onDelete: SetNull)
   nodes               WorkflowNode[]
   pilotFeedback       PilotFeedback?
   createdAt           DateTime          @default(now())

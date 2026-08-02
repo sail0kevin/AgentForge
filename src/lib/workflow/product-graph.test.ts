@@ -27,7 +27,7 @@ test("workflow pauses for approval and resumes without repeating completed side 
     plan: async () => { calls.plan += 1; return { planningArtifactId: "plan-1", status: "ready", questions: [] }; },
     review: async () => { calls.review += 1; return { reviewWorkflowId: "review-1", status: "needs_human" }; },
     approve: async (input) => { calls.approve += 1; receivedPatch = input.taskPatch ?? null; },
-    report: async () => { calls.report += 1; return { reportArtifactId: "report-1", status: "completed" }; },
+    report: async () => { calls.report += 1; return { reportArtifactId: "report-1", productUIReportGroupId: "product-ui-group-record-1", status: "completed" }; },
   };
   const graph = createProductWorkflowGraph(dependencies, new MemorySaver());
   const first = await startProductWorkflow({ graph, workflowId: "workflow-1", threadId: "thread-1", userId: "user-1", requirement: "Build a detailed admin portal with roles and audit logs." });
@@ -42,6 +42,7 @@ test("workflow pauses for approval and resumes without repeating completed side 
   const completed = await resumeProductWorkflow({ graph, threadId: "thread-1", resume: { kind: "approval", decision: "hybrid", note: "Balance delivery and maintainability.", taskPatch: patch } });
   assert.equal(completed.finalStatus, "completed");
   assert.equal(completed.reportArtifactId, "report-1");
+  assert.equal(completed.productUIReportGroupId, "product-ui-group-record-1");
   assert.deepEqual(calls, { plan: 1, review: 1, approve: 1, report: 1 });
   assert.deepEqual(receivedPatch, patch);
 });

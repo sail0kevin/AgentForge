@@ -17,6 +17,8 @@ export type ReviewNodeResult = {
 
 export type ReportNodeResult = {
   reportArtifactId: string;
+  // 传统 ReportArtifact 保持兼容；产品/UI 报告组是新的主交付物。
+  productUIReportGroupId?: string;
   status: "completed" | "partial" | "blocked" | "inconclusive";
 };
 
@@ -41,6 +43,7 @@ const ProductWorkflowState = Annotation.Root({
   reviewStatus: Annotation<ReviewNodeResult["status"] | undefined>,
   approvalDecision: Annotation<string | undefined>,
   reportArtifactId: Annotation<string | undefined>,
+  productUIReportGroupId: Annotation<string | undefined>,
   reportStatus: Annotation<ReportNodeResult["status"] | undefined>,
   finalStatus: Annotation<"completed" | "partial" | "blocked" | "inconclusive" | "failed" | undefined>,
 });
@@ -125,7 +128,11 @@ export function createProductWorkflowGraph(dependencies: ProductWorkflowDependen
       reviewWorkflowId: state.reviewWorkflowId,
       generationKey: `workflow:${state.workflowId}:report:1`,
     });
-    return { reportArtifactId: result.reportArtifactId, reportStatus: result.status };
+    return {
+      reportArtifactId: result.reportArtifactId,
+      productUIReportGroupId: result.productUIReportGroupId,
+      reportStatus: result.status,
+    };
   };
 
   const finalize = (state: ProductWorkflowStateType) => {

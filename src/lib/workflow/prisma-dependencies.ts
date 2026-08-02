@@ -9,6 +9,8 @@ import { ReportBudgetSchema } from "@/lib/report/contracts";
 import { createReportModelContext } from "@/lib/report/model-generator";
 import { createBaselineDevelopmentReport } from "@/lib/report/report-service";
 import { loadReportGenerationInput, saveReportArtifact } from "@/lib/report/prisma-report";
+import { createProductUIReportGroup } from "@/lib/report/product-ui-report";
+import { saveProductUIReportGroup } from "@/lib/report/product-ui-group-service";
 import { ReviewBudgetSchema, type ApprovalDecision } from "@/lib/review/contracts";
 import { createReviewModelContext } from "@/lib/review/model-generators";
 import { decideReviewWorkflow, saveReviewWorkflow } from "@/lib/review/prisma-review";
@@ -237,9 +239,17 @@ export function createPrismaWorkflowDependencies(options: WorkflowDependencyOpti
 
     async report(input) {
       const existing = await prisma.reportArtifact.findFirst({ where: { userId: input.userId, generationKey: input.generationKey } });
-      if (existing) {
-        if (existing.reviewWorkflowId !== input.reviewWorkflowId) throw new Error("WORKFLOW_REPORT_KEY_CONFLICT");
-        return { reportArtifactId: existing.id, status: existing.status as "completed" | "partial" | "blocked" | "inconclusive" };
+      if (existing && existing.reviewWorkflowId !== input.reviewWorkflowId) throw new Error("WORKFLOW_REPORT_KEY_CONFLICT");
+      const productUIGroupId = `product-ui-group:${input.workflowId}:1`;
+      const existingProductUIGroup = await prisma.productUIReportGroup.findUnique({
+        where: { userId_groupId: { userId: input.userId, groupId: productUIGroupId } },
+      });
+      if (existing && existingProductUIGroup) {
+        return {
+          reportArtifactId: existing.id,
+          productUIReportGroupId: existingProductUIGroup.id,
+          status: existing.status as "completed" | "partial" | "blocked" | "inconclusive",
+        };
       }
       const source = await loadReportGenerationInput(input.reviewWorkflowId, input.userId);
       const roles = options.mode === "model" ? requireModelRoles(options.agents) : null;
@@ -250,18 +260,24 @@ export function createPrismaWorkflowDependencies(options: WorkflowDependencyOpti
       let usageSaved = false;
       try {
         const report = model ? await model.generate(source) : createBaselineDevelopmentReport(source);
-        const artifact = await saveReportArtifact({ runId: handle.runId, userId: input.userId, generationKey: input.generationKey, source, report });
+        const artifact = existing
+          ? existing
+          : await saveReportArtifact({ runId: handle.runId, userId: input.userId, generationKey: input.generationKey, source, report });
+        // 当前三套产品/UI方案采用确定性 Baseline 模板，确保结构完整且结果可复现；
+        // 后续接入模型 Reporter 时再替换各方案的生成器，并保留同一持久化契约。
+        const productUIGroup = createProductUIReportGroup(source, { groupId: productUIGroupId });
+        const savedProductUIGroup = await saveProductUIReportGroup({ userId: input.userId, reviewWorkflowId: input.reviewWorkflowId, group: productUIGroup });
         if (model && model.usage.attempts > 0) {
           const message: WorkspaceMessage = {
             id: crypto.randomUUID(), runId: handle.runId, role: "assistant", agentId: model.usage.agent.id,
-            content: JSON.stringify({ reportArtifactId: artifact.id, attempts: model.usage.attempts, status: "accepted" }), createdAt: new Date().toISOString(),
+            content: JSON.stringify({ reportArtifactId: artifact.id, productUIReportGroupId: savedProductUIGroup.record.id, attempts: model.usage.attempts, status: "accepted" }), createdAt: new Date().toISOString(),
           };
           await handle.persistence.saveAssistantResult({ message, ...model.usage });
           usageSaved = true;
         }
         const warning = report.status !== "completed";
         await handle.persistence.completeRun({ runId: handle.runId, totalSpent: model?.usage.costUsd ?? 0, budgetStatus: warning ? "warning" : "idle", ...(warning ? { errorCode: `REPORT_${report.status.toUpperCase()}` } : {}), startedAt: handle.startedAt });
-        return { reportArtifactId: artifact.id, status: report.status };
+        return { reportArtifactId: artifact.id, productUIReportGroupId: savedProductUIGroup.record.id, status: report.status };
       } catch (error) {
         const code = error instanceof Error && /^[A-Z0-9_:-]+$/.test(error.message) ? error.message.split(":")[0] : "WORKFLOW_REPORT_FAILED";
         try {
