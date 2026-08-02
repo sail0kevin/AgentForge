@@ -221,6 +221,8 @@ test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptan
   assert.equal(bundle.solutions[0].runtimeAcceptance.status, "pass");
   assert.equal(bundle.solutions[0].runtimeAcceptance.hasRuntimeEvidence, true);
   assert.equal(bundle.solutions[1].runtimeAcceptance.status, "pending");
+  assert.ok(bundle.handoffContract.requiredArtifacts.some((item) => item.includes("启动命令")));
+  assert.ok(bundle.solutions[0].downstreamPrompt.includes("只能填写真实值"));
 
   const json = JSON.parse(renderProductUIHandoffJson(withFeedback, { generatedAt: "2026-08-02T00:00:00.000Z" })) as typeof bundle;
   assert.equal(json.groupId, group.groupId);
@@ -232,6 +234,24 @@ test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptan
   assert.equal(selected.selectedSolutionId, group.reports[1].productUISpec?.solutionId);
   assert.equal(selected.solutions.length, 1);
   assert.equal(selected.comparison.length, 1);
+});
+
+test("text-only pass feedback cannot be exported as runtime acceptance", async () => {
+  const group = createProductUIReportGroup(await fixture("Build a report that must distinguish design intent from verified website output."));
+  const legacyFeedbackGroup = ProductUIReportGroupSchema.parse({
+    ...group,
+    feedback: [{
+      solutionId: group.reports[0].productUISpec?.solutionId,
+      outcome: "pass",
+      note: "只有文字反馈，没有运行证据。",
+      runtimeEvidence: null,
+      checkedAt: "2026-08-02T00:00:00.000Z",
+    }],
+  });
+
+  const bundle = buildProductUIHandoffBundle(legacyFeedbackGroup);
+  assert.equal(bundle.solutions[0].runtimeAcceptance.status, "pending");
+  assert.equal(bundle.solutions[0].runtimeAcceptance.hasRuntimeEvidence, false);
 });
 
 test("GitHub evidence provenance is required for product/UI references", async () => {

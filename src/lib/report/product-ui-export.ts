@@ -6,7 +6,34 @@ import type {
   ProductUISpec,
 } from "./contracts";
 
-export const PRODUCT_UI_HANDOFF_SCHEMA_VERSION = 1 as const;
+export const PRODUCT_UI_HANDOFF_SCHEMA_VERSION = 2 as const;
+
+export type ProductUIHandoffContract = {
+  requiredArtifacts: string[];
+  runtimeEvidence: string[];
+  statusRules: string[];
+};
+
+const PRODUCT_UI_HANDOFF_CONTRACT: ProductUIHandoffContract = {
+  requiredArtifacts: [
+    "可启动的网站源码或明确的代码变更说明",
+    "实际使用的启动命令",
+    "可访问的预览地址",
+    "桌面端和移动端截图（若目标包含响应式页面）",
+    "逐项验收结果与未通过项",
+  ],
+  runtimeEvidence: [
+    "launchCommand 必须是本次真实运行使用的命令",
+    "previewUrl 必须指向本次运行的可访问地址",
+    "screenshotPaths 必须指向实际生成的截图文件",
+    "verificationNotes 必须说明已检查的页面、流程、响应式和遗留问题",
+  ],
+  statusRules: [
+    "pending 表示尚未完成真实运行验收，不能描述为网站已完成",
+    "pass 只有在存在完整运行证据并确认验收通过后才能使用",
+    "needs_revision 表示至少有一项验收不通过，必须保留问题说明",
+  ],
+};
 
 export type ProductUIHandoffSolution = {
   solutionId: string;
@@ -19,6 +46,7 @@ export type ProductUIHandoffSolution = {
     hasRuntimeEvidence: boolean;
     runtimeEvidence: ProductUIRuntimeEvidence | null;
   };
+  handoffContract: ProductUIHandoffContract;
   report: DevelopmentReport;
   markdown: string;
   downstreamPrompt: string;
@@ -33,6 +61,7 @@ export type ProductUIHandoffBundle = {
   status: ProductUIReportGroup["status"];
   selectedSolutionId: string | null;
   comparison: ProductUIReportGroup["comparison"];
+  handoffContract: ProductUIHandoffContract;
   solutions: ProductUIHandoffSolution[];
 };
 
@@ -198,6 +227,17 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
     "4. 运行网站后输出实际使用的启动命令、页面截图路径和未通过的验收项。",
     "5. 不得把 GitHub 参考仓库整页复制到产品中；复用前检查许可证和固定版本。",
     "6. 先阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
+    "7. 完成后必须回传真实交付证据；没有启动命令、预览地址和截图时，不得声称网站已经通过验收。",
+    "",
+    "回传交付证据（只能填写真实值，不得使用臆造结果）：",
+    "```json",
+    JSON.stringify({
+      launchCommand: "<实际启动命令>",
+      previewUrl: "<实际预览地址>",
+      screenshotPaths: ["<实际截图路径>"],
+      verificationNotes: ["<逐项记录已通过和未通过的验收项>"],
+    }, null, 2),
+    "```",
     "",
     `方案 ID：${spec.solutionId}`,
     `方案类型：${spec.solutionType}`,
@@ -216,8 +256,10 @@ function latestFeedback(feedback: ProductUIReportFeedback[], solutionId: string)
 
 function buildRuntimeAcceptance(feedback: ProductUIReportFeedback[], solutionId: string): ProductUIHandoffSolution["runtimeAcceptance"] {
   const item = latestFeedback(feedback, solutionId);
+  // 只有文字反馈而没有启动命令、地址和截图时，不能把报告标成已通过。
+  const status = item?.outcome === "pass" && !item.runtimeEvidence ? "pending" : item?.outcome ?? "pending";
   return {
-    status: item?.outcome ?? "pending",
+    status,
     note: item?.note ?? null,
     checkedAt: item?.checkedAt ?? null,
     hasRuntimeEvidence: Boolean(item?.runtimeEvidence),
@@ -247,6 +289,7 @@ export function buildProductUIHandoffBundle(
     comparison: selectedSolutionId
       ? group.comparison.filter((item) => item.solutionId === selectedSolutionId)
       : group.comparison,
+    handoffContract: PRODUCT_UI_HANDOFF_CONTRACT,
     solutions: reports.map((report) => {
       const spec = report.productUISpec;
       if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
@@ -255,6 +298,7 @@ export function buildProductUIHandoffBundle(
         solutionType: spec.solutionType,
         evidenceStatus: spec.evidenceStatus,
         runtimeAcceptance: buildRuntimeAcceptance(group.feedback, spec.solutionId),
+        handoffContract: PRODUCT_UI_HANDOFF_CONTRACT,
         report,
         markdown: renderProductUISpecMarkdown(report, metadata),
         downstreamPrompt: buildDownstreamAgentPrompt(report),
