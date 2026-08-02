@@ -1,6 +1,10 @@
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
-import { renderProductUIReportGroupMarkdown, renderProductUISpecMarkdown } from "@/lib/report/product-ui-export";
+import {
+  renderProductUIHandoffJson,
+  renderProductUIReportGroupMarkdown,
+  renderProductUISpecMarkdown,
+} from "@/lib/report/product-ui-export";
 import { mapProductUIReportGroup } from "@/lib/report/product-ui-group-service";
 
 export const runtime = "nodejs";
@@ -12,9 +16,25 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const record = await prisma.productUIReportGroup.findFirst({ where: { id, userId: user.id } });
   if (!record) return Response.json({ error: { code: "PRODUCT_UI_GROUP_NOT_FOUND", message: "Product/UI report group not found." } }, { status: 404 });
   const group = mapProductUIReportGroup(record);
-  const solutionId = new URL(request.url).searchParams.get("solutionId");
+  const searchParams = new URL(request.url).searchParams;
+  const solutionId = searchParams.get("solutionId");
+  const format = searchParams.get("format")?.toLowerCase() ?? "markdown";
+  if (format !== "markdown" && format !== "json") {
+    return Response.json({ error: { code: "PRODUCT_UI_EXPORT_FORMAT_UNSUPPORTED", message: "Supported formats are markdown and json." } }, { status: 400 });
+  }
   const selected = solutionId ? group.reports.find((report) => report.productUISpec?.solutionId === solutionId) : null;
   if (solutionId && !selected) return Response.json({ error: { code: "PRODUCT_UI_SOLUTION_NOT_FOUND", message: "Product/UI solution not found." } }, { status: 404 });
+  if (format === "json") {
+    const json = renderProductUIHandoffJson(group, { generatedAt: group.createdAt, selectedSolutionId: solutionId });
+    const suffix = solutionId ? `-${solutionId}` : "-all-solutions";
+    return new Response(json, {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="agentforge-product-ui-${group.groupId}${suffix}.json"`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
   const markdown = selected
     ? renderProductUISpecMarkdown(selected, { generatedAt: group.createdAt })
     : renderProductUIReportGroupMarkdown(group.reports, { generatedAt: group.createdAt });

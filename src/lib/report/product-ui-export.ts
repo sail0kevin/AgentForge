@@ -1,4 +1,40 @@
-import type { DevelopmentReport, ProductUISpec } from "./contracts";
+import type {
+  DevelopmentReport,
+  ProductUIReportGroup,
+  ProductUIReportFeedback,
+  ProductUIRuntimeEvidence,
+  ProductUISpec,
+} from "./contracts";
+
+export const PRODUCT_UI_HANDOFF_SCHEMA_VERSION = 1 as const;
+
+export type ProductUIHandoffSolution = {
+  solutionId: string;
+  solutionType: ProductUISpec["solutionType"];
+  evidenceStatus: ProductUISpec["evidenceStatus"];
+  runtimeAcceptance: {
+    status: "pending" | "pass" | "needs_revision";
+    note: string | null;
+    checkedAt: string | null;
+    hasRuntimeEvidence: boolean;
+    runtimeEvidence: ProductUIRuntimeEvidence | null;
+  };
+  report: DevelopmentReport;
+  markdown: string;
+  downstreamPrompt: string;
+};
+
+export type ProductUIHandoffBundle = {
+  schemaVersion: typeof PRODUCT_UI_HANDOFF_SCHEMA_VERSION;
+  handoffType: "agentforge_product_ui";
+  generatedAt: string;
+  groupId: string;
+  requirement: string;
+  status: ProductUIReportGroup["status"];
+  selectedSolutionId: string | null;
+  comparison: ProductUIReportGroup["comparison"];
+  solutions: ProductUIHandoffSolution[];
+};
 
 function bulletList(items: string[]) {
   return items.map((item) => `- ${item}`).join("\n");
@@ -171,4 +207,64 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
 
 export function renderProductUIReportGroupMarkdown(reports: DevelopmentReport[], metadata: { generatedAt?: string } = {}) {
   return reports.map((report) => renderProductUISpecMarkdown(report, metadata)).join("\n\n---\n\n");
+}
+
+function latestFeedback(feedback: ProductUIReportFeedback[], solutionId: string) {
+  return [...feedback].reverse().find((item) => item.solutionId === solutionId) ?? null;
+}
+
+function buildRuntimeAcceptance(feedback: ProductUIReportFeedback[], solutionId: string): ProductUIHandoffSolution["runtimeAcceptance"] {
+  const item = latestFeedback(feedback, solutionId);
+  return {
+    status: item?.outcome ?? "pending",
+    note: item?.note ?? null,
+    checkedAt: item?.checkedAt ?? null,
+    hasRuntimeEvidence: Boolean(item?.runtimeEvidence),
+    runtimeEvidence: item?.runtimeEvidence ?? null,
+  };
+}
+
+// JSON handoff 是给下游 AI 编程 Agent 消费的稳定边界；它只携带已保存的报告和验收证据。
+export function buildProductUIHandoffBundle(
+  group: ProductUIReportGroup,
+  metadata: { generatedAt?: string; selectedSolutionId?: string | null } = {},
+): ProductUIHandoffBundle {
+  const selectedSolutionId = metadata.selectedSolutionId ?? null;
+  const reports = selectedSolutionId
+    ? group.reports.filter((report) => report.productUISpec?.solutionId === selectedSolutionId)
+    : group.reports;
+  if (selectedSolutionId && reports.length === 0) throw new Error("PRODUCT_UI_SOLUTION_NOT_FOUND");
+
+  return {
+    schemaVersion: PRODUCT_UI_HANDOFF_SCHEMA_VERSION,
+    handoffType: "agentforge_product_ui",
+    generatedAt: metadata.generatedAt ?? new Date().toISOString(),
+    groupId: group.groupId,
+    requirement: group.requirement,
+    status: group.status,
+    selectedSolutionId,
+    comparison: selectedSolutionId
+      ? group.comparison.filter((item) => item.solutionId === selectedSolutionId)
+      : group.comparison,
+    solutions: reports.map((report) => {
+      const spec = report.productUISpec;
+      if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
+      return {
+        solutionId: spec.solutionId,
+        solutionType: spec.solutionType,
+        evidenceStatus: spec.evidenceStatus,
+        runtimeAcceptance: buildRuntimeAcceptance(group.feedback, spec.solutionId),
+        report,
+        markdown: renderProductUISpecMarkdown(report, metadata),
+        downstreamPrompt: buildDownstreamAgentPrompt(report),
+      };
+    }),
+  };
+}
+
+export function renderProductUIHandoffJson(
+  group: ProductUIReportGroup,
+  metadata: { generatedAt?: string; selectedSolutionId?: string | null } = {},
+) {
+  return JSON.stringify(buildProductUIHandoffBundle(group, metadata), null, 2);
 }

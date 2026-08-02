@@ -5,7 +5,13 @@ import { DEFAULT_PLANNER_BUDGET } from "@/lib/planner/planner-service";
 import { ReviewBudgetSchema } from "@/lib/review/contracts";
 import { runReviewWorkflow } from "@/lib/review/review-service";
 import { DEFAULT_GITHUB_UI_EVIDENCE } from "./github-ui-evidence";
-import { buildDownstreamAgentPrompt, renderProductUIReportGroupMarkdown, renderProductUISpecMarkdown } from "./product-ui-export";
+import {
+  buildDownstreamAgentPrompt,
+  buildProductUIHandoffBundle,
+  renderProductUIHandoffJson,
+  renderProductUIReportGroupMarkdown,
+  renderProductUISpecMarkdown,
+} from "./product-ui-export";
 import { createProductUIReportGroup } from "./product-ui-report";
 import { deriveProductUIReportGroupStatus } from "./product-ui-group-service";
 import { ProductUIReportGroupSchema } from "./contracts";
@@ -175,6 +181,48 @@ test("product/UI feedback status requires runtime evidence before acceptance", a
   });
   assert.equal(legacyGroup.feedback[0]?.runtimeEvidence, null);
 });
+
+test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptance state", async () => {
+  const group = createProductUIReportGroup(await fixture("Build a product workspace with three UI directions and downstream implementation handoff."));
+  const runtimeEvidence = {
+    launchCommand: "npm run dev",
+    previewUrl: "http://localhost:3000",
+    screenshotPaths: ["artifacts/home-desktop.png"],
+    verificationNotes: ["桌面端和移动端页面已运行检查。"],
+  };
+  const withFeedback = ProductUIReportGroupSchema.parse({
+    ...group,
+    status: "in_review",
+    feedback: [{
+      solutionId: group.reports[0].productUISpec?.solutionId,
+      outcome: "pass",
+      note: "已完成一次运行验收。",
+      runtimeEvidence,
+      checkedAt: "2026-08-02T00:00:00.000Z",
+    }],
+  });
+
+  const bundle = buildProductUIHandoffBundle(withFeedback, { generatedAt: "2026-08-02T00:00:00.000Z" });
+  assert.equal(bundle.handoffType, "agentforge_product_ui");
+  assert.equal(bundle.solutions.length, 3);
+  assert.ok(bundle.solutions.every((solution) => solution.report.productUISpec));
+  assert.ok(bundle.solutions.every((solution) => solution.downstreamPrompt.includes("下游 AI 编程 Agent")));
+  assert.equal(bundle.solutions[0].runtimeAcceptance.status, "pass");
+  assert.equal(bundle.solutions[0].runtimeAcceptance.hasRuntimeEvidence, true);
+  assert.equal(bundle.solutions[1].runtimeAcceptance.status, "pending");
+
+  const json = JSON.parse(renderProductUIHandoffJson(withFeedback, { generatedAt: "2026-08-02T00:00:00.000Z" })) as typeof bundle;
+  assert.equal(json.groupId, group.groupId);
+  assert.equal(json.solutions.length, 3);
+  const selected = buildProductUIHandoffBundle(withFeedback, {
+    generatedAt: "2026-08-02T00:00:00.000Z",
+    selectedSolutionId: group.reports[1].productUISpec?.solutionId,
+  });
+  assert.equal(selected.selectedSolutionId, group.reports[1].productUISpec?.solutionId);
+  assert.equal(selected.solutions.length, 1);
+  assert.equal(selected.comparison.length, 1);
+});
+
 test("GitHub evidence provenance is required for product/UI references", async () => {
   const input = await fixture("Build a product workspace with accessible navigation, report pages and responsive delivery.");
   const report = createBaselineDevelopmentReport(input);
