@@ -177,7 +177,8 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "",
     "- 已实现：AgentForge 可以生成并导出结构化产品/UI规格、页面清单、组件状态、响应式要求和下游 Prompt。",
     "- 已实现：每套规格保留 GitHub 仓库、版本字段、路径、许可证和复用策略。",
-    "- 未验证：当前证据目录中的 main 分支版本尚未冻结 commit SHA，不能据此声称已完成版本审计。",
+    "- 已实现：默认 GitHub/UI 参考使用完整 commit SHA，报告会记录仓库、版本、路径、许可证和复用策略。",
+    "- 未验证：固定 SHA 只保证引用快照可复现，不等于许可证复用审计、语义复核或下游网站视觉验收已经完成。",
     "- 目标设计：页面、视觉风格、运行截图和最终网站效果需要由下游 AI 生成并经过实际运行验收。",
   ].join("\n");
 }

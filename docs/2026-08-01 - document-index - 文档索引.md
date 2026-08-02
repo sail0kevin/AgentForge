@@ -3,7 +3,7 @@
 
 更新时间：2026-08-02（Asia/Shanghai）
 
-本目录同时保存当前事实、正式设计、质量评测、公开说明、整改记录和历史材料。当前正式交付边界是 local-first Web MVP：用户需求经多 Agent 规划与评审后，可生成三套产品/UI实施报告（体验优先、视觉优先、工程优先），并完成报告组持久化、Markdown 导出、下游 AI 编程 Prompt 和真实验收反馈入口；网站本身仍由下游 AI 编程 Agent 生成，AgentForge 当前不宣称已自动生成真实网站。GitHub 参考证据冻结、真实模型盲评和 Electron 正式交付尚未完成。PostgreSQL Checkpointer、独立 migration 和分布式 lease/fencing 已实现，且已在 WSL 专用临时 PostgreSQL 环境完成迁移、跨实例恢复与租约/fencing 验收；Docker、远程 CI、目标环境备份恢复和生产负载仍待独立验证。
+本目录同时保存当前事实、正式设计、质量评测、公开说明、整改记录和历史材料。当前正式交付边界是 local-first Web MVP：用户需求经多 Agent 规划与评审后，可生成三套产品/UI实施报告（体验优先、视觉优先、工程优先），并完成报告组持久化、Markdown 导出、下游 AI 编程 Prompt 和真实验收反馈入口；网站本身仍由下游 AI 编程 Agent 生成，AgentForge 当前不宣称已自动生成真实网站。默认 GitHub/UI 参考已固定完整 commit SHA，但许可证复用审计、语义复核、真实模型盲评和 Electron 正式交付尚未完成。PostgreSQL Checkpointer、独立 migration 和分布式 lease/fencing 已实现，且已在 WSL 专用临时 PostgreSQL 环境完成迁移、跨实例恢复与租约/fencing 验收；Docker、远程 CI、目标环境备份恢复和生产负载仍待独立验证。
 
 ## 当前证据时间线
 
@@ -19,19 +19,20 @@
 1. [当前开发状态](./2026-08-01 - current-development-status - 当前开发状态.md)：当前实现、已知限制和最近验证结果的主入口。
 2. [V2 证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md)：当前工作区无外部费用验证、P0 决策记录和待实测边界。
 3. [当前运行架构](./2026-08-01 - current-runtime-architecture - 当前运行架构.md)：产品运行链路、离线质量链路和架构边界。
-4. [V2 工作流、检索与数据关系](./2026-08-01 - v2-workflow-retrieval-data-architecture - V2工作流检索与数据关系.md)：StateGraph、RAG、Prisma关系和CI门禁 Mermaid 图。
-5. [V2 改进计划](./2026-07-31 - roadmap-v2-improvement-plan - V2改进计划.md)：P0-P2 优先级、依赖关系与目标设计。
-6. [V2 测试计划](./2026-08-01 - roadmap-v2-testing-plan - V2验收与实验指南.md)：冻结实验、离线门禁与验收步骤。
-7. [P0-2 PostgreSQL 验收状态](./2026-08-01 - p0-2-postgres-acceptance-status - P0-2PostgreSQL验收状态.md)：PostgreSQL 实现、实测条件与专用验收命令。
-8. [本地演示指南](./2026-07-19 - local-demo-guide - 本地演示指南.md)：工作流、报告中心、统一工作台与质量命令的本地演示步骤。
-9. [质量评测说明](./quality - 质量评测/2026-08-01 - quality-evaluation-index - 质量评测说明.md)：RAG回归、盲评命令、公开结果与本地私有材料的存放规则。
-10. [真实模型盲评协议](./quality - 质量评测/2026-07-19 - blind-evaluation-protocol - 真实模型盲评协议.md)：12案例、5变体、60项运行、匿名评分和结论边界。
-11. [正式设计入口](./design - 产品设计方案/旧 - design-index - 设计文档总入口.md)：产品边界、工作流和目标架构设计。
-12. [完整工程整改与开发总报告](./remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md)：答辩级主报告。
-13. [当前项目报告](./reports - 对外发布报告/2026-07-19 - project-report - 当前项目报告.md)：适合公开展示的精简报告。
-14. [发布检查清单](./reports - 对外发布报告/旧 - publishing-checklist - 发布检查清单.md)：提交与GitHub发布前的安全、文档和质量门禁。
-15. [截图说明](./screenshots/2026-07-19 - screenshot-index - 公开截图说明.md)：README公开截图的内容和安全边界。
-16. [历史归档](./archive - 历史归档资料/2026-07-15 - archive-index - 历史归档说明.md)：已被新版本取代但需保留的材料。
+4. [架构总览](./architecture - 架构设计/2026-08-02 - architecture-overview - 架构总览.md)：交付主链路、状态图、证据链、持久化边界和已实现/目标设计区分。
+5. [V2 工作流、检索与数据关系](./2026-08-01 - v2-workflow-retrieval-data-architecture - V2工作流检索与数据关系.md)：StateGraph、RAG、Prisma关系和CI门禁 Mermaid 图。
+6. [V2 改进计划](./2026-07-31 - roadmap-v2-improvement-plan - V2改进计划.md)：P0-P2 优先级、依赖关系与目标设计。
+7. [V2 测试计划](./2026-08-01 - roadmap-v2-testing-plan - V2验收与实验指南.md)：冻结实验、离线门禁与验收步骤。
+8. [P0-2 PostgreSQL 验收状态](./2026-08-01 - p0-2-postgres-acceptance-status - P0-2PostgreSQL验收状态.md)：PostgreSQL 实现、实测条件与专用验收命令。
+9. [本地演示指南](./2026-07-19 - local-demo-guide - 本地演示指南.md)：工作流、报告中心、统一工作台与质量命令的本地演示步骤。
+10. [质量评测说明](./quality - 质量评测/2026-08-01 - quality-evaluation-index - 质量评测说明.md)：RAG回归、盲评命令、公开结果与本地私有材料的存放规则。
+11. [真实模型盲评协议](./quality - 质量评测/2026-07-19 - blind-evaluation-protocol - 真实模型盲评协议.md)：12案例、5变体、60项运行、匿名评分和结论边界。
+12. [正式设计入口](./design - 产品设计方案/旧 - design-index - 设计文档总入口.md)：产品边界、工作流和目标架构设计。
+13. [完整工程整改与开发总报告](./remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md)：答辩级主报告。
+14. [当前项目报告](./reports - 对外发布报告/2026-07-19 - project-report - 当前项目报告.md)：适合公开展示的精简报告。
+15. [发布检查清单](./reports - 对外发布报告/旧 - publishing-checklist - 发布检查清单.md)：提交与GitHub发布前的安全、文档和质量门禁。
+16. [截图说明](./screenshots/2026-07-19 - screenshot-index - 公开截图说明.md)：README公开截图的内容和安全边界。
+17. [历史归档](./archive - 历史归档资料/2026-07-15 - archive-index - 历史归档说明.md)：已被新版本取代但需保留的材料。
 
 ## 日常阅读五份
 
@@ -40,8 +41,9 @@
 1. `2026-08-01 - current-development-status - 当前开发状态.md`；
 2. `2026-08-01 - v2-evidence-baseline - V2证据基线.md`；
 3. `2026-08-01 - current-runtime-architecture - 当前运行架构.md`；
-4. `2026-07-31 - roadmap-v2-improvement-plan - V2改进计划.md`；
-5. `2026-08-01 - roadmap-v2-testing-plan - V2验收与实验指南.md`。
+4. `architecture - 架构设计/2026-08-02 - architecture-overview - 架构总览.md`；
+5. `2026-07-31 - roadmap-v2-improvement-plan - V2改进计划.md`；
+6. `2026-08-01 - roadmap-v2-testing-plan - V2验收与实验指南.md`。
 
 需要继续真实模型质量实验时，再读取质量评测目录；需要答辩或追溯整改过程时，再读取 `remediation - 工程整改实施/`、`reviews - 历史评审复查/` 和 `archive - 历史归档资料/`。
 

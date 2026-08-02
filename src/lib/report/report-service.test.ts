@@ -146,6 +146,8 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.match(markdown, /sha_pinned/);
   assert.match(markdown, /\/workspace/);
   assert.match(markdown, /GitHub/);
+  assert.doesNotMatch(markdown, /main 分支版本尚未冻结 commit SHA/);
+  assert.match(markdown, /固定 SHA 只保证引用快照可复现/);
   assert.match(markdown, /交付边界与来源映射/);
   assert.match(markdown, /需求目标：/);
   assert.match(prompt, /loading/);
