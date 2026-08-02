@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowRight, Bot, CheckCircle2, Code2, FileJson, FileText, GitBranch, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { WorkspaceApp } from "@/components/workspace/workspace-app";
@@ -95,6 +95,24 @@ const initialWorkspace: WorkspaceSnapshot = {
   totalSpent: 0,
   status: "idle",
 };
+const workspaceThemeStorageKey = "multi-agent-workspace.theme.v1";
+
+function subscribeToWorkspaceTheme(onStoreChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === workspaceThemeStorageKey) onStoreChange();
+  };
+
+  window.addEventListener("storage", onStorage);
+  return () => window.removeEventListener("storage", onStorage);
+}
+
+function getWorkspaceTheme() {
+  return window.localStorage.getItem(workspaceThemeStorageKey) === "dark" ? "dark" : "light";
+}
+
+function getServerWorkspaceTheme() {
+  return "light";
+}
 
 /**
  * 认证壳把登录状态与工作台分开，避免把账号逻辑继续塞进大型 WorkspaceApp。
@@ -110,6 +128,11 @@ export function AuthenticatedWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showWorkspace, setShowWorkspace] = useState(false);
+  const deliveryTheme = useSyncExternalStore(
+    subscribeToWorkspaceTheme,
+    getWorkspaceTheme,
+    getServerWorkspaceTheme,
+  );
 
   async function fetchCurrentUser() {
     try {
@@ -125,6 +148,7 @@ export function AuthenticatedWorkspace() {
   useEffect(() => {
     void fetchCurrentUser();
   }, []);
+
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -187,7 +211,7 @@ export function AuthenticatedWorkspace() {
   }
 
   return (
-    <>
+    <div data-theme={deliveryTheme} className={deliveryTheme === "dark" ? "theme-dark" : undefined}>
       <div className="global-account-bar fixed right-4 top-3 z-50 flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
         <Link href="/" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><LayoutDashboard className="h-3.5 w-3.5" />交付台</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
@@ -201,6 +225,6 @@ export function AuthenticatedWorkspace() {
         <button type="button" onClick={logout} className="font-semibold text-[#5B5BD6]">退出登录</button>
       </div>
       {showWorkspace ? <WorkspaceApp initialWorkspace={initialWorkspace} /> : <ProductDeliveryHub onOpenWorkspace={() => setShowWorkspace(true)} />}
-    </>
+    </div>
   );
 }

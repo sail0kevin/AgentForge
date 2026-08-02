@@ -680,8 +680,8 @@ test("产品工作流页展示节点并使用持久 Checkpoint 暂停、恢复�
   await expect(page.getByText("完整Checkpoint不会发送到浏览器", { exact: true })).toBeVisible();
   await page.getByLabel("裁决说明（可选）").fill(decision.note);
   await page.getByRole("button", { name: "从Checkpoint恢复" }).click();
-  await expect(page.getByText("ProductUIReportGroup（主交付物）", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "查看报告中心 →" })).toBeVisible();
+  await expect(page.getByText("产品/UI报告组（主交付物）", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "查看本组报告 →" })).toBeVisible();
 
   const completedResponse = await request.get(`/api/workflows/${created.workflow.id}`);
   const completed = await completedResponse.json() as { workflow: { status: string; currentNode: string; artifacts: { report: { id: string; version: number } | null; productUI: { id: string; groupId: string; status: string } | null }; nodes: Array<{ key: string; status: string }> } };
