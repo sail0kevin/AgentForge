@@ -157,7 +157,13 @@ export function WorkflowCenter() {
         });
       }
       setWorkflows(data.workflows);
-      setSelectedId((current) => current && data.workflows!.some((item) => item.id === current) ? current : data.workflows![0]?.id ?? null);
+      // 首页创建后通过 query 参数深链接到刚刚发起的工作流。
+      const requestedWorkflowId = new URLSearchParams(window.location.search).get("workflowId");
+      setSelectedId((current) => requestedWorkflowId && data.workflows!.some((item) => item.id === requestedWorkflowId)
+        ? requestedWorkflowId
+        : current && data.workflows!.some((item) => item.id === current)
+          ? current
+          : data.workflows![0]?.id ?? null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "工作流加载失败。 ");
     } finally { setLoading(false); }

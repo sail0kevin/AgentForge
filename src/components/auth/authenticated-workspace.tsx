@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
-import { ArrowRight, Bot, CheckCircle2, Code2, FileJson, FileText, GitBranch, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
+import { ArrowRight, Code2, FileText, GitBranch, LayoutDashboard, Loader2, LogIn, Plus, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { WorkspaceApp } from "@/components/workspace/workspace-app";
 import type { WorkspaceSnapshot } from "@/lib/types";
 import { useAgentStore } from "@/store/agent-store";
@@ -12,78 +13,129 @@ type SafeUser = { id: string; email: string; name: string | null };
 type AuthMode = "login" | "register";
 
 function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }) {
-  const steps = [
-    {
-      icon: GitBranch,
-      title: "需求工作流",
-      description: "提交产品或网站需求，完成信息补充、多 Agent 规划、交叉评审和人工裁决。",
-      action: "开始需求分析",
-      href: "/workflows",
-    },
-    {
-      icon: FileText,
-      title: "三套产品/UI报告",
-      description: "得到体验优先、视觉优先、工程优先三套可以比较、导出和复核的实施规格。",
-      action: "查看交付报告",
-      href: "/reports",
-    },
-    {
-      icon: FileJson,
-      title: "交给下游 AI",
-      description: "复制编程 Prompt 或导出 JSON handoff，让下游 AI 编程 Agent 生成真实网站，再回写验收证据。",
-      action: "准备下游交接",
-      href: "/reports",
-    },
-  ] as const;
+  const router = useRouter();
+  const [requirement, setRequirement] = useState("");
+  const [workflows, setWorkflows] = useState<Array<{ id: string; status: string; requirement: string; updatedAt: string }>>([]);
+  const [reportGroups, setReportGroups] = useState<Array<{ id: string; groupId: string; requirement: string; status: string; reports: Array<unknown>; createdAt: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadRecent() {
+      setLoading(true);
+      try {
+        const [workflowResponse, reportResponse] = await Promise.all([
+          fetch("/api/workflows", { cache: "no-store" }),
+          fetch("/api/reports/product-ui", { cache: "no-store" }),
+        ]);
+        const workflowData = await workflowResponse.json().catch(() => null) as { workflows?: Array<{ id: string; status: string; requirement: string; updatedAt: string }> } | null;
+        const reportData = await reportResponse.json().catch(() => null) as { groups?: Array<{ id: string; groupId: string; requirement: string; status: string; reports: Array<unknown>; createdAt: string }> } | null;
+        if (!workflowResponse.ok || !reportResponse.ok) throw new Error("交付记录加载失败，请稍后重试。");
+        if (!active) return;
+        setWorkflows(workflowData?.workflows ?? []);
+        setReportGroups(reportData?.groups ?? []);
+      } catch (loadError) {
+        if (active) setError(loadError instanceof Error ? loadError.message : "交付记录加载失败。");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadRecent();
+    return () => { active = false; };
+  }, []);
+
+  async function createDeliveryWorkflow(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedRequirement = requirement.trim();
+    if (trimmedRequirement.length < 20) {
+      setError("请至少描述 20 个字符的产品或网站需求。");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirement: trimmedRequirement, mode: "baseline", agents: {} }),
+      });
+      const data = await response.json().catch(() => null) as { workflow?: { id: string }; error?: { message?: string } } | null;
+      if (!response.ok || !data?.workflow) throw new Error(data?.error?.message || "工作流创建失败。");
+      router.push(`/workflows?workflowId=${encodeURIComponent(data.workflow.id)}`);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "工作流创建失败。");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const workflowStatus = (status: string) => ({
+    pending: "等待处理",
+    running: "分析中",
+    needs_clarification: "等待补充",
+    needs_human: "等待确认",
+    completed: "已完成",
+    partial: "部分完成",
+    blocked: "已阻塞",
+    failed: "失败",
+  }[status] ?? status);
 
   return (
     <main className="auth-page min-h-screen px-5 pb-12 pt-24 text-slate-900 sm:px-8">
       <div className="mx-auto max-w-6xl">
         <header className="max-w-3xl">
           <p className="auth-kicker text-sm font-bold uppercase tracking-[0.18em]">AgentForge / Delivery Hub</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">从产品需求，到三套可交付的网站实施报告</h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-            AgentForge 把零散需求整理成结构化产品/UI实施报告。每套报告包含页面、流程、组件、状态、验收标准、来源证据和交付边界，可直接交给下游 AI 编程 Agent。
-          </p>
+          <h1 className="mt-4 text-3xl font-bold sm:text-4xl">创建产品/UI实施报告</h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">提交一个产品或网站需求，AgentForge 会整理出多套可交给下游 AI 编程 Agent 的完整实施报告。</p>
         </header>
 
-        <section className="mt-10 grid gap-4 lg:grid-cols-3" aria-label="产品交付流程">
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            return (
-              <article key={step.title} className="secondary-card relative rounded-2xl border p-6">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-[#5965F2]"><Icon className="h-5 w-5" /></span>
-                  <span className="text-xs font-bold tracking-[0.18em] text-slate-400">0{index + 1}</span>
-                </div>
-                <h2 className="mt-6 text-xl font-bold">{step.title}</h2>
-                <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">{step.description}</p>
-                <Link href={step.href} className="secondary-button mt-6 h-10 w-full px-4">
-                  {step.action}<ArrowRight className="h-4 w-4" />
-                </Link>
-              </article>
-            );
-          })}
+        <section className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]" aria-label="创建交付任务">
+          <form onSubmit={createDeliveryWorkflow} className="accent-card rounded-lg border p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold">从需求开始</h2>
+                <p className="mt-1 text-sm text-slate-600">描述目标用户、核心流程、页面范围和你希望看到的结果。</p>
+              </div>
+              <Plus className="hidden h-5 w-5 text-indigo-600 sm:block" />
+            </div>
+            <label className="mt-5 grid gap-2 text-sm font-semibold text-slate-800" htmlFor="delivery-requirement">产品或网站需求
+              <textarea id="delivery-requirement" value={requirement} onChange={(event) => setRequirement(event.target.value)} className="field min-h-40 resize-y bg-white text-sm leading-6" placeholder="例如：为独立开发者做一个项目展示与联系网站，包含首页、项目详情、案例筛选、联系表单和移动端适配。" maxLength={20_000} required />
+            </label>
+            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500"><span>至少 20 个字符</span><span>{requirement.length.toLocaleString()} / 20,000</span></div>
+            {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button type="submit" disabled={submitting} className="primary-button h-10 px-4">{submitting ? <Loader2 className="animate-spin" /> : <ArrowRight />}{submitting ? "正在创建" : "开始需求分析"}</button>
+              <Link href="/workflows" className="secondary-button h-10 px-4">高级配置</Link>
+              <span className="text-xs text-slate-500">当前使用确定性基线，不调用外部模型。</span>
+            </div>
+          </form>
+
+          <aside className="secondary-card rounded-lg border p-5 sm:p-6">
+            <h2 className="text-lg font-bold">交付链路</h2>
+            <ol className="mt-5 space-y-4 text-sm text-slate-700">
+              {["澄清需求与边界", "生成三套产品/UI实施报告", "导出 Prompt 或 JSON handoff", "回写运行、截图和测试证据"].map((item, index) => <li key={item} className="flex items-start gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">{index + 1}</span><span className="pt-0.5">{item}</span></li>)}
+            </ol>
+            <p className="mt-6 border-t border-slate-200 pt-4 text-xs leading-5 text-slate-500">首页负责发起交付任务；Agent 配置、知识库和手动对话调试仍保留在支撑工作台。</p>
+            <button type="button" onClick={onOpenWorkspace} className="secondary-button mt-4 h-9 w-full px-3">进入 Agent 配置与调试<ArrowRight className="h-4 w-4" /></button>
+          </aside>
         </section>
 
-        <section className="mt-6 grid gap-4 lg:grid-cols-[1fr_0.72fr]">
-          <div className="accent-card rounded-2xl border p-6">
-            <div className="flex items-center gap-2 text-sm font-bold text-indigo-700"><CheckCircle2 className="h-4 w-4" />当前可交付能力</div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {["需求不足时暂停追问", "Planner 与多 Agent 评审循环", "三套报告可导出和交接", "真实运行证据后才能验收"].map((item) => <div key={item} className="flex items-start gap-2 text-sm leading-6 text-slate-700"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />{item}</div>)}
-            </div>
+        <section className="mt-8 grid gap-6 lg:grid-cols-2" aria-label="最近交付记录">
+          <div>
+            <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">最近需求</h2><Link href="/workflows" className="text-sm font-semibold text-indigo-700">查看全部</Link></div>
+            {loading ? <p className="mt-4 text-sm text-slate-500">加载中…</p> : workflows.length === 0 ? <p className="mt-4 text-sm text-slate-500">还没有需求工作流。</p> : <div className="mt-3 space-y-2">{workflows.slice(0, 5).map((workflow) => <Link key={workflow.id} href={`/workflows?workflowId=${encodeURIComponent(workflow.id)}`} className="block rounded-lg border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/40"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-500">{workflow.id.slice(-8)}</span><span className="text-xs font-semibold text-indigo-700">{workflowStatus(workflow.status)}</span></div><p className="mt-2 line-clamp-2 text-sm font-medium">{workflow.requirement}</p><p className="mt-1 text-[11px] text-slate-400">{new Date(workflow.updatedAt).toLocaleString("zh-CN")}</p></Link>)}</div>}
           </div>
-          <div className="secondary-card rounded-2xl border p-6">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Bot className="h-4 w-4 text-[#5965F2]" />基础工作台</div>
-            <p className="mt-3 text-sm leading-6 text-slate-600">需要配置 Agent、知识库或直接调试对话时，进入原有多 Agent 工作台。它是支撑工具，不是最终交付物。</p>
-            <button type="button" onClick={onOpenWorkspace} className="primary-button mt-6 h-10 w-full px-4">进入 Agent 工作台<ArrowRight className="h-4 w-4" /></button>
+          <div>
+            <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-bold">最近产品/UI报告</h2><Link href="/reports" className="text-sm font-semibold text-indigo-700">查看全部</Link></div>
+            {loading ? <p className="mt-4 text-sm text-slate-500">加载中…</p> : reportGroups.length === 0 ? <p className="mt-4 text-sm text-slate-500">还没有产品/UI报告。</p> : <div className="mt-3 space-y-2">{reportGroups.slice(0, 5).map((group) => <Link key={group.id} href={`/reports?groupId=${encodeURIComponent(group.id)}`} className="block rounded-lg border border-slate-200 bg-white p-3 transition hover:border-indigo-300 hover:bg-indigo-50/40"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-slate-500">{group.reports.length} 套方案</span><span className="text-xs font-semibold text-emerald-700">{group.status}</span></div><p className="mt-2 line-clamp-2 text-sm font-medium">{group.requirement}</p><p className="mt-1 text-[11px] text-slate-400">{new Date(group.createdAt).toLocaleString("zh-CN")}</p></Link>)}</div>}
           </div>
         </section>
       </div>
     </main>
   );
 }
-
 const initialWorkspace: WorkspaceSnapshot = {
   id: "local",
   name: "AgentForge Agent 配置与调试",

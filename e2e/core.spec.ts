@@ -319,6 +319,15 @@ test("主题和语言刷新后保持", async ({ page }) => {
   expect(await page.evaluate(() => localStorage.getItem("multi-agent-workspace.language.v1"))).toBe("en");
 });
 
+test("交付首页可以直接创建需求并深链接工作流", async ({ page }) => {
+  const marker = `首页交付-${unique()}`;
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "创建产品/UI实施报告" })).toBeVisible();
+  await page.getByLabel("产品或网站需求").fill(`为独立开发者建设 ${marker} 产品展示网站，需要首页、项目详情、联系表单、移动端适配和验收标准。`);
+  await page.getByRole("button", { name: "开始需求分析" }).click();
+  await expect(page).toHaveURL(/\/workflows\?workflowId=.+/);
+  await expect(page.getByText(marker, { exact: false }).first()).toBeVisible();
+});
 test("中文文档按 UTF-8 字节计量并原子创建 Document/Chunk", async ({ request }) => {
   const content = Buffer.from("# 项目说明\n这是中文知识资料。\n第二行用于验证字节长度。", "utf8");
   const response = await uploadDocument(request, `chinese-${unique()}.md`, content);
