@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, Bot, CheckCircle2, Code2, FileJson, FileText, GitBranch, LogIn, UserPlus } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Code2, FileJson, FileText, GitBranch, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { WorkspaceApp } from "@/components/workspace/workspace-app";
 import type { WorkspaceSnapshot } from "@/lib/types";
@@ -16,22 +16,22 @@ function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }
     {
       icon: GitBranch,
       title: "需求工作流",
-      description: "提交需求，完成信息补充、多 Agent 规划与交叉评审。",
-      action: "开始生成报告",
+      description: "提交产品或网站需求，完成信息补充、多 Agent 规划、交叉评审和人工裁决。",
+      action: "开始需求分析",
       href: "/workflows",
     },
     {
       icon: FileText,
       title: "三套产品/UI报告",
-      description: "同时得到体验优先、视觉优先、工程优先三种实施方案。",
-      action: "查看报告中心",
+      description: "得到体验优先、视觉优先、工程优先三套可以比较、导出和复核的实施规格。",
+      action: "查看交付报告",
       href: "/reports",
     },
     {
       icon: FileJson,
       title: "交给下游 AI",
-      description: "复制编程 Prompt 或导出 JSON handoff，驱动真实网站实现。",
-      action: "打开报告中心",
+      description: "复制编程 Prompt 或导出 JSON handoff，让下游 AI 编程 Agent 生成真实网站，再回写验收证据。",
+      action: "准备下游交接",
       href: "/reports",
     },
   ] as const;
@@ -41,9 +41,9 @@ function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }
       <div className="mx-auto max-w-6xl">
         <header className="max-w-3xl">
           <p className="auth-kicker text-sm font-bold uppercase tracking-[0.18em]">AgentForge / Delivery Hub</p>
-          <h1 className="mt-4 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">从产品需求，到可执行的网站方案</h1>
+          <h1 className="mt-4 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">从产品需求，到三套可交付的网站实施报告</h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-            AgentForge 的主交付物是结构化产品/UI实施报告。报告包含页面、流程、组件、状态、验收标准和证据，可直接交给下游 AI 编程 Agent。
+            AgentForge 把零散需求整理成结构化产品/UI实施报告。每套报告包含页面、流程、组件、状态、验收标准、来源证据和交付边界，可直接交给下游 AI 编程 Agent。
           </p>
         </header>
 
@@ -70,12 +70,12 @@ function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }
           <div className="accent-card rounded-2xl border p-6">
             <div className="flex items-center gap-2 text-sm font-bold text-indigo-700"><CheckCircle2 className="h-4 w-4" />当前可交付能力</div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {["需求不足时暂停追问", "Planner 与多 Agent 评审循环", "证据与来源追溯", "真实运行证据后才能验收"].map((item) => <div key={item} className="flex items-start gap-2 text-sm leading-6 text-slate-700"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />{item}</div>)}
+              {["需求不足时暂停追问", "Planner 与多 Agent 评审循环", "三套报告可导出和交接", "真实运行证据后才能验收"].map((item) => <div key={item} className="flex items-start gap-2 text-sm leading-6 text-slate-700"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />{item}</div>)}
             </div>
           </div>
           <div className="secondary-card rounded-2xl border p-6">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Bot className="h-4 w-4 text-[#5965F2]" />基础工作台</div>
-            <p className="mt-3 text-sm leading-6 text-slate-600">需要配置 Agent、知识库或直接调试对话时，进入原有多 Agent 工作台。</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">需要配置 Agent、知识库或直接调试对话时，进入原有多 Agent 工作台。它是支撑工具，不是最终交付物。</p>
             <button type="button" onClick={onOpenWorkspace} className="primary-button mt-6 h-10 w-full px-4">进入 Agent 工作台<ArrowRight className="h-4 w-4" /></button>
           </div>
         </section>
@@ -171,7 +171,7 @@ export function AuthenticatedWorkspace() {
           <div>
             <p className="auth-kicker text-sm font-bold uppercase tracking-[0.18em] text-[#5B5BD6]">AgentForge</p>
             <h1 className="mt-2 text-2xl font-bold">{isRegister ? "创建账号" : "登录工作台"}</h1>
-            <p className="mt-2 text-sm text-slate-500">{isRegister ? "注册后会自动登录，并使用独立的数据和凭证。" : "请登录后访问属于你的 Agent、对话和知识库。"}</p>
+            <p className="mt-2 text-sm text-slate-500">{isRegister ? "注册后会自动登录，并使用独立的数据和凭证。" : "请登录后管理你的需求工作流、产品/UI报告和证据。"}</p>
           </div>
           {isRegister && <label className="block text-sm font-medium">昵称<input value={name} onChange={(event) => setName(event.target.value)} className="field mt-1" autoComplete="name" /></label>}
           <label className="block text-sm font-medium">邮箱<input value={email} onChange={(event) => setEmail(event.target.value)} className="field mt-1" type="email" autoComplete="email" required /></label>
@@ -189,9 +189,11 @@ export function AuthenticatedWorkspace() {
   return (
     <>
       <div className="global-account-bar fixed right-4 top-3 z-50 flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
+        <Link href="/" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><LayoutDashboard className="h-3.5 w-3.5" />交付台</Link>
+        <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
         <Link href="/workflows" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><GitBranch className="h-3.5 w-3.5" />工作流</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
-        <Link href="/scenarios" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><Code2 className="h-3.5 w-3.5" />工程分析</Link>
+        <Link href="/scenarios" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><Code2 className="h-3.5 w-3.5" />工程辅助</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
         <Link href="/reports" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><FileText className="h-3.5 w-3.5" />报告中心</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />

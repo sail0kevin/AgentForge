@@ -224,7 +224,7 @@ export function ReportCenter() {
         </header>
 
         {error && <div className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" /><span>{error}</span></div>}
-        <section className="mb-5 grid gap-3 md:grid-cols-3" aria-label="交付边界">
+          <section className="mb-5 grid gap-3 md:grid-cols-3" aria-label="交付边界">
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900"><FileText className="h-4 w-4" />已实现</div>
               <p className="mt-2 text-xs leading-5 text-emerald-800">需求澄清、评审和三套产品/UI实施规格已生成，可复制 Prompt 或导出 Markdown。</p>
@@ -238,6 +238,22 @@ export function ReportCenter() {
               <p className="mt-2 text-xs leading-5 text-amber-800">真实网站的运行效果、响应式表现和视觉验收，需要生成后回写实际结果。</p>
             </div>
           </section>
+          {selectedGroup && <section className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm" aria-label="三套报告交付总览">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h2 className="font-bold">三套报告交付总览</h2><p className="mt-1 text-xs leading-5 text-slate-500">当前报告组的三种取舍各自独立，可分别交给下游 AI 编程 Agent；这里的“已生成”不代表下游网站已经完成。</p></div>
+              <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${groupStatusStyles[selectedGroup.status] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}>{groupStatusLabels[selectedGroup.status] ?? selectedGroup.status}</span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {(["experience_first", "visual_first", "engineering_first"] as const).map((solutionId) => {
+                const report = selectedGroup.reports.find((item) => item.productUISpec?.solutionId === solutionId);
+                const available = Boolean(report?.productUISpec);
+                return <button key={solutionId} type="button" onClick={() => setSelectedSolutionId(solutionId)} className={`rounded-lg border p-3 text-left transition ${effectiveSolutionId === solutionId ? "border-indigo-300 bg-indigo-50" : "border-slate-200 hover:border-indigo-200"}`}>
+                  <div className="flex items-center justify-between gap-2"><span className="text-sm font-semibold">{solutionLabels[report?.productUISpec?.solutionType ?? solutionId]}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${available ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{available ? "已生成" : "待生成"}</span></div>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{report?.productUISpec?.productPositioning ?? "当前报告组暂未提供这套方案。"}</p>
+                </button>;
+              })}
+            </div>
+          </section>}
           <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
           <aside className="space-y-5">
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><GitBranch className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成报告组</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">必须先完成 Planner、方案评审和必要的人工作决策。每次生成会保留三种独立取舍。</p><label className="mt-4 block text-xs font-semibold text-slate-700" htmlFor="review-select">选择已完成评审</label><select id="review-select" value={selectedReviewId} onChange={(event) => setSelectedReviewId(event.target.value)} className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800"><option value="">选择工作流</option>{reportableReviews.map((review) => <option key={review.id} value={review.id}>{review.status} · {review.approval.decision ?? "无需裁决"}</option>)}</select><button type="button" disabled={generating || !selectedReviewId} onClick={() => void generate()} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{generating ? "生成中…" : "生成三套实施报告"}</button></section>
