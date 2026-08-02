@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Code2, FileText, GitBranch, LogIn, UserPlus } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Code2, FileJson, FileText, GitBranch, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { WorkspaceApp } from "@/components/workspace/workspace-app";
 import type { WorkspaceSnapshot } from "@/lib/types";
@@ -10,6 +10,79 @@ import { useWorkspaceStore } from "@/store/workspace-store";
 
 type SafeUser = { id: string; email: string; name: string | null };
 type AuthMode = "login" | "register";
+
+function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }) {
+  const steps = [
+    {
+      icon: GitBranch,
+      title: "需求工作流",
+      description: "提交需求，完成信息补充、多 Agent 规划与交叉评审。",
+      action: "开始生成报告",
+      href: "/workflows",
+    },
+    {
+      icon: FileText,
+      title: "三套产品/UI报告",
+      description: "同时得到体验优先、视觉优先、工程优先三种实施方案。",
+      action: "查看报告中心",
+      href: "/reports",
+    },
+    {
+      icon: FileJson,
+      title: "交给下游 AI",
+      description: "复制编程 Prompt 或导出 JSON handoff，驱动真实网站实现。",
+      action: "打开报告中心",
+      href: "/reports",
+    },
+  ] as const;
+
+  return (
+    <main className="auth-page min-h-screen px-5 pb-12 pt-24 text-slate-900 sm:px-8">
+      <div className="mx-auto max-w-6xl">
+        <header className="max-w-3xl">
+          <p className="auth-kicker text-sm font-bold uppercase tracking-[0.18em]">AgentForge / Delivery Hub</p>
+          <h1 className="mt-4 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">从产品需求，到可执行的网站方案</h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
+            AgentForge 的主交付物是结构化产品/UI实施报告。报告包含页面、流程、组件、状态、验收标准和证据，可直接交给下游 AI 编程 Agent。
+          </p>
+        </header>
+
+        <section className="mt-10 grid gap-4 lg:grid-cols-3" aria-label="产品交付流程">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <article key={step.title} className="secondary-card relative rounded-2xl border p-6">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-[#5965F2]"><Icon className="h-5 w-5" /></span>
+                  <span className="text-xs font-bold tracking-[0.18em] text-slate-400">0{index + 1}</span>
+                </div>
+                <h2 className="mt-6 text-xl font-bold">{step.title}</h2>
+                <p className="mt-3 min-h-14 text-sm leading-6 text-slate-600">{step.description}</p>
+                <Link href={step.href} className="secondary-button mt-6 h-10 w-full px-4">
+                  {step.action}<ArrowRight className="h-4 w-4" />
+                </Link>
+              </article>
+            );
+          })}
+        </section>
+
+        <section className="mt-6 grid gap-4 lg:grid-cols-[1fr_0.72fr]">
+          <div className="accent-card rounded-2xl border p-6">
+            <div className="flex items-center gap-2 text-sm font-bold text-indigo-700"><CheckCircle2 className="h-4 w-4" />当前可交付能力</div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {["需求不足时暂停追问", "Planner 与多 Agent 评审循环", "证据与来源追溯", "真实运行证据后才能验收"].map((item) => <div key={item} className="flex items-start gap-2 text-sm leading-6 text-slate-700"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />{item}</div>)}
+            </div>
+          </div>
+          <div className="secondary-card rounded-2xl border p-6">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Bot className="h-4 w-4 text-[#5965F2]" />基础工作台</div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">需要配置 Agent、知识库或直接调试对话时，进入原有多 Agent 工作台。</p>
+            <button type="button" onClick={onOpenWorkspace} className="primary-button mt-6 h-10 w-full px-4">进入 Agent 工作台<ArrowRight className="h-4 w-4" /></button>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
 
 const initialWorkspace: WorkspaceSnapshot = {
   id: "local",
@@ -36,6 +109,7 @@ export function AuthenticatedWorkspace() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showWorkspace, setShowWorkspace] = useState(false);
 
   async function fetchCurrentUser() {
     try {
@@ -124,7 +198,7 @@ export function AuthenticatedWorkspace() {
         <span>{user.name || user.email}</span>
         <button type="button" onClick={logout} className="font-semibold text-[#5B5BD6]">退出登录</button>
       </div>
-      <WorkspaceApp initialWorkspace={initialWorkspace} />
+      {showWorkspace ? <WorkspaceApp initialWorkspace={initialWorkspace} /> : <ProductDeliveryHub onOpenWorkspace={() => setShowWorkspace(true)} />}
     </>
   );
 }
