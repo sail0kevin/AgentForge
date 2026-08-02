@@ -7,6 +7,8 @@ import {
   type ProductUIReportGroup,
   type ProductUISolutionType,
   type ProductUISpec,
+  type ProductUITraceability,
+  type ReportSourceReference,
 } from "./contracts";
 import { DEFAULT_GITHUB_UI_EVIDENCE } from "./github-ui-evidence";
 import { createBaselineDevelopmentReport, type ReportGenerationInput } from "./report-service";
@@ -29,6 +31,88 @@ function productName(input: ReportGenerationInput) {
 function targetUsers(input: ReportGenerationInput) {
   const users = input.analysis.targetUsers.filter(Boolean).slice(0, 6);
   return users && users.length > 0 ? users : ["产品负责人", "设计师", "前端工程师", "下游 AI 编程 Agent"];
+}
+
+function source(sourceType: ReportSourceReference["sourceType"], refId: string, label: string, locator: string | null = null): ReportSourceReference {
+  return { sourceType, refId, label, locator };
+}
+
+function selectedCandidate(input: ReportGenerationInput, solutionType: ProductUISolutionType) {
+  const preferredOrientation = solutionType === "engineering_first" ? "quality" : "delivery";
+  return input.reviewWorkflow.candidates.find((candidate) => candidate.orientation === preferredOrientation)
+    ?? input.reviewWorkflow.candidates[0];
+}
+
+function traceability(input: ReportGenerationInput, solutionType: ProductUISolutionType, evidence: GitHubEvidence[]) {
+  const requirementSource = source("requirement", input.planningArtifactId, "原始需求与结构化需求分析");
+  const candidate = selectedCandidate(input, solutionType);
+  const candidateFinding = candidate
+    ? input.reviewWorkflow.review.findings.find((finding) => finding.candidateId === candidate.id)
+    : undefined;
+  const items: ProductUITraceability[] = [
+    ...input.analysis.goals.slice(0, 4).map((goal, index) => ({
+      id: `requirement-goal-${index + 1}`,
+      area: "requirement" as const,
+      statement: `需求目标：${goal}`,
+      status: "verified" as const,
+      sourceRefs: [requirementSource],
+    })),
+    ...input.analysis.inScope.slice(0, 4).map((scope, index) => ({
+      id: `scope-${index + 1}`,
+      area: "scope" as const,
+      statement: `本方案纳入交付范围：${scope}`,
+      status: "target_design" as const,
+      sourceRefs: [requirementSource],
+    })),
+    ...input.plan.tasks.slice(0, 4).map((task) => ({
+      id: `plan-task-${task.id}`,
+      area: "plan" as const,
+      statement: `实施计划要求：${task.title}。${task.description}`,
+      status: "implemented" as const,
+      sourceRefs: [source("plan_task", task.id, `计划任务：${task.title}`)],
+    })),
+  ];
+
+  if (candidate) {
+    items.push({
+      id: `review-candidate-${candidate.id}`,
+      area: "review",
+      statement: `本套${SOLUTION_LABELS[solutionType]}参考${candidate.title}：${candidate.summary}`,
+      status: "verified",
+      sourceRefs: [source("candidate", candidate.id, `候选方案：${candidate.title}`)],
+    });
+  }
+  if (candidateFinding) {
+    items.push({
+      id: `review-finding-${candidateFinding.id}`,
+      area: "review",
+      statement: `评审约束：${candidateFinding.failureScenario} 建议：${candidateFinding.suggestion}`,
+      status: "verified",
+      sourceRefs: [source("finding", candidateFinding.id, `评审 Finding：${candidateFinding.category}`)],
+    });
+  }
+  items.push(...input.knowledgeEvidence.slice(0, 4).map((item, index) => ({
+    id: `knowledge-${index + 1}`,
+    area: "knowledge" as const,
+    statement: `知识库参考：${item.source.label}。该内容只作为设计决策依据，不代表已在目标网站中验证。`,
+    status: "verified" as const,
+    sourceRefs: [item.source],
+  })));
+  items.push(...evidence.slice(0, 8).map((item) => ({
+    id: `github-${item.id}`,
+    area: "github" as const,
+    statement: `GitHub/UI参考：${item.repositoryName} 的 ${item.path}，洞察：${item.insight}`,
+    status: /[0-9a-f]{7,40}/i.test(item.commitOrTag) && !item.commitOrTag.includes("待冻结") ? "verified" as const : "unverified" as const,
+    sourceRefs: [source("github_evidence", item.id, `${item.repositoryName} UI参考`, item.path)],
+  })));
+  items.push({
+    id: "handoff-contract",
+    area: "handoff",
+    statement: "下游 AI 应将页面、流程、状态、设计 Token 和视觉验收标准实现为可运行网站，并回传启动命令、截图和未通过项。",
+    status: "target_design",
+    sourceRefs: [requirementSource, source("evaluation", input.reviewWorkflow.id, "Evaluator 评审结论")],
+  });
+  return items.slice(0, 40);
 }
 
 function commonPages(type: ProductUISolutionType) {
@@ -156,6 +240,12 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
     interactionStates: ["初始化时显示当前阶段和可用操作，不展示假进度。", "模型调用中显示预算和取消入口，完成后明确产物版本。", "需求不完整时进入澄清状态，保留原始输入和待回答问题。", "评审发现高风险问题时，提供定向修改和人工确认路径。", "导出被阻止时说明缺失证据或验证状态，不生成看似完整的文件。", "权限不足时隐藏不可执行操作并说明需要的权限。"],
     implementationConstraints: ["报告内容必须区分事实、假设、目标设计、已验证项和未验证项。", "GitHub 参考必须记录仓库 URL、版本或待冻结状态、路径、许可证和复用策略。", "公开仓库只能作为参考，是否复用代码必须经过许可证和版本审计。", "下游 Prompt 不得编造页面截图、性能数字、召回率或视觉验收结果。", "每套方案必须独立生成唯一 solutionId，并保留自己的取舍和验收内容。", "实现时应优先复用项目现有组件、状态持久化、权限和可观测性边界。"],
     visualAcceptanceCriteria: ["首屏能识别产品目标、当前阶段和主要操作，且不需要阅读长段说明。", "所有页面都有 loading、empty、error、success 和移动端状态的实现或明确占位。", "用户可以从报告内容追溯到需求、计划、评审 Finding 或 GitHub 证据。", "组件交互有键盘路径、焦点可见性、错误描述和非颜色语义。", "运行生成的网站后，验收者可以按页面、流程、响应式和视觉层级逐项记录结果。", "没有真实截图或自动化检查结果时，界面不得宣称已经通过视觉验收。"],
+    deliveryBoundary: {
+      included: input.analysis.inScope.slice(0, 12).length > 0 ? input.analysis.inScope.slice(0, 12) : ["结构化产品/UI实施报告", "页面、流程和验收契约"],
+      excluded: [...input.analysis.outOfScope.slice(0, 10), "下游网站的真实运行、截图和视觉验收结果"].slice(0, 20),
+      handoff: "本规格是交给下游 AI 编程 Agent 的实施输入，不是已经上线的网站。下游完成实现后，必须回传真实启动命令、截图路径、测试结果和未通过的验收项。",
+    },
+    traceability: traceability(input, solutionType, evidence),
     evidence,
     evidenceStatus: evidence.some((item) => /[0-9a-f]{7,40}/i.test(item.commitOrTag) && !item.commitOrTag.includes("待冻结")) ? "sha_pinned" as const : "not_yet_verified" as const,
   };

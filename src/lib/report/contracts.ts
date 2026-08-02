@@ -69,6 +69,23 @@ export const ProductUIComponentSchema = z.object({
   accessibility: z.array(z.string().min(5).max(300)).min(1).max(10),
 });
 
+export const ProductUITraceabilityStatusSchema = z.enum(["implemented", "target_design", "verified", "unverified"]);
+
+// 让下游 Agent 能知道每条 UI 结论来自哪里，以及它目前处于什么可信状态。
+export const ProductUITraceabilitySchema = z.object({
+  id: z.string().min(1).max(120),
+  area: z.enum(["requirement", "scope", "plan", "review", "knowledge", "github", "handoff"]),
+  statement: z.string().min(10).max(1_000),
+  status: ProductUITraceabilityStatusSchema,
+  sourceRefs: z.array(z.lazy(() => ReportSourceReferenceSchema)).min(1).max(12),
+});
+
+export const ProductUIDeliveryBoundarySchema = z.object({
+  included: z.array(z.string().min(5).max(500)).min(1).max(20),
+  excluded: z.array(z.string().min(5).max(500)).min(1).max(20),
+  handoff: z.string().min(20).max(1_000),
+});
+
 export const ProductUISpecSchema = z.object({
   schemaVersion: z.literal(1),
   solutionId: z.string().min(1).max(120),
@@ -85,6 +102,8 @@ export const ProductUISpecSchema = z.object({
   interactionStates: z.array(z.string().min(5).max(500)).min(4).max(20),
   implementationConstraints: z.array(z.string().min(5).max(500)).min(3).max(20),
   visualAcceptanceCriteria: z.array(z.string().min(5).max(500)).min(5).max(30),
+  deliveryBoundary: ProductUIDeliveryBoundarySchema,
+  traceability: z.array(ProductUITraceabilitySchema).min(4).max(40),
   evidence: z.array(GitHubEvidenceSchema).min(1).max(30),
   evidenceStatus: z.enum(["curated_reference", "sha_pinned", "not_yet_verified"]),
 });
@@ -165,5 +184,6 @@ export type GitHubEvidence = z.infer<typeof GitHubEvidenceSchema>;
 export type ProductUISolutionType = z.infer<typeof ProductUISolutionTypeSchema>;
 export type ProductUIPage = z.infer<typeof ProductUIPageSchema>;
 export type ProductUIFlow = z.infer<typeof ProductUIFlowSchema>;
+export type ProductUITraceability = z.infer<typeof ProductUITraceabilitySchema>;
 export type ProductUISpec = z.infer<typeof ProductUISpecSchema>;
 export type ProductUIReportGroup = z.infer<typeof ProductUIReportGroupSchema>;

@@ -126,6 +126,10 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.ok(group.reports.every((report) => report.productUISpec?.evidence.length === DEFAULT_GITHUB_UI_EVIDENCE.length));
   assert.ok(group.reports.every((report) => report.productUISpec?.evidenceStatus === "not_yet_verified"));
   assert.ok(new Set(group.reports.map((report) => report.productUISpec?.designDirection.name)).size === 3);
+  assert.ok(group.reports.every((report) => (report.productUISpec?.deliveryBoundary.included.length ?? 0) > 0));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.area === "requirement")));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "target_design")));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "unverified")));
 
   const report = group.reports[0];
   const markdown = renderProductUISpecMarkdown(report, { generatedAt: "2026-08-02T00:00:00.000Z" });
@@ -134,6 +138,8 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.match(markdown, /not_yet_verified/);
   assert.match(markdown, /\/workspace/);
   assert.match(markdown, /GitHub/);
+  assert.match(markdown, /交付边界与来源映射/);
+  assert.match(markdown, /需求目标：/);
   assert.match(prompt, /loading/);
   assert.match(prompt, /截图/);
   assert.equal(groupMarkdown.split("\n\n---\n\n").length, 3);

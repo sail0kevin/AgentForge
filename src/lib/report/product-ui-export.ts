@@ -16,6 +16,13 @@ function evidenceMarkdown(spec: ProductUISpec) {
   ].join("\n")).join("\n");
 }
 
+function traceabilityMarkdown(spec: ProductUISpec) {
+  return spec.traceability.map((item) => [
+    `- **${item.area} / ${item.status}**：${item.statement}`,
+    `  - 来源：${item.sourceRefs.map((reference) => `${reference.sourceType}:${reference.refId}`).join("、")}`,
+  ].join("\n")).join("\n");
+}
+
 export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata: { generatedAt?: string } = {}) {
   const spec = report.productUISpec;
   if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
@@ -113,6 +120,19 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "",
     bulletList(spec.visualAcceptanceCriteria),
     "",
+    "## 交付边界与来源映射",
+    "",
+    "### 本方案包含",
+    bulletList(spec.deliveryBoundary.included),
+    "",
+    "### 本方案不包含",
+    bulletList(spec.deliveryBoundary.excluded),
+    "",
+    `### 下游交接：${spec.deliveryBoundary.handoff}`,
+    "",
+    "### 可追溯映射",
+    traceabilityMarkdown(spec),
+    "",
     "## GitHub/UI 参考证据",
     "",
     evidenceMarkdown(spec),
@@ -140,6 +160,7 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
     "3. 让键盘操作、焦点管理、错误描述和非颜色语义可以被验收。",
     "4. 运行网站后输出实际使用的启动命令、页面截图路径和未通过的验收项。",
     "5. 不得把 GitHub 参考仓库整页复制到产品中；复用前检查许可证和固定版本。",
+    "6. 先阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
     "",
     `方案 ID：${spec.solutionId}`,
     `方案类型：${spec.solutionType}`,

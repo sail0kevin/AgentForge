@@ -14,6 +14,8 @@
 - **已实现**：从已完成的评审工作流生成三套方案，分别表达体验、视觉和工程取舍；每套包含页面与路由、区块、状态、流程、失败恢复、设计方向、Design Token、组件、响应式规则、无障碍要求和视觉验收标准。
 - **已实现**：`ProductUIReportGroup` 持久化、用户隔离、`groupId` 幂等、报告组状态、单套/整组 Markdown 导出、下游 AI 编程 Prompt 和网站真实验收反馈回写。
 - **已实现**：反馈状态按真实结果收敛为 `generated`、`in_review`、`accepted` 或 `needs_revision`；反馈只能绑定报告组中存在的 `solutionId`。
+- **已实现**：每套产品/UI规格新增交付边界和来源映射，具体记录需求目标、范围、计划任务、候选/评审意见、知识库与 GitHub/UI参考，并为每条结论标记 `implemented`、`target_design`、`verified` 或 `unverified`。
+- **已实现**：报告 Markdown 和下游 Prompt 会导出上述映射；报告中心可查看包含/不包含范围、下游交接说明和每条结论的来源，避免把目标设计误认为已上线网站。
 - **已验证**：报告生成契约测试覆盖三套方案、唯一方案标识、GitHub/UI参考证据和默认 `not_yet_verified` 状态；2026-08-02 本轮通过 208/208 Unit、SQLite/PostgreSQL schema 校验、TypeScript、ESLint 和生产构建。
 - **目标设计**：下游 AI 编程 Agent 根据 Prompt 生成真实网站/UI，再将截图、交互和响应式结果提交回来验收；AgentForge 当前不声称自己已经生成网站。
 - **未验证**：GitHub 参考仓库尚未全部冻结可复核 SHA，真实 Provider 质量、真实视觉验收、真实数据库持久化集成和完整 E2E 仍需独立运行。
