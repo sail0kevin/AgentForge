@@ -65,7 +65,7 @@ export function ScenarioCenter() {
     <main className="secondary-page min-h-screen px-4 py-8 text-slate-900 sm:px-8">
       <div className="mx-auto max-w-7xl">
         <header className="secondary-header mb-6 flex flex-wrap items-start justify-between gap-4 rounded-2xl border p-5">
-          <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">AgentForge</p><h1 className="mt-2 text-3xl font-bold tracking-tight">工程分析</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">提交受限的源码快照或错误日志，获得可追溯的规则证据与下一步验证建议。</p></div>
+          <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">AgentForge</p><h1 className="mt-2 text-3xl font-bold tracking-tight">工程辅助</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">提交受限的源码快照或错误日志，获得可追溯的规则证据与下一步验证建议。</p></div>
           <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><ShieldAlert className="h-4 w-4" />仅分析提交内容，不读取文件、不执行代码</div>
         </header>
         <div className="mb-5 flex gap-2 border-b border-slate-200" role="tablist" aria-label="分析类型">

@@ -46,7 +46,7 @@
 - Document保存 SHA-256、来源类型/URL、版本、许可和审查时间；检索返回完整 citation
 - 前端能力库上传、列出、删除并启用当前账号的服务端 Document，浏览器片段不再注入模型
 - 结构化 `knowledge-search`和 `ui-acceptance-check`只读 Tool，具备 Zod、计划授权、超时、次数、大小、幂等和审计
-- Memory、Semantic Cache 和 File Reader仍未实现；Code Review 与 Bug Diagnosis 已通过“工程分析”页面接入受限用户快照，不能读取真实仓库、执行代码或替代 SAST/自动修复
+- Memory、Semantic Cache 和 File Reader仍未实现；Code Review 与 Bug Diagnosis 已通过“工程辅助”页面接入受限用户快照，不能读取真实仓库、执行代码或替代 SAST/自动修复
 - 独立 delivery/quality Candidate、结构化 Finding、动态 Rubric 和 Evaluator
 - 无证据 Finding 降级、Reviewer/Evaluator 失败披露、partial/inconclusive 终态和有限修订
 - ReviewWorkflow 按用户、来源计划和独立 Run 持久化；人工裁决幂等且不可被不同请求覆盖
