@@ -21,7 +21,7 @@ AgentForge 是一个 **local-first Web MVP**，目标是把零散产品需求转
 | Agent 如何协作 | 结构化 PlanningArtifact、Candidate、Finding、ReportArtifact，而不是自然语言互相转发 |
 | 如何保证可追溯 | Markdown 标题路径与行号引用、来源清单、风险/未决项、Token/费用/工具审计 |
 | 如何验证 | 单元/E2E、RAG Golden Set、冻结消融协议与专用 PostgreSQL 集成测试入口 |
-| 当前状态 | 产品/UI报告生成、持久化、导出和验收反馈链路已实现；真实网站由下游 AI Agent 生成，GitHub 证据冻结和真实模型质量仍需单独验证 |
+| 当前状态 | 产品/UI报告生成、持久化、导出和验收反馈链路已实现；默认 GitHub/UI 参考目录已固定完整 commit SHA，但许可证复用审计、真实网站和真实模型质量仍需单独验证 |
 
 ## 产品体验
 
@@ -137,7 +137,7 @@ npm run quality:all
 2. 新建产品/UI实施需求，查看 Requirement Analysis、Execution Plan 和动态目录。
 3. 对比体验优先、视觉优先和工程优先三套产品/UI方案及交叉评审结果。
 4. 在高影响冲突处提交人工裁决，观察工作流从 Checkpoint 恢复。
-5. 打开报告中心，检查三套产品/UI实施报告、GitHub/UI参考证据、下游 Prompt，导出 Markdown；网站真实运行后可回写通过或需修改。
+5. 打开报告中心，检查三套产品/UI实施报告、带固定 SHA 的 GitHub/UI参考证据、下游 Prompt，导出 Markdown；网站真实运行后可回写通过或需修改。
 
 完整步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
 

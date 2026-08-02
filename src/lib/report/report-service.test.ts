@@ -4,7 +4,7 @@ import { analyzeRequirementBaseline, createBaselinePlan } from "@/lib/planner/ba
 import { DEFAULT_PLANNER_BUDGET } from "@/lib/planner/planner-service";
 import { ReviewBudgetSchema } from "@/lib/review/contracts";
 import { runReviewWorkflow } from "@/lib/review/review-service";
-import { DEFAULT_GITHUB_UI_EVIDENCE } from "./github-ui-evidence";
+import { DEFAULT_GITHUB_UI_EVIDENCE, hasPinnedGitHubCommit } from "./github-ui-evidence";
 import {
   buildDownstreamAgentPrompt,
   buildProductUIHandoffBundle,
@@ -131,18 +131,19 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.deepEqual(group.reports.map((report) => report.productUISpec?.solutionType), ["experience_first", "visual_first", "engineering_first"]);
   assert.ok(group.reports.every((report) => (report.productUISpec?.pages.length ?? 0) >= 3));
   assert.ok(group.reports.every((report) => report.productUISpec?.evidence.length === DEFAULT_GITHUB_UI_EVIDENCE.length));
-  assert.ok(group.reports.every((report) => report.productUISpec?.evidenceStatus === "not_yet_verified"));
+  assert.ok(DEFAULT_GITHUB_UI_EVIDENCE.every(hasPinnedGitHubCommit));
+  assert.ok(group.reports.every((report) => report.productUISpec?.evidenceStatus === "sha_pinned"));
   assert.ok(new Set(group.reports.map((report) => report.productUISpec?.designDirection.name)).size === 3);
   assert.ok(group.reports.every((report) => (report.productUISpec?.deliveryBoundary.included.length ?? 0) > 0));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.area === "requirement")));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "target_design")));
-  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "unverified")));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.filter((item) => item.area === "github").every((item) => item.status === "verified")));
 
   const report = group.reports[0];
   const markdown = renderProductUISpecMarkdown(report, { generatedAt: "2026-08-02T00:00:00.000Z" });
   const prompt = buildDownstreamAgentPrompt(report);
   const groupMarkdown = renderProductUIReportGroupMarkdown(group.reports);
-  assert.match(markdown, /not_yet_verified/);
+  assert.match(markdown, /sha_pinned/);
   assert.match(markdown, /\/workspace/);
   assert.match(markdown, /GitHub/);
   assert.match(markdown, /交付边界与来源映射/);
@@ -150,6 +151,14 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.match(prompt, /loading/);
   assert.match(prompt, /截图/);
   assert.equal(groupMarkdown.split("\n\n---\n\n").length, 3);
+
+  const mixedEvidence = [
+    ...DEFAULT_GITHUB_UI_EVIDENCE.slice(0, 2),
+    { ...DEFAULT_GITHUB_UI_EVIDENCE[2], commitOrTag: "main (待冻结 SHA)" },
+  ];
+  const mixedEvidenceGroup = createProductUIReportGroup(input, { evidence: mixedEvidence });
+  assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.evidenceStatus === "not_yet_verified"));
+  assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.traceability.some((trace) => trace.area === "github" && trace.status === "unverified")));
 });
 
 test("product/UI feedback status requires runtime evidence before acceptance", async () => {

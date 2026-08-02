@@ -1,12 +1,19 @@
 import { GitHubEvidenceSchema, type GitHubEvidence, type ReportSourceReference } from "./contracts";
 
-// 这是可审计的初始参考目录；正式接入 RAG 前仍需冻结 commit SHA 并完成许可证核对。
+// 固定 SHA 让 GitHub/UI 参考快照可复现；它不代表代码已获复用许可，也不代表下游网站已经通过验收。
+// 仅接受完整且未标记为待冻结的提交 SHA，避免把分支名或短哈希误判为可复现证据。
+const GITHUB_COMMIT_SHA_PATTERN = /\b[0-9a-f]{40}\b/i;
+
+export function hasPinnedGitHubCommit(evidence: Pick<GitHubEvidence, "commitOrTag">) {
+  return GITHUB_COMMIT_SHA_PATTERN.test(evidence.commitOrTag)
+    && !evidence.commitOrTag.includes("待冻结");
+}
 export const DEFAULT_GITHUB_UI_EVIDENCE: GitHubEvidence[] = GitHubEvidenceSchema.array().parse([
   {
     id: "github-shadcn-ui",
     repositoryUrl: "https://github.com/shadcn-ui/ui",
     repositoryName: "shadcn/ui",
-    commitOrTag: "main (待冻结 SHA)",
+    commitOrTag: "commit cb2bcd88d93b2f9bddb030e9136f1f8773e7eac4 (main snapshot)",
     path: "README.md / apps/www/registry",
     locator: "组件注册与示例目录",
     license: "MIT (以仓库当前 LICENSE 为准)",
@@ -19,7 +26,7 @@ export const DEFAULT_GITHUB_UI_EVIDENCE: GitHubEvidence[] = GitHubEvidenceSchema
     id: "github-radix-primitives",
     repositoryUrl: "https://github.com/radix-ui/primitives",
     repositoryName: "Radix Primitives",
-    commitOrTag: "main (待冻结 SHA)",
+    commitOrTag: "commit f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae (main snapshot)",
     path: "packages/react / primitives",
     locator: "对话框、菜单、弹出层和键盘交互原语",
     license: "MIT (以仓库当前 LICENSE 为准)",
@@ -32,7 +39,7 @@ export const DEFAULT_GITHUB_UI_EVIDENCE: GitHubEvidence[] = GitHubEvidenceSchema
     id: "github-ant-design",
     repositoryUrl: "https://github.com/ant-design/ant-design",
     repositoryName: "Ant Design",
-    commitOrTag: "main (待冻结 SHA)",
+    commitOrTag: "commit bcad5cb12ad98294b05c21cfd4701cf0b8fb37b3 (master snapshot)",
     path: "components / docs",
     locator: "表格、表单、反馈和数据密集型页面",
     license: "MIT (以仓库当前 LICENSE 为准)",
