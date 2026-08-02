@@ -37,7 +37,7 @@ export function ChatWorkspace(props: {
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const shortcutHint = props.t.language === "语言" ? "Enter 发送，Shift+Enter 换行" : "Enter to send, Shift+Enter for newline";
+  const shortcutHint = props.t.language === "语言" ? "Enter 生成报告，Shift+Enter 换行" : "Enter to generate reports, Shift+Enter for newline";
 
   useEffect(() => {
     const textarea = textareaRef.current;
