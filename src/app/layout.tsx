@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AgentForge｜需求到产品/UI实施报告平台",
-  description: "A local-first multi-agent workspace that turns product requirements into evidence-aware product/UI implementation reports.",
+  description: "A local-first platform that turns product requirements into evidence-aware product/UI implementation report sets for downstream AI coding agents.",
 };
 
 export default function RootLayout({

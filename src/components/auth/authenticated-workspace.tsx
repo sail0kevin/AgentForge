@@ -86,8 +86,8 @@ function ProductDeliveryHub({ onOpenWorkspace }: { onOpenWorkspace: () => void }
 
 const initialWorkspace: WorkspaceSnapshot = {
   id: "local",
-  name: "AgentForge Local Workspace",
-  description: "Local multi-agent workspace for requirement clarification and product/UI implementation reports",
+  name: "AgentForge Agent 配置与调试",
+  description: "用于配置 Agent、知识库和手动调试的本地支撑工作台",
   mode: "sequential",
   budgetLimit: 999999,
   agents: [],
@@ -194,7 +194,7 @@ export function AuthenticatedWorkspace() {
         <form onSubmit={submit} className="auth-card w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <div>
             <p className="auth-kicker text-sm font-bold uppercase tracking-[0.18em] text-[#5B5BD6]">AgentForge</p>
-            <h1 className="mt-2 text-2xl font-bold">{isRegister ? "创建账号" : "登录工作台"}</h1>
+            <h1 className="mt-2 text-2xl font-bold">{isRegister ? "创建账号" : "登录 AgentForge"}</h1>
             <p className="mt-2 text-sm text-slate-500">{isRegister ? "注册后会自动登录，并使用独立的数据和凭证。" : "请登录后管理你的需求工作流、产品/UI报告和证据。"}</p>
           </div>
           {isRegister && <label className="block text-sm font-medium">昵称<input value={name} onChange={(event) => setName(event.target.value)} className="field mt-1" autoComplete="name" /></label>}

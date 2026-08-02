@@ -67,6 +67,12 @@
 | POST | `/api/reports` | 创建报告。 |
 | GET | `/api/reports/[id]` | 获取单个报告。 |
 | GET | `/api/reports/[id]/export` | 导出报告内容。 |
+| GET | `/api/reports/product-ui` | 获取当前用户的产品/UI实施报告组。 |
+| POST | `/api/reports/product-ui` | 基于已审批评审链创建或幂等返回产品/UI实施报告组，并返回下游 AI 编程 Prompt。 |
+| GET | `/api/reports/product-ui/[id]` | 获取单个报告组及其中各方案的下游 AI 编程 Prompt。 |
+| PATCH | `/api/reports/product-ui/[id]` | 回写某套方案的真实网站/界面验收结果与运行证据。 |
+| DELETE | `/api/reports/product-ui/[id]` | 删除当前用户拥有的产品/UI实施报告组。 |
+| GET | `/api/reports/product-ui/[id]/export` | 导出整组或指定方案的 Markdown 实施规格；`format=json` 时导出机器可读 handoff。 |
 
 ## 工作流运行与恢复
 
