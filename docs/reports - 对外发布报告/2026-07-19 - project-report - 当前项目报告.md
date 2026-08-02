@@ -87,6 +87,12 @@ npm run quality:all
 
 已知限制包括：历史主加密密钥仍需人工轮换；PostgreSQL只有schema静态校验；当前RAG仍为TF-IDF，12类固定夹具与31个项目文档Chunk/6意图冒烟门禁不能代表通用检索或真实模型质量；盲评基础设施已冻结12案例并生成5变体共60项计划，但尚未完成60次真实模型运行和至少2名独立评分者评分；Provider原生Tool Calling、共享Checkpointer/多实例恢复仍待处理；正式导出目前只有Markdown；完整WCAG人工审计和Electron桌面交付尚未执行。
 
+<<<<<<< HEAD:docs/reports - 对外发布报告/2026-07-19 - project-report - 当前项目报告.md
 2026-07-19文档收口后最终完整执行 `npm run quality:all`，退出码为0。当前量化证据为单元测试72/72、隔离SQLite核心E2E 24/24、Session账号切换E2E 1/1、仓库文档检索31个Chunk且6/6命中、九次migration可从空库应用、生产构建和全量lint通过。完整实验和失败记录见[工程整改与开发总报告](../remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md)。
 
 当前事实见[开发状态](../2026-08-01 - current-development-status - 当前开发状态.md)，正式目标见[设计文档](../design - 产品设计方案/旧 - design-index - 设计文档总入口.md)，实施顺序见[整改总览](../remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md)。
+=======
+2026-07-19文档收口后最终完整执行 `npm run quality:all`，退出码为0。当前量化证据为单元测试72/72、隔离SQLite核心E2E 24/24、Session账号切换E2E 1/1、仓库文档检索31个Chunk且6/6命中、九次migration可从空库应用、生产构建和全量lint通过。完整实验和失败记录见[工程整改与开发总报告](../remediation - 工程整改实施/final-report - 工程整改与开发总报告.md)。
+
+当前事实见[开发状态](../current-status - 当前开发状态.md)，正式目标见[设计文档](../design - 产品设计方案/README - 设计文档总入口.md)，实施顺序见[整改总览](../remediation - 工程整改实施/README - 整改执行总览.md)。
+>>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/reports - 对外发布报告/project-report - 当前项目报告.md

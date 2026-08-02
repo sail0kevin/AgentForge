@@ -5,7 +5,11 @@ import { retrieveChunks } from "../src/lib/rag/retrieval";
 
 const corpusFiles = [
   "README.md",
+<<<<<<< HEAD
   "docs/2026-08-01 - current-development-status - 当前开发状态.md",
+=======
+  "docs/current-status - 当前开发状态.md",
+>>>>>>> origin/agent/agentforge-publish-2026-07-20
 ];
 
 const cases = [

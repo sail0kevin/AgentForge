@@ -279,7 +279,11 @@ Model 模式调用用户配置的真实 Agent：候选、Reviewer、Evaluator �
 
 ### 12.1 已完成：盲评工具链与协议
 
+<<<<<<< HEAD:docs/remediation - 工程整改实施/2026-07-15 - phase-5-cross-review-and-evaluation - 交叉评审与评价.md
 已新增[真实模型盲评协议](../quality - 质量评测/2026-07-19 - blind-evaluation-protocol - 真实模型盲评协议.md)、`src/lib/review/blind-evaluation.ts`和`scripts/blind-evaluation.ts`。这套工具把公开给评分者的匿名材料包与仅供执行人保管的解盲表分离：报告包不含案例ID、变体、运行ID、Token、费用或延迟；解盲后才将分数与运行元数据合并。实验输入还必须冻结模型/Prompt/参数、RAG知识快照、案例清单摘要和每次运行预算；评分表由不可逆 `packetId` 绑定到具体材料包，避免混入另一轮实验。
+=======
+已新增[真实模型盲评协议](../quality - 质量评测/blind-evaluation-protocol - 真实模型盲评协议.md)、`src/lib/review/blind-evaluation.ts`和`scripts/blind-evaluation.ts`。这套工具把公开给评分者的匿名材料包与仅供执行人保管的解盲表分离：报告包不含案例ID、变体、运行ID、Token、费用或延迟；解盲后才将分数与运行元数据合并。实验输入还必须冻结模型/Prompt/参数、RAG知识快照、案例清单摘要和每次运行预算；评分表由不可逆 `packetId` 绑定到具体材料包，避免混入另一轮实验。
+>>>>>>> origin/agent/agentforge-publish-2026-07-20:docs/remediation - 工程整改实施/phase-5-cross-review-and-evaluation - 交叉评审与评价.md
 
 它会拒绝五种变体不齐、RAG 变体缺少知识快照、重复运行 ID、重复评分者、研究/材料包 ID 不匹配和漏评；正文或标题疑似泄露变体或案例身份时默认拒绝发卷。协议预注册最低 12 个案例、2 名独立评分者；低于门槛的汇总会明确写为“不可用于质量优势声明”。`blind-evaluation.test.ts` 验证匿名化、完整性校验、解盲汇总、材料包绑定与泄露拒绝，属于工具链验证，不是模型质量结果。
 
