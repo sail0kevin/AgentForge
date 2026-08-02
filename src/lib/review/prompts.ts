@@ -15,11 +15,14 @@ function contract(schema: z.ZodType) {
 }
 
 export function buildCandidatePrompt(input: { orientation: "delivery" | "quality"; analysis: RequirementAnalysis; plan: ExecutionPlan }) {
-  return `${REVIEW_SYSTEM_RULES}\n\nCreate an independent ${input.orientation} candidate. You have not seen the other candidate. Set orientation exactly to ${input.orientation} and schemaVersion to 1.\n\nJSON Schema:\n${contract(CandidateSolutionSchema)}\n\nRequirement analysis:\n${JSON.stringify(input.analysis)}\n\nExecution plan:\n${JSON.stringify(input.plan)}`;
+  const perspectiveRules = input.orientation === "delivery"
+    ? "Prioritize earliest useful delivery, feedback cycle, scope control, and explicit repayment of deferred quality work."
+    : "Prioritize safety gates, correctness, maintainability, observability, testability, and explicit release-risk control."
+  return `${REVIEW_SYSTEM_RULES}\n\nCreate an independent ${input.orientation} candidate. You have not seen the other candidate. Set orientation exactly to ${input.orientation} and schemaVersion to 1. Apply this perspective rule: ${perspectiveRules} Do not merely rename the same proposal; make the tradeoffs visible in decisions, implementation steps, risks, and assumptions.\n\nJSON Schema:\n${contract(CandidateSolutionSchema)}\n\nRequirement analysis:\n${JSON.stringify(input.analysis)}\n\nExecution plan:\n${JSON.stringify(input.plan)}`;
 }
 
 export function buildReviewPrompt(input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[] }) {
-  return `${REVIEW_SYSTEM_RULES}\n\nCross-review every candidate. Each Finding must include a concrete failure scenario, suggestion, candidate id, and evidenceRefs when evidence exists. Use schemaVersion=1.\n\nJSON Schema:\n${contract(ReviewResultSchema)}\n\nRequirement analysis:\n${JSON.stringify(input.analysis)}\n\nExecution plan:\n${JSON.stringify(input.plan)}\n\nCandidates:\n${JSON.stringify(input.candidates)}`;
+  return `${REVIEW_SYSTEM_RULES}\n\nCross-review every candidate. Treat delivery and quality as independent perspectives, not as a requirement to manufacture disagreement. If the candidates are materially consistent and no supported high-impact problem exists, an empty findings list is valid. Each Finding must include a concrete failure scenario, suggestion, candidate id, and evidenceRefs when evidence exists. Use schemaVersion=1.\n\nJSON Schema:\n${contract(ReviewResultSchema)}\n\nRequirement analysis:\n${JSON.stringify(input.analysis)}\n\nExecution plan:\n${JSON.stringify(input.plan)}\n\nCandidates:\n${JSON.stringify(input.candidates)}`;
 }
 
 export function buildEvaluationPrompt(input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[]; review: ReviewResult; rubric: RubricDimension[] }) {

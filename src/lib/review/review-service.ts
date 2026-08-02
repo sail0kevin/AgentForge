@@ -1,11 +1,17 @@
 import type { ExecutionPlan, RequirementAnalysis } from "@/lib/planner/contracts";
 import { CandidateSolutionSchema, EvaluationResultSchema, ReviewResultSchema, type CandidateSolution, type EvaluationResult, type Finding, type ReviewBudget, type ReviewResult, type RubricDimension } from "./contracts";
+import { partitionTier1Evidence } from "./evidence-tier1";
+import { assessTieredEvidence, type Tier2EvidenceVerifier, type TieredEvidenceAssessment } from "./evidence-tier2";
+import { assessPolicyConfidence } from "./intervention-policy";
+import { assessCandidateStructuralDiversity, type CandidateDiversityAssessment } from "./candidate-diversity";
 
 export type ReviewWorkflowResult = {
   status: "approved" | "needs_human" | "partial" | "inconclusive";
   candidates: CandidateSolution[];
   review: ReviewResult;
   evaluation: EvaluationResult;
+  candidateDiversity: CandidateDiversityAssessment;
+  evidenceAssessment: TieredEvidenceAssessment;
   currentRound: number;
   maxRounds: number;
   failures: Array<{ stage: string; code: string }>;
@@ -16,6 +22,7 @@ export type ReviewGenerators = {
   review?: (input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[] }) => Promise<ReviewResult>;
   evaluate?: (input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[]; review: ReviewResult; rubric: RubricDimension[] }) => Promise<EvaluationResult>;
   revise?: (input: { candidate: CandidateSolution; findings: Finding[]; round: number }) => Promise<CandidateSolution>;
+  tier2Verifier?: Tier2EvidenceVerifier;
 };
 
 export function buildRubric(plan: ExecutionPlan): RubricDimension[] {
@@ -61,8 +68,7 @@ function weightedScore(scores: number[], rubric: RubricDimension[]) {
 }
 
 export function evaluateBaseline(candidates: CandidateSolution[], review: ReviewResult, rubric: RubricDimension[]): EvaluationResult {
-  const supported = review.findings.filter((finding) => finding.evidenceRefs.length > 0);
-  const ignored = review.findings.filter((finding) => finding.evidenceRefs.length === 0);
+  const { supported, unsupported: ignored } = partitionTier1Evidence(review.findings, candidates);
   const evaluations = candidates.map((candidate) => {
     const base = candidate.orientation === "quality" ? [5, 4, 3, 5, 5] : [4, 4, 5, 3, 3];
     const scores = rubric.map((dimension, index) => ({ dimensionId: dimension.id, score: base[index] ?? 4, rationale: `根据${candidate.orientation === "quality" ? "质量门禁" : "分阶段交付"}方案的明确决策和取舍评分。`, evidenceRefs: candidate.decisions.flatMap((decision) => decision.evidenceRefs).slice(0, 3) }));
@@ -104,26 +110,34 @@ function validateEvaluationReferences(evaluation: EvaluationResult, candidates: 
   if ([...evaluation.supportedFindingIds, ...evaluation.ignoredFindingIds].some((id) => !findingIds.has(id))) throw new Error("EVALUATION_REFERENCES_INVALID");
 }
 
-function enforceEvidenceAndHumanGate(evaluation: EvaluationResult, candidates: CandidateSolution[], review: ReviewResult) {
-  const candidateEvidence = new Set(candidates.flatMap((candidate) => candidate.decisions.flatMap((decision) => decision.evidenceRefs)));
-  const supported = review.findings.filter((finding) => finding.evidenceRefs.some((reference) => candidateEvidence.has(reference)));
-  const unsupported = review.findings.filter((finding) => !supported.some((item) => item.id === finding.id));
+function enforceEvidenceAndHumanGate(
+  evaluation: EvaluationResult,
+  candidates: CandidateSolution[],
+  review: ReviewResult,
+  failures: ReviewWorkflowResult["failures"],
+) {
+  const { supported, unsupported } = partitionTier1Evidence(review.findings, candidates);
   const highImpactConflict = supported.filter((finding) => (finding.severity === "blocking" || finding.severity === "high") && finding.relatedCandidateIds.length > 0);
   const hasBothOrientations = candidates.some((candidate) => candidate.orientation === "delivery") && candidates.some((candidate) => candidate.orientation === "quality");
   const needsHuman = hasBothOrientations && highImpactConflict.length > 0;
+  const policyConfidence = assessPolicyConfidence({ evaluation, candidates, supportedFindings: supported, unsupportedFindings: unsupported, failures });
+  const recommendsHuman = policyConfidence.intervention === "recommended";
   return EvaluationResultSchema.parse({
     ...evaluation,
-    decision: needsHuman ? "needs_human" : evaluation.decision,
-    selectedCandidateId: needsHuman ? null : evaluation.selectedCandidateId,
+    decision: needsHuman || (recommendsHuman && evaluation.decision === "approved") ? "needs_human" : evaluation.decision,
+    selectedCandidateId: needsHuman || (recommendsHuman && evaluation.decision === "approved") ? null : evaluation.selectedCandidateId,
     supportedFindingIds: supported.map((finding) => finding.id),
     ignoredFindingIds: unsupported.map((finding) => finding.id),
+    policyConfidence,
     reasons: needsHuman && evaluation.decision !== "needs_human"
       ? [...evaluation.reasons, "A supported high-impact cross-candidate conflict requires a recorded human decision."].slice(-20)
+      : recommendsHuman && evaluation.decision === "approved"
+        ? [...evaluation.reasons, "The policy decision-support signal is low; request a human decision before report synthesis."].slice(-20)
       : evaluation.reasons,
     unresolvedConflicts: needsHuman && evaluation.unresolvedConflicts.length === 0
       ? [{ id: "policy-high-impact-conflict", question: "Which delivery and quality tradeoff should govern the final report?", options: ["delivery", "quality", "hybrid"], impact: "The choice changes schedule, cost, technical debt, and release risk.", relatedFindingIds: highImpactConflict.map((finding) => finding.id) }]
       : evaluation.unresolvedConflicts,
-    nextAction: needsHuman ? "Wait for a recorded human decision before report synthesis." : evaluation.nextAction,
+    nextAction: needsHuman || (recommendsHuman && evaluation.decision === "approved") ? "Wait for a recorded human decision before report synthesis." : evaluation.nextAction,
   });
 }
 
@@ -140,7 +154,20 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
     failures.push({ stage: "candidate", code: "CANDIDATE_ID_CONFLICT" });
     candidates.splice(1);
   }
-  if (candidates.length === 0) return { status: "inconclusive", candidates: [], review: { schemaVersion: 1, findings: [] }, evaluation: evaluateBaseline([], { schemaVersion: 1, findings: [] }, buildRubric(input.plan)), currentRound: 0, maxRounds: input.budget.maxReviewRounds, failures };
+  if (candidates.length === 0) {
+    const review = { schemaVersion: 1 as const, findings: [] };
+    return {
+      status: "inconclusive",
+      candidates: [],
+      review,
+      evaluation: evaluateBaseline([], review, buildRubric(input.plan)),
+      candidateDiversity: assessCandidateStructuralDiversity([]),
+      evidenceAssessment: await assessTieredEvidence({ findings: [], candidates: [], verifier: input.generators?.tier2Verifier }),
+      currentRound: 0,
+      maxRounds: input.budget.maxReviewRounds,
+      failures,
+    };
+  }
   let review: ReviewResult;
   try {
     review = ReviewResultSchema.parse(await (input.generators?.review?.({ analysis: input.analysis, plan: input.plan, candidates }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings))));
@@ -154,10 +181,10 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
   try {
     evaluation = EvaluationResultSchema.parse(await (input.generators?.evaluate?.({ analysis: input.analysis, plan: input.plan, candidates, review, rubric }) ?? Promise.resolve(evaluateBaseline(candidates, review, rubric))));
     validateEvaluationReferences(evaluation, candidates, review, rubric);
-    evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review);
+    evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review, failures);
   } catch {
     failures.push({ stage: "evaluate", code: "EVALUATOR_FAILED" });
-    evaluation = evaluateBaseline(candidates, review, rubric);
+    evaluation = enforceEvidenceAndHumanGate(evaluateBaseline(candidates, review, rubric), candidates, review, failures);
   }
   let currentRound = 0;
   while (evaluation.decision === "needs_revision" && currentRound < input.budget.maxReviewRounds && input.generators?.revise && candidates[0]) {
@@ -169,12 +196,14 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
       candidates[0] = revised;
       evaluation = EvaluationResultSchema.parse(await (input.generators.evaluate?.({ analysis: input.analysis, plan: input.plan, candidates, review, rubric }) ?? Promise.resolve(evaluateBaseline(candidates, review, rubric))));
       validateEvaluationReferences(evaluation, candidates, review, rubric);
-      evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review);
+      evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review, failures);
     } catch {
       failures.push({ stage: `revision:${currentRound}`, code: "REVISION_FAILED" });
       break;
     }
   }
   const status = failures.length > 0 ? "partial" : evaluation.decision === "needs_human" ? "needs_human" : evaluation.decision === "approved" ? "approved" : "inconclusive";
-  return { status, candidates, review, evaluation, currentRound, maxRounds: input.budget.maxReviewRounds, failures };
+  // Tier 2 目前只提供可审计的语义验证披露，不在未校准前改变既有审批和人工门禁。
+  const evidenceAssessment = await assessTieredEvidence({ findings: review.findings, candidates, verifier: input.generators?.tier2Verifier });
+  return { status, candidates, review, evaluation, candidateDiversity: assessCandidateStructuralDiversity(candidates), evidenceAssessment, currentRound, maxRounds: input.budget.maxReviewRounds, failures };
 }

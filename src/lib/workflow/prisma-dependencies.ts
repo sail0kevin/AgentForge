@@ -231,6 +231,7 @@ export function createPrismaWorkflowDependencies(options: WorkflowDependencyOpti
         userId: input.userId,
         decision: approvalDecision(input.decision),
         note: input.note,
+        taskPatch: input.taskPatch,
       });
     },
 

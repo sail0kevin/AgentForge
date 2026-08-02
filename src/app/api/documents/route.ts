@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/current-user";
 import { chunkMarkdown, chunkText } from "@/lib/rag/chunker";
+import { persistDocumentEmbeddings } from "@/lib/rag/document-embeddings";
 import { isSupportedFormat, parseFile } from "@/lib/rag/parser";
 import {
   assertDocumentQuota,
@@ -82,10 +83,17 @@ export async function POST(request: NextRequest) {
           checksumSha256, ...source,
           chunks: { create: chunks.map((chunk, index) => ({ content: chunk.content, startLine: chunk.startLine, endLine: chunk.endLine, metadata: JSON.stringify({ ...chunk.metadata, index, documentTitle: parsed.title, fileName: file.name, format: parsed.format, sourceType: source.sourceType, sourceUrl: source.sourceUrl ?? "", sourceVersion: source.sourceVersion, license: source.license, reviewedAt: source.reviewedAt?.toISOString() ?? "" }) })) },
         },
-        select: { id: true, fileName: true, title: true, format: true, size: true, checksumSha256: true, sourceType: true, sourceUrl: true, sourceVersion: true, license: true, reviewedAt: true, createdAt: true, _count: { select: { chunks: true } } },
+        select: { id: true, fileName: true, title: true, format: true, size: true, checksumSha256: true, sourceType: true, sourceUrl: true, sourceVersion: true, license: true, reviewedAt: true, createdAt: true, chunks: { select: { id: true, content: true, startLine: true, endLine: true, metadata: true } }, _count: { select: { chunks: true } } },
       });
     });
-    return Response.json(document, { status: 201 });
+    const embeddingStatus = await persistDocumentEmbeddings(document.chunks.map((chunk) => ({
+      ...chunk,
+      documentId: document.id,
+      metadata: JSON.parse(chunk.metadata) as Record<string, string>,
+    })));
+    const { chunks: persistedChunks, ...response } = document;
+    void persistedChunks;
+    return Response.json({ ...response, embeddingStatus }, { status: 201 });
   } catch (error) {
     return documentUploadErrorResponse(error);
   }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BlindCaseManifest } from "./blind-case-manifest";
 import { hashBlindCaseManifest } from "./blind-case-manifest";
-import { BlindEvaluationVariantSchema } from "./blind-evaluation";
+import { BlindEvaluationVariantSchema } from "./blind-evaluation-variants";
 
 const BlindRunPlanEntrySchema = z.object({
   caseId: z.string().regex(/^case-\d{2}$/),

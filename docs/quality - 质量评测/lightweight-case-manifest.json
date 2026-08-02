@@ -1,0 +1,343 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "lw-v1",
+  "frozenAt": "2026-07-24T00:00:00+08:00",
+  "cases": [
+    {
+      "caseId": "lw-case-01",
+      "category": "ecommerce",
+      "complexity": "medium",
+      "requirement": "规划一个电商购物车与结算流程，需要支持优惠券叠加规则、库存实时扣减、支付超时自动释放库存和订单状态机，并说明异常支付回调和重复下单的处理方式。",
+      "checklist": [
+        { "id": "coupon-rule", "description": "覆盖优惠券叠加或互斥规则", "keywords": ["优惠券", "叠加", "互斥"], "isConstraint": true },
+        { "id": "stock-deduct", "description": "覆盖库存实时扣减机制", "keywords": ["库存", "扣减", "锁定"], "isConstraint": false },
+        { "id": "payment-timeout", "description": "覆盖支付超时释放库存", "keywords": ["超时", "释放", "回滚"], "isConstraint": true },
+        { "id": "order-state", "description": "覆盖订单状态机设计", "keywords": ["状态机", "订单状态"], "isConstraint": false },
+        { "id": "duplicate-order", "description": "覆盖重复下单/幂等处理", "keywords": ["幂等", "重复下单", "去重"], "isConstraint": true },
+        { "id": "payment-callback", "description": "覆盖支付回调异常处理", "keywords": ["回调", "支付异常", "对账"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-02",
+      "category": "ecommerce",
+      "complexity": "high",
+      "requirement": "规划一个跨境电商平台，需要支持多币种展示与结算、关税和物流轨迹跟踪、汇率变动、退换货流程，并说明清关延迟和支付渠道失败时的兜底方案。",
+      "checklist": [
+        { "id": "multi-currency", "description": "覆盖多币种展示与结算", "keywords": ["多币种", "汇率", "结算货币"], "isConstraint": true },
+        { "id": "customs-tariff", "description": "覆盖关税和清关流程", "keywords": ["关税", "清关"], "isConstraint": false },
+        { "id": "logistics-track", "description": "覆盖物流轨迹跟踪", "keywords": ["物流", "轨迹", "跟踪"], "isConstraint": false },
+        { "id": "return-refund", "description": "覆盖退换货流程", "keywords": ["退换货", "退款流程"], "isConstraint": false },
+        { "id": "fx-fluctuation", "description": "覆盖汇率变动处理", "keywords": ["汇率变动", "汇率波动"], "isConstraint": true },
+        { "id": "payment-fallback", "description": "覆盖支付渠道失败兜底", "keywords": ["支付失败", "兜底", "降级"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-03",
+      "category": "ecommerce",
+      "complexity": "medium",
+      "requirement": "规划一个会员积分与优惠券系统，需要支持积分累积规则、等级权益、优惠券发放与核销、过期清理，并说明积分被恶意刷取时的风控和纠错方式。",
+      "checklist": [
+        { "id": "points-accrual", "description": "覆盖积分累积规则", "keywords": ["积分", "累积", "获取规则"], "isConstraint": false },
+        { "id": "member-tier", "description": "覆盖会员等级权益", "keywords": ["等级", "权益", "会员"], "isConstraint": false },
+        { "id": "coupon-issue-redeem", "description": "覆盖优惠券发放与核销", "keywords": ["发放", "核销"], "isConstraint": false },
+        { "id": "expiry-cleanup", "description": "覆盖积分/券过期清理", "keywords": ["过期", "清理", "失效"], "isConstraint": false },
+        { "id": "fraud-control", "description": "覆盖积分刷取风控", "keywords": ["风控", "刷积分", "异常检测"], "isConstraint": true },
+        { "id": "correction", "description": "覆盖积分纠错/回滚机制", "keywords": ["纠错", "回滚", "人工调整"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-04",
+      "category": "ecommerce",
+      "complexity": "high",
+      "requirement": "规划一个秒杀活动系统，需要支持高并发下的库存扣减、限流排队、防止机器人刷单和恶意抢购，并给出压测指标、降级预案和活动结束后的对账要求。",
+      "checklist": [
+        { "id": "high-concurrency-stock", "description": "覆盖高并发库存扣减方案", "keywords": ["高并发", "库存扣减", "原子操作"], "isConstraint": true },
+        { "id": "rate-limit-queue", "description": "覆盖限流与排队机制", "keywords": ["限流", "排队", "队列"], "isConstraint": true },
+        { "id": "anti-bot", "description": "覆盖防刷单/防机器人", "keywords": ["防刷", "机器人", "验证码"], "isConstraint": true },
+        { "id": "load-test-metrics", "description": "覆盖压测指标要求", "keywords": ["压测", "QPS", "性能指标"], "isConstraint": false },
+        { "id": "degrade-plan", "description": "覆盖降级预案", "keywords": ["降级", "熔断"], "isConstraint": false },
+        { "id": "reconciliation", "description": "覆盖活动结束后对账", "keywords": ["对账", "结算核对"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-05",
+      "category": "ecommerce",
+      "complexity": "medium",
+      "requirement": "规划一个商品评价与问答系统，需要支持匿名评价、图片上传、恶意举报处理、商家回复和敏感词过滤，并说明虚假评价的识别和申诉流程。",
+      "checklist": [
+        { "id": "anonymous-review", "description": "覆盖匿名评价机制", "keywords": ["匿名", "评价"], "isConstraint": false },
+        { "id": "image-upload", "description": "覆盖图片上传功能", "keywords": ["图片上传", "上传"], "isConstraint": false },
+        { "id": "report-handling", "description": "覆盖举报处理流程", "keywords": ["举报", "处理流程"], "isConstraint": false },
+        { "id": "merchant-reply", "description": "覆盖商家回复功能", "keywords": ["商家回复", "回复"], "isConstraint": false },
+        { "id": "keyword-filter", "description": "覆盖敏感词过滤", "keywords": ["敏感词", "过滤"], "isConstraint": true },
+        { "id": "fake-review-appeal", "description": "覆盖虚假评价识别与申诉", "keywords": ["虚假评价", "申诉"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-06",
+      "category": "content-platform",
+      "complexity": "medium",
+      "requirement": "规划一个短视频与图文内容发布平台，需要支持内容审核、举报处理、个性化推荐、点赞评论互动，并说明违规内容下架和创作者申诉的处理流程。",
+      "checklist": [
+        { "id": "content-review", "description": "覆盖内容审核流程", "keywords": ["审核", "内容审核"], "isConstraint": true },
+        { "id": "report-flow", "description": "覆盖举报处理流程", "keywords": ["举报"], "isConstraint": false },
+        { "id": "recommendation", "description": "覆盖个性化推荐机制", "keywords": ["推荐", "个性化"], "isConstraint": false },
+        { "id": "interaction", "description": "覆盖点赞评论互动", "keywords": ["点赞", "评论"], "isConstraint": false },
+        { "id": "takedown", "description": "覆盖违规内容下架", "keywords": ["下架", "违规"], "isConstraint": true },
+        { "id": "creator-appeal", "description": "覆盖创作者申诉流程", "keywords": ["申诉", "创作者"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-07",
+      "category": "content-platform",
+      "complexity": "high",
+      "requirement": "规划一个UGC社区内容审核系统，需要支持敏感词识别、图片/视频机审、人工复审队列优先级、跨部门升级处理，并说明误判申诉和审核员操作审计要求。",
+      "checklist": [
+        { "id": "sensitive-word", "description": "覆盖敏感词识别机制", "keywords": ["敏感词", "识别"], "isConstraint": true },
+        { "id": "media-machine-review", "description": "覆盖图片/视频机审", "keywords": ["机审", "图片审核", "视频审核"], "isConstraint": false },
+        { "id": "manual-review-priority", "description": "覆盖人工复审队列优先级", "keywords": ["人工复审", "优先级", "队列"], "isConstraint": false },
+        { "id": "escalation", "description": "覆盖跨部门升级处理", "keywords": ["升级处理", "跨部门"], "isConstraint": false },
+        { "id": "misjudge-appeal", "description": "覆盖误判申诉流程", "keywords": ["误判", "申诉"], "isConstraint": true },
+        { "id": "reviewer-audit", "description": "覆盖审核员操作审计", "keywords": ["审计", "操作日志"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-08",
+      "category": "content-platform",
+      "complexity": "medium",
+      "requirement": "规划一个播客音频内容发布与订阅平台，需要支持音频上传转码、订阅推送、播放进度同步、评论互动，并说明版权投诉和音频下架的处理机制。",
+      "checklist": [
+        { "id": "audio-transcode", "description": "覆盖音频上传转码", "keywords": ["转码", "音频上传"], "isConstraint": false },
+        { "id": "subscription-push", "description": "覆盖订阅推送机制", "keywords": ["订阅", "推送"], "isConstraint": false },
+        { "id": "playback-sync", "description": "覆盖播放进度同步", "keywords": ["播放进度", "同步"], "isConstraint": false },
+        { "id": "comment-interaction", "description": "覆盖评论互动功能", "keywords": ["评论"], "isConstraint": false },
+        { "id": "copyright-complaint", "description": "覆盖版权投诉处理", "keywords": ["版权", "投诉"], "isConstraint": true },
+        { "id": "audio-takedown", "description": "覆盖音频下架机制", "keywords": ["下架"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-09",
+      "category": "content-platform",
+      "complexity": "high",
+      "requirement": "规划一个多人协作博客与知识库编辑平台，需要支持多人同时编辑、版本冲突解决、编辑权限分级、历史版本回溯，并说明离线编辑冲突合并的处理方式。",
+      "checklist": [
+        { "id": "concurrent-edit", "description": "覆盖多人同时编辑", "keywords": ["多人编辑", "同时编辑"], "isConstraint": false },
+        { "id": "conflict-resolve", "description": "覆盖版本冲突解决", "keywords": ["冲突", "版本冲突"], "isConstraint": true },
+        { "id": "edit-permission", "description": "覆盖编辑权限分级", "keywords": ["权限", "分级"], "isConstraint": false },
+        { "id": "version-history", "description": "覆盖历史版本回溯", "keywords": ["历史版本", "回溯"], "isConstraint": false },
+        { "id": "offline-merge", "description": "覆盖离线编辑冲突合并", "keywords": ["离线", "合并"], "isConstraint": true },
+        { "id": "audit-trail", "description": "覆盖编辑操作审计", "keywords": ["操作记录", "审计"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-10",
+      "category": "content-platform",
+      "complexity": "medium",
+      "requirement": "规划一个图片与素材版权管理及授权下载平台，需要支持素材上传与打标、授权级别管理、水印生成、下载记录追踪，并说明侵权举报的核实处理流程。",
+      "checklist": [
+        { "id": "asset-upload-tag", "description": "覆盖素材上传与打标", "keywords": ["上传", "打标", "标签"], "isConstraint": false },
+        { "id": "license-level", "description": "覆盖授权级别管理", "keywords": ["授权", "许可"], "isConstraint": true },
+        { "id": "watermark", "description": "覆盖水印生成机制", "keywords": ["水印"], "isConstraint": false },
+        { "id": "download-tracking", "description": "覆盖下载记录追踪", "keywords": ["下载记录", "追踪"], "isConstraint": false },
+        { "id": "infringement-report", "description": "覆盖侵权举报核实", "keywords": ["侵权", "举报核实"], "isConstraint": true },
+        { "id": "revoke-access", "description": "覆盖授权撤销机制", "keywords": ["撤销", "吊销授权"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-11",
+      "category": "internal-admin",
+      "complexity": "medium",
+      "requirement": "规划一个员工请假与考勤审批系统，需要支持多种假期类型、审批流转、加班调休换算、异常打卡处理，并说明跨部门代理审批和数据导出要求。",
+      "checklist": [
+        { "id": "leave-types", "description": "覆盖多种假期类型", "keywords": ["假期类型", "年假", "病假"], "isConstraint": false },
+        { "id": "approval-flow", "description": "覆盖审批流转机制", "keywords": ["审批流", "流转"], "isConstraint": false },
+        { "id": "overtime-convert", "description": "覆盖加班调休换算", "keywords": ["调休", "加班"], "isConstraint": true },
+        { "id": "abnormal-checkin", "description": "覆盖异常打卡处理", "keywords": ["异常打卡", "补卡"], "isConstraint": false },
+        { "id": "delegate-approval", "description": "覆盖跨部门代理审批", "keywords": ["代理审批", "委托"], "isConstraint": true },
+        { "id": "data-export", "description": "覆盖数据导出要求", "keywords": ["导出", "报表"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-12",
+      "category": "internal-admin",
+      "complexity": "high",
+      "requirement": "规划一个企业财务报销审批系统，需要支持多级审批链、发票查重、预算超额控制、跨币种报销，并说明审批人离职时的流程转移和异常报销的追责机制。",
+      "checklist": [
+        { "id": "multi-level-approval", "description": "覆盖多级审批链", "keywords": ["多级审批", "审批链"], "isConstraint": false },
+        { "id": "invoice-dedupe", "description": "覆盖发票查重机制", "keywords": ["发票查重", "查重"], "isConstraint": true },
+        { "id": "budget-control", "description": "覆盖预算超额控制", "keywords": ["预算", "超额"], "isConstraint": true },
+        { "id": "cross-currency", "description": "覆盖跨币种报销", "keywords": ["跨币种", "汇率换算"], "isConstraint": false },
+        { "id": "approver-transfer", "description": "覆盖审批人离职流程转移", "keywords": ["离职", "流程转移"], "isConstraint": true },
+        { "id": "abuse-accountability", "description": "覆盖异常报销追责", "keywords": ["追责", "异常报销"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-13",
+      "category": "internal-admin",
+      "complexity": "medium",
+      "requirement": "规划一个IT资产管理后台，需要支持设备领用归还登记、资产盘点、报修流程、报废审批，并说明资产丢失时的责任认定和数据擦除要求。",
+      "checklist": [
+        { "id": "asset-checkout", "description": "覆盖设备领用归还登记", "keywords": ["领用", "归还"], "isConstraint": false },
+        { "id": "asset-inventory", "description": "覆盖资产盘点流程", "keywords": ["盘点"], "isConstraint": false },
+        { "id": "repair-flow", "description": "覆盖报修流程", "keywords": ["报修"], "isConstraint": false },
+        { "id": "disposal-approval", "description": "覆盖报废审批流程", "keywords": ["报废", "审批"], "isConstraint": false },
+        { "id": "loss-accountability", "description": "覆盖资产丢失责任认定", "keywords": ["丢失", "责任认定"], "isConstraint": true },
+        { "id": "data-wipe", "description": "覆盖数据擦除要求", "keywords": ["数据擦除", "清除数据"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-14",
+      "category": "internal-admin",
+      "complexity": "high",
+      "requirement": "规划一个供应链采购审批系统，需要支持供应商资质管理、合同审核、多币种付款、到货验收，并说明供应商黑名单机制和采购欺诈的风控要求。",
+      "checklist": [
+        { "id": "supplier-qualification", "description": "覆盖供应商资质管理", "keywords": ["供应商资质", "资质审核"], "isConstraint": true },
+        { "id": "contract-review", "description": "覆盖合同审核流程", "keywords": ["合同审核", "合同"], "isConstraint": false },
+        { "id": "multi-currency-payment", "description": "覆盖多币种付款", "keywords": ["多币种", "付款"], "isConstraint": false },
+        { "id": "receiving-inspection", "description": "覆盖到货验收流程", "keywords": ["到货验收", "验收"], "isConstraint": false },
+        { "id": "blacklist", "description": "覆盖供应商黑名单机制", "keywords": ["黑名单"], "isConstraint": true },
+        { "id": "fraud-control", "description": "覆盖采购欺诈风控", "keywords": ["欺诈", "风控"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-15",
+      "category": "internal-admin",
+      "complexity": "medium",
+      "requirement": "规划一个HR招聘流程管理系统，需要支持简历筛选、面试排期、多轮评价汇总、Offer发放，并说明候选人信息隐私保护和招聘数据留存期限的要求。",
+      "checklist": [
+        { "id": "resume-screening", "description": "覆盖简历筛选流程", "keywords": ["简历筛选", "筛选"], "isConstraint": false },
+        { "id": "interview-schedule", "description": "覆盖面试排期机制", "keywords": ["面试排期", "排期"], "isConstraint": false },
+        { "id": "evaluation-aggregate", "description": "覆盖多轮评价汇总", "keywords": ["评价汇总", "多轮面试"], "isConstraint": false },
+        { "id": "offer-issue", "description": "覆盖Offer发放流程", "keywords": ["Offer", "发放"], "isConstraint": false },
+        { "id": "privacy-protection", "description": "覆盖候选人隐私保护", "keywords": ["隐私保护", "隐私"], "isConstraint": true },
+        { "id": "data-retention", "description": "覆盖数据留存期限要求", "keywords": ["留存期限", "数据留存"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-16",
+      "category": "website",
+      "complexity": "medium",
+      "requirement": "规划一个律师事务所官网，需要支持案例展示、律师团队介绍、在线咨询表单、隐私声明，并说明咨询信息保密要求和垂直行业SEO优化方案。",
+      "checklist": [
+        { "id": "case-showcase", "description": "覆盖案例展示模块", "keywords": ["案例展示"], "isConstraint": false },
+        { "id": "team-intro", "description": "覆盖律师团队介绍", "keywords": ["团队介绍", "律师介绍"], "isConstraint": false },
+        { "id": "consult-form", "description": "覆盖在线咨询表单", "keywords": ["咨询表单", "在线咨询"], "isConstraint": false },
+        { "id": "privacy-statement", "description": "覆盖隐私声明内容", "keywords": ["隐私声明"], "isConstraint": true },
+        { "id": "confidentiality", "description": "覆盖咨询信息保密要求", "keywords": ["保密"], "isConstraint": true },
+        { "id": "seo", "description": "覆盖行业SEO优化方案", "keywords": ["SEO", "搜索优化"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-17",
+      "category": "website",
+      "complexity": "high",
+      "requirement": "规划一个医院预约挂号官网，需要支持医生排班、号源加号、短信提醒、退号规则，并说明高峰期抢号限流和患者信息安全的合规要求。",
+      "checklist": [
+        { "id": "doctor-schedule", "description": "覆盖医生排班机制", "keywords": ["排班"], "isConstraint": false },
+        { "id": "slot-extra", "description": "覆盖号源加号机制", "keywords": ["号源", "加号"], "isConstraint": false },
+        { "id": "sms-reminder", "description": "覆盖短信提醒功能", "keywords": ["短信提醒", "提醒"], "isConstraint": false },
+        { "id": "cancel-rule", "description": "覆盖退号规则", "keywords": ["退号"], "isConstraint": true },
+        { "id": "peak-rate-limit", "description": "覆盖高峰抢号限流", "keywords": ["限流", "抢号"], "isConstraint": true },
+        { "id": "patient-data-compliance", "description": "覆盖患者信息安全合规", "keywords": ["患者信息", "合规", "隐私"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-18",
+      "category": "website",
+      "complexity": "medium",
+      "requirement": "规划一个餐饮连锁品牌官网，需要支持门店查询定位、优惠券发放、加盟咨询表单、菜品展示，并说明多地区门店信息更新和移动端适配要求。",
+      "checklist": [
+        { "id": "store-locator", "description": "覆盖门店查询定位", "keywords": ["门店查询", "定位"], "isConstraint": false },
+        { "id": "coupon-distribute", "description": "覆盖优惠券发放功能", "keywords": ["优惠券"], "isConstraint": false },
+        { "id": "franchise-consult", "description": "覆盖加盟咨询表单", "keywords": ["加盟咨询", "加盟"], "isConstraint": false },
+        { "id": "menu-showcase", "description": "覆盖菜品展示模块", "keywords": ["菜品展示", "菜单"], "isConstraint": false },
+        { "id": "multi-region-update", "description": "覆盖多地区门店信息更新", "keywords": ["多地区", "门店信息"], "isConstraint": true },
+        { "id": "mobile-adapt", "description": "覆盖移动端适配要求", "keywords": ["移动端", "适配"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-19",
+      "category": "website",
+      "complexity": "high",
+      "requirement": "规划一个政务服务官网，需要支持无障碍访问、多终端适配、表单校验、办事进度查询，并说明身份核验安全要求和服务不可用时的公告降级方案。",
+      "checklist": [
+        { "id": "accessibility", "description": "覆盖无障碍访问设计", "keywords": ["无障碍"], "isConstraint": true },
+        { "id": "multi-terminal", "description": "覆盖多终端适配", "keywords": ["多终端", "响应式"], "isConstraint": false },
+        { "id": "form-validation", "description": "覆盖表单校验规则", "keywords": ["表单校验", "校验"], "isConstraint": false },
+        { "id": "progress-query", "description": "覆盖办事进度查询", "keywords": ["进度查询"], "isConstraint": false },
+        { "id": "identity-verify", "description": "覆盖身份核验安全要求", "keywords": ["身份核验", "实名"], "isConstraint": true },
+        { "id": "outage-notice", "description": "覆盖服务不可用公告降级", "keywords": ["公告", "降级", "服务不可用"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-20",
+      "category": "website",
+      "complexity": "medium",
+      "requirement": "规划一个婚庆摄影工作室官网，需要支持作品案例展示、在线预约排期、客户评价、套餐价格说明，并说明高峰季节档期冲突的处理方式。",
+      "checklist": [
+        { "id": "portfolio-showcase", "description": "覆盖作品案例展示", "keywords": ["作品展示", "案例"], "isConstraint": false },
+        { "id": "booking-schedule", "description": "覆盖在线预约排期", "keywords": ["预约", "排期"], "isConstraint": false },
+        { "id": "customer-review", "description": "覆盖客户评价模块", "keywords": ["客户评价", "评价"], "isConstraint": false },
+        { "id": "package-pricing", "description": "覆盖套餐价格说明", "keywords": ["套餐", "价格"], "isConstraint": false },
+        { "id": "schedule-conflict", "description": "覆盖档期冲突处理", "keywords": ["档期冲突", "冲突"], "isConstraint": true },
+        { "id": "peak-season", "description": "覆盖高峰季节容量说明", "keywords": ["高峰季节", "旺季"], "isConstraint": false }
+      ]
+    },
+    {
+      "caseId": "lw-case-21",
+      "category": "learning",
+      "complexity": "medium",
+      "requirement": "规划一个少儿编程在线课程平台，需要支持课程进度跟踪、家长监督面板、作品分享、学习提醒，并说明未成年人隐私保护和内容分级审核要求。",
+      "checklist": [
+        { "id": "progress-track", "description": "覆盖课程进度跟踪", "keywords": ["进度跟踪", "进度"], "isConstraint": false },
+        { "id": "parent-dashboard", "description": "覆盖家长监督面板", "keywords": ["家长监督", "家长面板"], "isConstraint": false },
+        { "id": "work-share", "description": "覆盖作品分享功能", "keywords": ["作品分享"], "isConstraint": false },
+        { "id": "study-reminder", "description": "覆盖学习提醒机制", "keywords": ["学习提醒", "提醒"], "isConstraint": false },
+        { "id": "minor-privacy", "description": "覆盖未成年人隐私保护", "keywords": ["未成年人", "隐私保护"], "isConstraint": true },
+        { "id": "content-rating", "description": "覆盖内容分级审核要求", "keywords": ["分级", "内容审核"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-22",
+      "category": "learning",
+      "complexity": "high",
+      "requirement": "规划一个企业内部培训与认证考试系统，需要支持题库管理、在线考试、防作弊监控、证书发放，并说明考试成绩争议的复核流程和题库泄露的应急预案。",
+      "checklist": [
+        { "id": "question-bank", "description": "覆盖题库管理机制", "keywords": ["题库"], "isConstraint": false },
+        { "id": "online-exam", "description": "覆盖在线考试流程", "keywords": ["在线考试", "考试"], "isConstraint": false },
+        { "id": "anti-cheat", "description": "覆盖防作弊监控", "keywords": ["防作弊", "监考"], "isConstraint": true },
+        { "id": "certificate-issue", "description": "覆盖证书发放流程", "keywords": ["证书"], "isConstraint": false },
+        { "id": "score-dispute", "description": "覆盖成绩争议复核流程", "keywords": ["成绩争议", "复核"], "isConstraint": true },
+        { "id": "leak-response", "description": "覆盖题库泄露应急预案", "keywords": ["泄露", "应急预案"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-23",
+      "category": "learning",
+      "complexity": "medium",
+      "requirement": "规划一个语言学习打卡社群小程序，需要支持每日打卡记录、排行榜、学习小组、提醒推送，并说明连续打卡断签补救规则和虚假打卡的检测方式。",
+      "checklist": [
+        { "id": "daily-checkin", "description": "覆盖每日打卡记录", "keywords": ["打卡"], "isConstraint": false },
+        { "id": "leaderboard", "description": "覆盖排行榜功能", "keywords": ["排行榜"], "isConstraint": false },
+        { "id": "study-group", "description": "覆盖学习小组功能", "keywords": ["学习小组", "小组"], "isConstraint": false },
+        { "id": "push-reminder", "description": "覆盖提醒推送机制", "keywords": ["提醒推送", "推送"], "isConstraint": false },
+        { "id": "streak-recovery", "description": "覆盖断签补救规则", "keywords": ["断签", "补救"], "isConstraint": true },
+        { "id": "fake-checkin-detect", "description": "覆盖虚假打卡检测", "keywords": ["虚假打卡", "检测"], "isConstraint": true }
+      ]
+    },
+    {
+      "caseId": "lw-case-24",
+      "category": "learning",
+      "complexity": "high",
+      "requirement": "规划一个在线编程刷题与自动评测平台，需要支持代码沙箱运行、运行超时限制、多语言支持、测试用例评测，并说明代码抄袭检测和沙箱安全隔离的要求。",
+      "checklist": [
+        { "id": "code-sandbox", "description": "覆盖代码沙箱运行", "keywords": ["沙箱", "代码运行"], "isConstraint": false },
+        { "id": "timeout-limit", "description": "覆盖运行超时限制", "keywords": ["超时限制", "超时"], "isConstraint": true },
+        { "id": "multi-language", "description": "覆盖多语言支持", "keywords": ["多语言", "语言支持"], "isConstraint": false },
+        { "id": "testcase-eval", "description": "覆盖测试用例评测", "keywords": ["测试用例", "评测"], "isConstraint": false },
+        { "id": "plagiarism-detect", "description": "覆盖代码抄袭检测", "keywords": ["抄袭检测", "抄袭"], "isConstraint": true },
+        { "id": "sandbox-isolation", "description": "覆盖沙箱安全隔离要求", "keywords": ["安全隔离", "隔离"], "isConstraint": true }
+      ]
+    }
+  ]
+}

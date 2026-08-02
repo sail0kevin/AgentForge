@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { FileText, GitBranch, LogIn, UserPlus } from "lucide-react";
+import { Code2, FileText, GitBranch, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { WorkspaceApp } from "@/components/workspace/workspace-app";
 import type { WorkspaceSnapshot } from "@/lib/types";
@@ -116,6 +116,8 @@ export function AuthenticatedWorkspace() {
     <>
       <div className="global-account-bar fixed right-4 top-3 z-50 flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm">
         <Link href="/workflows" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><GitBranch className="h-3.5 w-3.5" />工作流</Link>
+        <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
+        <Link href="/scenarios" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><Code2 className="h-3.5 w-3.5" />工程分析</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
         <Link href="/reports" className="flex items-center gap-1 font-semibold text-[#5B5BD6]"><FileText className="h-3.5 w-3.5" />报告中心</Link>
         <span className="h-4 w-px bg-slate-200" aria-hidden="true" />

@@ -1,6 +1,8 @@
 import { Annotation, Command, END, START, StateGraph, interrupt } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { ApprovalResumeSchema, ClarificationResumeSchema } from "./contracts";
+import type { IncrementalApprovalPatch } from "@/lib/planner/incremental-approval";
+import { traceAsync, type TraceProvider } from "@/lib/observability/tracing";
 
 export type PlanningNodeResult = {
   planningArtifactId: string;
@@ -21,7 +23,7 @@ export type ReportNodeResult = {
 export type ProductWorkflowDependencies = {
   plan: (input: { workflowId: string; userId: string; requirement: string; nodeKey: string }) => Promise<PlanningNodeResult>;
   review: (input: { workflowId: string; userId: string; planningArtifactId: string; nodeKey: string }) => Promise<ReviewNodeResult>;
-  approve: (input: { workflowId: string; userId: string; reviewWorkflowId: string; decision: "delivery" | "quality" | "hybrid" | "reject"; note?: string }) => Promise<void>;
+  approve: (input: { workflowId: string; userId: string; reviewWorkflowId: string; decision: "delivery" | "quality" | "hybrid" | "reject"; note?: string; taskPatch?: IncrementalApprovalPatch }) => Promise<void>;
   report: (input: { workflowId: string; userId: string; reviewWorkflowId: string; generationKey: string }) => Promise<ReportNodeResult>;
 };
 
@@ -57,7 +59,14 @@ function reviewRoute(state: ProductWorkflowStateType) {
   return "finalize";
 }
 
-export function createProductWorkflowGraph(dependencies: ProductWorkflowDependencies, checkpointer: BaseCheckpointSaver) {
+export function createProductWorkflowGraph(dependencies: ProductWorkflowDependencies, checkpointer: BaseCheckpointSaver, traceProvider?: TraceProvider) {
+  // 统一包装节点，保证成功、异常和 interrupt 恢复路径都有成对的 entry/exit span。
+  const traceNode = <T>(nodeName: string, run: (state: ProductWorkflowStateType) => Promise<T> | T) => async (state: ProductWorkflowStateType) => traceAsync({
+    provider: traceProvider,
+    name: "agentforge.workflow.node",
+    attributes: { "agentforge.workflow_id": state.workflowId, "agentforge.node": nodeName },
+    run: () => run(state),
+  });
   const createPlan = async (state: ProductWorkflowStateType) => {
     const result = await dependencies.plan({
       workflowId: state.workflowId,
@@ -104,7 +113,7 @@ export function createProductWorkflowGraph(dependencies: ProductWorkflowDependen
       reviewWorkflowId: state.reviewWorkflowId,
       decisions: ["delivery", "quality", "hybrid", "reject"],
     }));
-    await dependencies.approve({ workflowId: state.workflowId, userId: state.userId, reviewWorkflowId: state.reviewWorkflowId, decision: resume.decision, note: resume.note });
+    await dependencies.approve({ workflowId: state.workflowId, userId: state.userId, reviewWorkflowId: state.reviewWorkflowId, decision: resume.decision, note: resume.note, taskPatch: resume.taskPatch });
     return { approvalDecision: resume.decision };
   };
 
@@ -127,12 +136,12 @@ export function createProductWorkflowGraph(dependencies: ProductWorkflowDependen
   };
 
   return new StateGraph(ProductWorkflowState)
-    .addNode("create_plan", createPlan)
-    .addNode("clarification", requestClarification)
-    .addNode("cross_review", crossReview)
-    .addNode("human_approval", humanApproval)
-    .addNode("generate_report", generateReport)
-    .addNode("finalize", finalize)
+    .addNode("create_plan", traceNode("create_plan", createPlan))
+    .addNode("clarification", traceNode("clarification", requestClarification))
+    .addNode("cross_review", traceNode("cross_review", crossReview))
+    .addNode("human_approval", traceNode("human_approval", humanApproval))
+    .addNode("generate_report", traceNode("generate_report", generateReport))
+    .addNode("finalize", traceNode("finalize", finalize))
     .addEdge(START, "create_plan")
     .addConditionalEdges("create_plan", planRoute, ["cross_review", "clarification", "finalize"])
     .addEdge("clarification", "create_plan")

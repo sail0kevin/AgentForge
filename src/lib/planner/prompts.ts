@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ExecutionPlanSchema, RequirementAnalysisSchema, type BudgetState, type RequirementAnalysis } from "./contracts";
+import { DEFAULT_PLANNER_TOOL_IDS } from "./validation";
 
 export const PLANNER_SYSTEM_RULES = [
   "你是 AgentForge 的需求规划器。",
@@ -13,5 +14,6 @@ export function buildRequirementAnalysisPrompt(requirement: string) {
 }
 
 export function buildExecutionPlanPrompt(analysis: RequirementAnalysis, budget: BudgetState) {
-  return `${PLANNER_SYSTEM_RULES}\n\n任务：根据需求分析生成 schemaVersion=1 的 ExecutionPlan。报告目录必须随项目类型变化，每个任务必须关联至少一个报告章节。\n\nJSON Schema：\n${JSON.stringify(z.toJSONSchema(ExecutionPlanSchema))}\n\n预算边界：\n${JSON.stringify(budget)}\n\n需求分析：\n${JSON.stringify(analysis)}`;
+  const allowedToolIds = JSON.stringify([...DEFAULT_PLANNER_TOOL_IDS]);
+  return `${PLANNER_SYSTEM_RULES}\n\n任务：根据需求分析生成 schemaVersion=1 的 ExecutionPlan。报告目录必须随项目类型变化，每个任务必须关联至少一个报告章节。\n\n每个任务的 toolIds 只能从以下真实可用工具中选择，或留空数组：\n${allowedToolIds}\n如果任务不需要这些工具，toolIds 必须是空数组，不要编造其他工具名。\n\nJSON Schema：\n${JSON.stringify(z.toJSONSchema(ExecutionPlanSchema))}\n\n预算边界：\n${JSON.stringify(budget)}\n\n需求分析：\n${JSON.stringify(analysis)}`;
 }

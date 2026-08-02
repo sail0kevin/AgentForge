@@ -52,6 +52,20 @@ export const CandidateEvaluationSchema = z.object({
   weightedScore: z.number().min(0).max(5),
 });
 
+export const PolicyConfidenceAssessmentSchema = z.object({
+  // 这是基于结构化证据和规则的决策支持信号，不是模型语义能力的校准置信度。
+  kind: z.literal("policy_decision_support"),
+  score: z.number().min(0).max(1),
+  level: z.enum(["high", "medium", "low"]),
+  evidenceSupportRatio: z.number().min(0).max(1),
+  scoreMarginRatio: z.number().min(0).max(1),
+  highestSupportedFindingSeverity: z.enum(["blocking", "high", "medium", "low"]).nullable(),
+  failedStages: z.array(z.string().min(1).max(100)).max(10),
+  hardHumanGate: z.boolean(),
+  intervention: z.enum(["not_required", "recommended", "required"]),
+  reasons: z.array(z.string().min(5).max(500)).min(1).max(10),
+});
+
 export const EvaluationResultSchema = z.object({
   schemaVersion: z.literal(1),
   decision: z.enum(["approved", "needs_revision", "blocked", "needs_human", "inconclusive"]),
@@ -62,6 +76,7 @@ export const EvaluationResultSchema = z.object({
   reasons: z.array(z.string().min(5).max(500)).min(1).max(20),
   unresolvedConflicts: z.array(z.object({ id: z.string(), question: z.string().min(5), options: z.array(z.string().min(2)).min(2).max(4), impact: z.string().min(5), relatedFindingIds: z.array(z.string()) })).max(10),
   nextAction: z.string().min(5).max(500),
+  policyConfidence: PolicyConfidenceAssessmentSchema.optional(),
 });
 
 export const ReviewBudgetSchema = z.object({
@@ -85,5 +100,6 @@ export type Finding = z.infer<typeof FindingSchema>;
 export type ReviewResult = z.infer<typeof ReviewResultSchema>;
 export type RubricDimension = z.infer<typeof RubricDimensionSchema>;
 export type EvaluationResult = z.infer<typeof EvaluationResultSchema>;
+export type PolicyConfidenceAssessment = z.infer<typeof PolicyConfidenceAssessmentSchema>;
 export type ReviewBudget = z.infer<typeof ReviewBudgetSchema>;
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;

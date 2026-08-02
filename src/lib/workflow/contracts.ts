@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { IncrementalApprovalPatchSchema } from "@/lib/planner/incremental-approval";
 
 export const WorkflowNodeKeySchema = z.enum([
   "analyze_requirement",
@@ -78,6 +79,12 @@ export const ApprovalResumeSchema = z.object({
   kind: z.literal("approval"),
   decision: z.enum(["delivery", "quality", "hybrid", "reject"]),
   note: z.string().trim().max(2_000).optional(),
+  // 人工只可提交已有任务的受控字段补丁，服务端会基于原计划重新执行完整校验。
+  taskPatch: IncrementalApprovalPatchSchema.optional(),
+}).superRefine((value, context) => {
+  if (value.decision === "reject" && value.taskPatch) {
+    context.addIssue({ code: "custom", path: ["taskPatch"], message: "拒绝当前候选时不能同时提交任务修改。" });
+  }
 });
 
 export const WorkflowResumeSchema = z.discriminatedUnion("kind", [ClarificationResumeSchema, ApprovalResumeSchema]);

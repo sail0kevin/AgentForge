@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { BlindCaseManifest } from "./blind-case-manifest";
+import { BlindEvaluationVariantSchema, type BlindEvaluationVariant } from "./blind-evaluation-variants";
+import { createBlindRunPlan } from "./blind-run-plan";
 
-export const BlindEvaluationVariantSchema = z.enum([
-  "single_agent",
-  "dual_candidate",
-  "dual_candidate_rag",
-  "cross_review",
-  "cross_review_human",
-]);
+export const BLIND_EVALUATION_MINIMUM_CASE_COUNT = 12 as const;
+export const BLIND_EVALUATION_MINIMUM_RATER_COUNT = 2 as const;
+export { BlindEvaluationVariantSchema, type BlindEvaluationVariant } from "./blind-evaluation-variants";
 
 export const BlindEvaluationRunSchema = z.object({
   caseId: z.string().min(1),
@@ -50,8 +49,9 @@ export const BlindEvaluationInputSchema = z.object({
   schemaVersion: z.literal(1),
   studyId: z.string().min(1),
   protocolVersion: z.string().min(1),
-  minimumCaseCount: z.number().int().positive().default(12),
-  minimumRaterCount: z.number().int().positive().default(2),
+  // 最低样本量属于冻结协议，禁止由每次实验输入降低。
+  minimumCaseCount: z.literal(BLIND_EVALUATION_MINIMUM_CASE_COUNT),
+  minimumRaterCount: z.literal(BLIND_EVALUATION_MINIMUM_RATER_COUNT),
   metadata: BlindEvaluationStudyMetadataSchema,
   runs: z.array(BlindEvaluationRunSchema).min(5),
 });
@@ -76,7 +76,6 @@ export const BlindScoreSheetSchema = z.object({
 });
 
 export type BlindEvaluationInput = z.infer<typeof BlindEvaluationInputSchema>;
-export type BlindEvaluationVariant = z.infer<typeof BlindEvaluationVariantSchema>;
 export type BlindScoreSheet = z.infer<typeof BlindScoreSheetSchema>;
 
 const RevealEntrySchema = BlindEvaluationRunSchema.extend({ blindId: z.string().regex(/^B\d{3,}$/), packetCase: z.number().int().positive() });
@@ -91,6 +90,9 @@ export const BlindEvaluationPacketSchema = z.object({
     blindId: z.string().regex(/^B\d{3,}$/),
     packetCase: z.number().int().positive(),
     title: z.string().min(1),
+    // 评分者必须看到同一份冻结需求和验收重点，才可评价“需求覆盖度”。
+    requirement: z.string().min(60),
+    acceptanceFocus: z.array(z.string().min(2)).min(3),
     reportMarkdown: z.string().min(80),
   })).min(1),
 });
@@ -104,6 +106,8 @@ export const BlindEvaluationRevealSchema = z.object({
   minimumCaseCount: z.number().int().positive(),
   minimumRaterCount: z.number().int().positive(),
   metadata: BlindEvaluationStudyMetadataSchema,
+  // 允许继续完成工具链演练，但该偏差必须在解盲汇总中永久可见。
+  identityLeakageWarnings: z.array(z.string().regex(/^B\d{3,}$/)),
   entries: z.array(RevealEntrySchema).min(5),
 });
 export type BlindEvaluationReveal = z.infer<typeof BlindEvaluationRevealSchema>;
@@ -142,24 +146,72 @@ function validateRuns(input: BlindEvaluationInput) {
   }
 }
 
+/**
+ * 匿名化前在本模块内重复执行冻结计划校验，避免与独立 preflight 命令形成循环导入。
+ * 两个入口的错误码保持一致，分别服务自动化阻断与人工预检。
+ */
+function validateInputAgainstFrozenPlan(raw: unknown, manifest: BlindCaseManifest) {
+  const input = BlindEvaluationInputSchema.parse(raw);
+  const plan = createBlindRunPlan(manifest);
+  if (input.protocolVersion !== manifest.protocolVersion) {
+    problem("BLIND_PREFLIGHT_PROTOCOL", "input and manifest protocol versions differ");
+  }
+  if (input.metadata.caseManifestSha256 !== plan.caseManifestSha256) {
+    problem("BLIND_PREFLIGHT_MANIFEST_HASH", "input does not reference the frozen case manifest");
+  }
+  if (input.metadata.protocolFrozenAt !== manifest.frozenAt) {
+    problem("BLIND_PREFLIGHT_FROZEN_AT", "input protocolFrozenAt must equal the frozen case manifest time");
+  }
+  if (input.runs.length !== plan.runs.length) {
+    problem("BLIND_PREFLIGHT_RUN_COUNT", `expected ${plan.runs.length} runs, received ${input.runs.length}`);
+  }
+  const expected = new Map(plan.runs.map((run) => [run.runId, run]));
+  for (const run of input.runs) {
+    const planned = expected.get(run.runId);
+    if (!planned || planned.caseId !== run.caseId || planned.variant !== run.variant) {
+      problem("BLIND_PREFLIGHT_RUN_MISMATCH", `${run.runId} is not the registered case/variant run`);
+    }
+    if (run.inputTokens > input.metadata.budget.maxInputTokensPerRun || run.outputTokens > input.metadata.budget.maxOutputTokensPerRun || run.costUsd > input.metadata.budget.maxCostUsdPerRun) {
+      problem("BLIND_PREFLIGHT_BUDGET_EXCEEDED", `${run.runId} exceeds a frozen per-run budget`);
+    }
+  }
+  return input;
+}
+
 function potentiallyLeaksIdentity(text: string, caseId: string) {
   return variants.some((variant) => text.toLowerCase().includes(variant)) || text.toLowerCase().includes(caseId.toLowerCase());
 }
 
-/** Separates anonymous rating material from the private variant/runtime reveal file. */
-export function prepareBlindEvaluation(raw: unknown, seed = "agentforge-blind-v1", allowIdentityLeakage = false) {
-  const input = BlindEvaluationInputSchema.parse(raw);
+/**
+ * 将 preflight 与匿名化绑定为同一入口，避免两个命令之间替换输入文件。
+ * 传入的 manifest 也为评分包提供不含 caseId 的需求与验收上下文。
+ */
+export function prepareBlindEvaluation(raw: unknown, manifest: BlindCaseManifest, seed = "agentforge-blind-v1", allowIdentityLeakage = false) {
+  const input = validateInputAgainstFrozenPlan(raw, manifest);
   validateRuns(input);
+  const cases = new Map(manifest.cases.map((item) => [item.caseId, item]));
   const ordered = [...input.runs].sort((left, right) => deterministicRank(left.runId, seed) - deterministicRank(right.runId, seed));
   const revealEntries: RevealEntry[] = ordered.map((run, index) => ({ ...run, blindId: `B${String(index + 1).padStart(3, "0")}`, packetCase: index + 1 }));
   const leakageWarnings = revealEntries.filter((entry) => potentiallyLeaksIdentity(`${entry.title}\n${entry.reportMarkdown}`, entry.caseId)).map((entry) => entry.blindId);
   if (leakageWarnings.length > 0 && !allowIdentityLeakage) {
     problem("BLIND_IDENTITY_LEAK", `packet entries may reveal a case or variant: ${leakageWarnings.join(", ")}. Remove the text or explicitly allow the protocol deviation.`);
   }
-  const packetId = createHash("sha256").update(JSON.stringify({ studyId: input.studyId, protocolVersion: input.protocolVersion, entries: revealEntries.map(({ blindId, packetCase, reportMarkdown }) => ({ blindId, packetCase, reportMarkdown })) })).digest("hex");
+  const packetEntries = revealEntries.map(({ blindId, packetCase, reportMarkdown, caseId }) => {
+    const testCase = cases.get(caseId);
+    if (!testCase) problem("BLIND_PACKET_CASE_UNKNOWN", `case ${caseId} is absent from the frozen manifest`);
+    return {
+      blindId,
+      packetCase,
+      title: `Anonymous report ${blindId}`,
+      requirement: testCase.requirement,
+      acceptanceFocus: testCase.acceptanceFocus,
+      reportMarkdown,
+    };
+  });
+  const packetId = createHash("sha256").update(JSON.stringify({ studyId: input.studyId, protocolVersion: input.protocolVersion, entries: packetEntries })).digest("hex");
   return {
-    packet: { schemaVersion: 1 as const, studyId: input.studyId, protocolVersion: input.protocolVersion, packetId, entries: revealEntries.map(({ blindId, packetCase, reportMarkdown }) => ({ blindId, packetCase, title: `Anonymous report ${blindId}`, reportMarkdown })) },
-    reveal: { schemaVersion: 1 as const, studyId: input.studyId, protocolVersion: input.protocolVersion, packetId, minimumCaseCount: input.minimumCaseCount, minimumRaterCount: input.minimumRaterCount, metadata: input.metadata, entries: revealEntries },
+    packet: { schemaVersion: 1 as const, studyId: input.studyId, protocolVersion: input.protocolVersion, packetId, entries: packetEntries },
+    reveal: { schemaVersion: 1 as const, studyId: input.studyId, protocolVersion: input.protocolVersion, packetId, minimumCaseCount: input.minimumCaseCount, minimumRaterCount: input.minimumRaterCount, metadata: input.metadata, identityLeakageWarnings: leakageWarnings, entries: revealEntries },
     leakageWarnings,
   };
 }
@@ -170,7 +222,7 @@ function mean(numbers: number[]) {
 
 export function analyzeBlindEvaluation(raw: { reveal: BlindEvaluationReveal; scoreSheets: unknown[] }) {
   const reveal = BlindEvaluationRevealSchema.parse(raw.reveal);
-  validateRuns({ schemaVersion: 1, studyId: reveal.studyId, protocolVersion: reveal.protocolVersion, minimumCaseCount: reveal.minimumCaseCount, minimumRaterCount: reveal.minimumRaterCount, metadata: reveal.metadata, runs: reveal.entries.map((entry) => ({
+  validateRuns({ schemaVersion: 1, studyId: reveal.studyId, protocolVersion: reveal.protocolVersion, minimumCaseCount: BLIND_EVALUATION_MINIMUM_CASE_COUNT, minimumRaterCount: BLIND_EVALUATION_MINIMUM_RATER_COUNT, metadata: reveal.metadata, runs: reveal.entries.map((entry) => ({
     caseId: entry.caseId, variant: entry.variant, runId: entry.runId, title: entry.title, reportMarkdown: entry.reportMarkdown,
     latencyMs: entry.latencyMs, inputTokens: entry.inputTokens, outputTokens: entry.outputTokens, costUsd: entry.costUsd,
   })) });
@@ -203,7 +255,7 @@ export function analyzeBlindEvaluation(raw: { reveal: BlindEvaluationReveal; sco
   });
   const baseline = variantsSummary.find((item) => item.variant === "single_agent")!;
   const caseCount = new Set(reveal.entries.map((entry) => entry.caseId)).size;
-  const eligibleForClaim = caseCount >= reveal.minimumCaseCount && scoreSheets.length >= reveal.minimumRaterCount;
+  const eligibleForClaim = caseCount >= reveal.minimumCaseCount && scoreSheets.length >= reveal.minimumRaterCount && reveal.identityLeakageWarnings.length === 0;
   return {
     studyId: reveal.studyId, caseCount, raterCount: scoreSheets.length, variants: variantsSummary.map((item) => ({
       ...item,
@@ -212,12 +264,16 @@ export function analyzeBlindEvaluation(raw: { reveal: BlindEvaluationReveal; sco
         humanRevisionMinutes: Number((item.humanRevisionMinutes - baseline.humanRevisionMinutes).toFixed(3)),
       },
     })),
+    protocolDeviations: { identityLeakageWarnings: reveal.identityLeakageWarnings },
     eligibleForClaim,
-    claimBoundary: eligibleForClaim ? "Scores are eligible for a descriptive blind-comparison claim; report raw data, protocol deviations, and uncertainty." : "Toolchain output only: do not claim a quality advantage until the preregistered case and independent-rater thresholds are met.",
+    claimBoundary: eligibleForClaim ? "Scores are eligible for a descriptive blind-comparison claim; report raw data, protocol deviations, and uncertainty." : "Toolchain output only: do not claim a quality advantage until the preregistered case/rater thresholds are met and the anonymous packet has no accepted identity-leakage deviation.",
   };
 }
 
 export function renderBlindEvaluationMarkdown(analysis: ReturnType<typeof analyzeBlindEvaluation>) {
   const rows = analysis.variants.map((item) => `| ${item.variant} | ${item.caseCount} | ${item.ratingCount} | ${item.ratings.requirementCoverage} | ${item.ratings.technicalFeasibility} | ${item.ratings.testability} | ${item.ratings.evidenceCorrectness} | ${item.humanRevisionMinutes} | ${item.latencyMs} | ${item.inputTokens} | ${item.outputTokens} | ${item.costUsd} |`).join("\n");
-  return `# ${analysis.studyId} blind-evaluation summary\n\n- Cases: ${analysis.caseCount}\n- Independent raters: ${analysis.raterCount}\n- Claim status: ${analysis.eligibleForClaim ? "eligible" : "not eligible"}\n\n${analysis.claimBoundary}\n\n| Variant | Cases | Ratings | Coverage | Feasibility | Testability | Evidence | Revision min | Latency ms | Input tokens | Output tokens | Cost USD |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n${rows}\n`;
+  const leakage = analysis.protocolDeviations.identityLeakageWarnings.length === 0
+    ? "none"
+    : analysis.protocolDeviations.identityLeakageWarnings.join(", ");
+  return `# ${analysis.studyId} blind-evaluation summary\n\n- Cases: ${analysis.caseCount}\n- Independent raters: ${analysis.raterCount}\n- Identity-leakage deviations: ${leakage}\n- Claim status: ${analysis.eligibleForClaim ? "eligible" : "not eligible"}\n\n${analysis.claimBoundary}\n\n| Variant | Cases | Ratings | Coverage | Feasibility | Testability | Evidence | Revision min | Latency ms | Input tokens | Output tokens | Cost USD |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n${rows}\n`;
 }

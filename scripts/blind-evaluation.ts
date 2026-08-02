@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { analyzeBlindEvaluation, prepareBlindEvaluation, renderBlindEvaluationMarkdown } from "../src/lib/review/blind-evaluation";
+import { validateBlindCaseManifest } from "../src/lib/review/blind-case-manifest";
 
 function value(name: string) {
   const index = process.argv.indexOf(name);
@@ -18,7 +19,7 @@ async function write(path: string, content: string) {
 }
 
 function usage(): never {
-  throw new Error("Usage: prepare --input runs.json --packet packet.json --reveal reveal.json [--seed value] [--allow-identity-leakage] | analyze --reveal reveal.json --scores rater-a.json,rater-b.json --output result.md");
+  throw new Error("Usage: prepare --input runs.json --packet packet.json --reveal reveal.json [--manifest path] [--seed value] [--allow-identity-leakage] | analyze --reveal reveal.json --scores rater-a.json,rater-b.json --output result.md");
 }
 
 async function main() {
@@ -26,7 +27,8 @@ async function main() {
   if (mode === "prepare") {
     const input = value("--input"); const packet = value("--packet"); const reveal = value("--reveal");
     if (!input || !packet || !reveal) usage();
-    const prepared = prepareBlindEvaluation(await readJson(input), value("--seed"), process.argv.includes("--allow-identity-leakage"));
+    const manifest = validateBlindCaseManifest(await readJson(value("--manifest") ?? "docs/quality - 质量评测/case-manifest.json"));
+    const prepared = prepareBlindEvaluation(await readJson(input), manifest, value("--seed"), process.argv.includes("--allow-identity-leakage"));
     await write(packet, `${JSON.stringify(prepared.packet, null, 2)}\n`);
     await write(reveal, `${JSON.stringify(prepared.reveal, null, 2)}\n`);
     console.log(`Prepared ${prepared.packet.entries.length} anonymized entries. Keep ${resolve(reveal)} private until all score sheets are submitted.`);

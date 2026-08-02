@@ -7,23 +7,24 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  email             String             @unique
-  name              String?
-  globalBudget      Float              @default(50.00)
-  passwordHash      String?
-  apiKeys           ApiKey[]
-  agents            Agent[]
-  workspaces        Workspace[]
-  runs              Run[]
-  planningArtifacts PlanningArtifact[]
-  reviewWorkflows   ReviewWorkflow[]
-  reportArtifacts   ReportArtifact[]
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  name                 String?
+  globalBudget         Float                 @default(50.00)
+  passwordHash         String?
+  apiKeys              ApiKey[]
+  agents               Agent[]
+  workspaces           Workspace[]
+  runs                 Run[]
+  planningArtifacts    PlanningArtifact[]
+  reviewWorkflows      ReviewWorkflow[]
+  reportArtifacts      ReportArtifact[]
   developmentWorkflows DevelopmentWorkflow[]
-  toolInvocations   ToolInvocation[]
-  documents         Document[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  pilotFeedback        PilotFeedback[]
+  toolInvocations      ToolInvocation[]
+  documents            Document[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 }
 
 model ApiKey {
@@ -100,8 +101,8 @@ model Workspace {
 }
 
 model PlanningArtifact {
-  id                  String   @id @default(cuid())
-  runId               String   @unique
+  id                  String               @id @default(cuid())
+  runId               String               @unique
   userId              String
   plannerAgentId      String?
   status              String
@@ -112,16 +113,16 @@ model PlanningArtifact {
   clarification       String?
   failureCode         String?
   budgetState         String
-  schemaVersion       Int      @default(1)
-  workflowNodeKey     String?  @unique
-  run                 Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plannerAgent        Agent?   @relation(fields: [plannerAgentId], references: [id], onDelete: SetNull)
+  schemaVersion       Int                  @default(1)
+  workflowNodeKey     String?              @unique
+  run                 Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plannerAgent        Agent?               @relation(fields: [plannerAgentId], references: [id], onDelete: SetNull)
   reviewWorkflows     ReviewWorkflow[]
   reportArtifacts     ReportArtifact[]
   developmentWorkflow DevelopmentWorkflow?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([userId, createdAt])
   @@index([plannerAgentId])
@@ -151,31 +152,34 @@ model Run {
 }
 
 model ReviewWorkflow {
-  id                 String           @id @default(cuid())
-  runId              String           @unique
-  planningArtifactId String
-  userId             String
-  status             String
-  candidatesJson     String
-  reviewJson         String?
-  evaluationJson     String?
-  failuresJson       String           @default("[]")
-  budgetState        String
-  currentRound       Int              @default(0)
-  maxRounds          Int              @default(1)
-  approvalStatus     String           @default("not_required")
-  approvalDecision   String?
-  approvalNote       String?
-  decidedAt          DateTime?
-  schemaVersion      Int              @default(1)
-  workflowNodeKey    String?          @unique
-  run                Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
-  planningArtifact   PlanningArtifact @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
-  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reportArtifacts    ReportArtifact[]
-  developmentWorkflow DevelopmentWorkflow?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                         String               @id @default(cuid())
+  runId                      String               @unique
+  planningArtifactId         String
+  userId                     String
+  status                     String
+  candidatesJson             String
+  reviewJson                 String?
+  evaluationJson             String?
+  failuresJson               String               @default("[]")
+  budgetState                String
+  currentRound               Int                  @default(0)
+  maxRounds                  Int                  @default(1)
+  approvalStatus             String               @default("not_required")
+  approvalDecision           String?
+  approvalNote               String?
+  approvalTaskPatchJson      String?
+  approvalOriginalPlanSha256 String?
+  approvalAmendedPlanSha256  String?
+  decidedAt                  DateTime?
+  schemaVersion              Int                  @default(1)
+  workflowNodeKey            String?              @unique
+  run                        Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  planningArtifact           PlanningArtifact     @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
+  user                       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportArtifacts            ReportArtifact[]
+  developmentWorkflow        DevelopmentWorkflow?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
 
   @@index([planningArtifactId, createdAt])
   @@index([userId, createdAt])
@@ -183,29 +187,29 @@ model ReviewWorkflow {
 }
 
 model ReportArtifact {
-  id                 String           @id @default(cuid())
-  runId              String           @unique
-  planningArtifactId String
-  reviewWorkflowId   String
-  userId             String
-  parentReportId     String?
-  generationKey      String?
-  version            Int
-  status             String
-  title              String
-  executiveSummary   String
-  contentJson        String
-  sourceManifestJson String
-  schemaVersion      Int              @default(1)
-  run                Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
-  planningArtifact   PlanningArtifact @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
-  reviewWorkflow     ReviewWorkflow   @relation(fields: [reviewWorkflowId], references: [id], onDelete: Cascade)
-  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentReport       ReportArtifact?  @relation("ReportVersions", fields: [parentReportId], references: [id], onDelete: SetNull)
-  childReports       ReportArtifact[] @relation("ReportVersions")
+  id                  String               @id @default(cuid())
+  runId               String               @unique
+  planningArtifactId  String
+  reviewWorkflowId    String
+  userId              String
+  parentReportId      String?
+  generationKey       String?
+  version             Int
+  status              String
+  title               String
+  executiveSummary    String
+  contentJson         String
+  sourceManifestJson  String
+  schemaVersion       Int                  @default(1)
+  run                 Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  planningArtifact    PlanningArtifact     @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
+  reviewWorkflow      ReviewWorkflow       @relation(fields: [reviewWorkflowId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentReport        ReportArtifact?      @relation("ReportVersions", fields: [parentReportId], references: [id], onDelete: SetNull)
+  childReports        ReportArtifact[]     @relation("ReportVersions")
   developmentWorkflow DevelopmentWorkflow?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([reviewWorkflowId, version])
   @@unique([userId, generationKey])
@@ -215,37 +219,61 @@ model ReportArtifact {
 }
 
 model DevelopmentWorkflow {
-  id                 String            @id @default(cuid())
-  userId             String
-  threadId           String            @unique
-  status             String            @default("pending")
-  currentNode        String            @default("analyze_requirement")
-  requirement        String
-  mode               String            @default("baseline")
-  agentConfigJson    String            @default("{}")
-  planningArtifactId String?           @unique
-  reviewWorkflowId   String?           @unique
-  reportArtifactId   String?           @unique
-  checkpointId       String?
-  checkpointNamespace String           @default("")
-  interruptJson      String?
-  lastResumeJson     String?
-  lastErrorCode      String?
-  leaseExpiresAt     DateTime?
-  version            Int               @default(1)
-  schemaVersion      Int               @default(1)
-  startedAt          DateTime?
-  finishedAt         DateTime?
-  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planningArtifact   PlanningArtifact? @relation(fields: [planningArtifactId], references: [id], onDelete: SetNull)
-  reviewWorkflow     ReviewWorkflow?   @relation(fields: [reviewWorkflowId], references: [id], onDelete: SetNull)
-  reportArtifact     ReportArtifact?   @relation(fields: [reportArtifactId], references: [id], onDelete: SetNull)
-  nodes              WorkflowNode[]
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id                  String            @id @default(cuid())
+  userId              String
+  threadId            String            @unique
+  status              String            @default("pending")
+  currentNode         String            @default("analyze_requirement")
+  requirement         String
+  mode                String            @default("baseline")
+  agentConfigJson     String            @default("{}")
+  planningArtifactId  String?           @unique
+  reviewWorkflowId    String?           @unique
+  reportArtifactId    String?           @unique
+  checkpointId        String?
+  checkpointNamespace String            @default("")
+  interruptJson       String?
+  lastResumeJson      String?
+  lastErrorCode       String?
+  leaseExpiresAt      DateTime?
+  leaseOwnerId        String?
+  leaseToken          Int               @default(0)
+  version             Int               @default(1)
+  schemaVersion       Int               @default(1)
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planningArtifact    PlanningArtifact? @relation(fields: [planningArtifactId], references: [id], onDelete: SetNull)
+  reviewWorkflow      ReviewWorkflow?   @relation(fields: [reviewWorkflowId], references: [id], onDelete: SetNull)
+  reportArtifact      ReportArtifact?   @relation(fields: [reportArtifactId], references: [id], onDelete: SetNull)
+  nodes               WorkflowNode[]
+  pilotFeedback       PilotFeedback?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@index([userId, createdAt])
   @@index([status, updatedAt])
+  @@index([leaseExpiresAt])
+}
+
+// 内部试点只保存结构化反馈，不保存 Prompt、原始模型输出或 Provider 凭证。
+model PilotFeedback {
+  id                 String              @id @default(cuid())
+  userId             String
+  workflowId         String              @unique
+  reportUsability    String
+  humanEdited        Boolean             @default(false)
+  interventionReason String?
+  evidenceIssueType  String?
+  failureCategory    String?
+  note               String?
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflow           DevelopmentWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([reportUsability, createdAt])
 }
 
 model WorkflowNode {
@@ -330,6 +358,7 @@ model ToolInvocation {
   inputJson  String
   outputJson String?
   errorCode  String?
+  replayed   Boolean   @default(false)
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
   durationMs Int?
@@ -342,16 +371,31 @@ model ToolInvocation {
 }
 
 model DocumentChunk {
-  id         String   @id @default(cuid())
+  id         String                  @id @default(cuid())
   documentId String
   content    String
   startLine  Int
   endLine    Int
-  metadata   String   @default("{}")
-  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  metadata   String                  @default("{}")
+  document   Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  embedding  DocumentChunkEmbedding?
+  createdAt  DateTime                @default(now())
 
   @@index([documentId])
+}
+
+// chunk 的向量存储。SQLite 基线下向量以 JSON 字符串存于 vectorJson（number[] 序列化），
+// 不引入向量扩展；model/dimension 记录来源模型与维度，换模型时可据此判断是否需重算。
+model DocumentChunkEmbedding {
+  chunkId    String        @id
+  model      String
+  dimension  Int
+  vectorJson String
+  chunk      DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([model])
 }
 
 model TokenUsage {

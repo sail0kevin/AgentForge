@@ -1,6 +1,7 @@
 import type { ExecutionPlan, RequirementAnalysis } from "@/lib/planner/contracts";
+import type { IncrementalApprovalPatch } from "@/lib/planner/incremental-approval";
 import type { ApprovalDecision, CandidateSolution, EvaluationResult, ReviewResult } from "@/lib/review/contracts";
-import { DevelopmentReportSchema, type DevelopmentReport, type ReportClaim, type ReportSourceReference } from "./contracts";
+import { DevelopmentReportSchema, type DevelopmentReport, type GitHubEvidence, type ReportClaim, type ReportSourceReference } from "./contracts";
 
 export type ReportReviewInput = {
   id: string;
@@ -9,7 +10,16 @@ export type ReportReviewInput = {
   review: ReviewResult;
   evaluation: EvaluationResult;
   failures: Array<{ stage: string; code: string }>;
-  approval: { status: "not_required" | "approved" | "rejected"; decision: ApprovalDecision | null; note: string | null; decidedAt: string | null };
+  approval: {
+    status: "not_required" | "approved" | "rejected";
+    decision: ApprovalDecision | null;
+    note: string | null;
+    decidedAt: string | null;
+    // 增量审批只允许修改现有任务，并保留原计划与修订计划指纹。
+    taskPatch: IncrementalApprovalPatch | null;
+    originalPlanSha256: string | null;
+    amendedPlanSha256: string | null;
+  };
 };
 
 export type ReportGenerationInput = {
@@ -19,6 +29,7 @@ export type ReportGenerationInput = {
   plan: ExecutionPlan;
   reviewWorkflow: ReportReviewInput;
   knowledgeEvidence: Array<{ source: ReportSourceReference; content: string }>;
+  githubEvidence?: GitHubEvidence[];
 };
 
 function source(sourceType: ReportSourceReference["sourceType"], refId: string, label: string, locator: string | null = null): ReportSourceReference {
@@ -78,7 +89,9 @@ export function validateDevelopmentReport(report: DevelopmentReport, input: Repo
   const candidates = new Set(input.reviewWorkflow.candidates.map((item) => item.id));
   const findings = new Set(input.reviewWorkflow.review.findings.map((item) => item.id));
   const knowledge = new Set(input.knowledgeEvidence.map((item) => item.source.refId));
+  const githubEvidence = new Set((input.githubEvidence ?? []).map((item) => item.id));
   const tasks = new Set(input.plan.tasks.map((item) => item.id));
+  const humanTaskEdits = new Set(input.reviewWorkflow.approval.taskPatch?.taskEdits.map((item) => item.taskId) ?? []);
   const sections = new Set(input.plan.reportSections.map((item) => item.id));
   const valid = (reference: ReportSourceReference) => {
     if (reference.sourceType === "requirement") return reference.refId === input.planningArtifactId;
@@ -88,6 +101,8 @@ export function validateDevelopmentReport(report: DevelopmentReport, input: Repo
     if (reference.sourceType === "finding") return findings.has(reference.refId);
     if (reference.sourceType === "evaluation") return reference.refId === input.reviewWorkflow.id;
     if (reference.sourceType === "human_decision") return reference.refId === input.reviewWorkflow.id && input.reviewWorkflow.approval.decision !== null;
+    if (reference.sourceType === "human_task_edit") return humanTaskEdits.has(reference.refId);
+    if (reference.sourceType === "github_evidence") return githubEvidence.has(reference.refId);
     return reference.sourceType === "knowledge" && knowledge.has(reference.refId);
   };
   const claims = [...report.sections.flatMap((item) => item.claims), ...report.assumptions, ...report.risks, ...report.unresolvedItems];
@@ -131,6 +146,16 @@ export function createBaselineDevelopmentReport(input: ReportGenerationInput): D
   ];
   if (input.reviewWorkflow.approval.decision) unresolvedItems.push(makeClaim({ id: "human-decision", kind: "fact", statement: decisionSummary(input.reviewWorkflow), confidence: "high", sourceRefs: [source("human_decision", input.reviewWorkflow.id, "用户人工裁决", input.reviewWorkflow.approval.decidedAt)] }));
 
+  if (input.reviewWorkflow.approval.taskPatch) {
+    const edits = input.reviewWorkflow.approval.taskPatch.taskEdits;
+    unresolvedItems.push(makeClaim({
+      id: "human-task-edits",
+      kind: "fact",
+      statement: `\u4eba\u5de5\u5ba1\u6279\u4fee\u6539\u4e86 ${edits.length} \u4e2a\u4efb\u52a1\uff1b\u4e0b\u6e38\u6267\u884c\u5e94\u4ee5\u4fee\u8ba2\u540e\u7684\u8ba1\u5212\u4e3a\u51c6\u3002`,
+      confidence: "high",
+      sourceRefs: edits.map((edit) => source("human_task_edit", edit.taskId, `\u4eba\u5de5\u4fee\u6539\u4efb\u52a1\uff1a${edit.taskId}`, input.reviewWorkflow.approval.amendedPlanSha256)),
+    }));
+  }
   const allClaims = [...sections.flatMap((section) => section.claims), ...assumptions, ...risks, ...unresolvedItems];
   const report = DevelopmentReportSchema.parse({
     schemaVersion: 1,

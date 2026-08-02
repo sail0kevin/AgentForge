@@ -37,11 +37,19 @@ async function addKnowledge(page: Page, title: string, content: string) {
 }
 
 test("server knowledge, plans, tools and transient state stay isolated across session account switches", async ({ page }) => {
+  // 该用例覆盖三次账号状态切换及完整规划、评审、报告、工作流链路，30 秒默认值不足以覆盖其真实验收范围。
+  test.setTimeout(120_000);
   const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const userA = `a-${suffix}@example.com`;
   const userB = `b-${suffix}@example.com`;
 
   await page.goto("/");
+  const anonymousFeedbackGet = await page.request.get("/api/workflows/not-a-real-workflow/feedback");
+  expect(anonymousFeedbackGet.status()).toBe(401);
+  const anonymousFeedbackPut = await page.request.put("/api/workflows/not-a-real-workflow/feedback", {
+    data: { reportUsability: "not_usable", humanEdited: false },
+  });
+  expect(anonymousFeedbackPut.status()).toBe(401);
   await page.evaluate(({ legacyMessagesKey, legacyKnowledgeKey }) => {
     localStorage.setItem(legacyMessagesKey, JSON.stringify([{ id: "legacy-message", role: "user", content: "LEGACY-MESSAGE-MUST-NOT-APPEAR", createdAt: new Date().toISOString() }]));
     localStorage.setItem(legacyKnowledgeKey, JSON.stringify([{ id: "legacy-knowledge", title: "LEGACY-KNOWLEDGE-MUST-NOT-APPEAR", content: "unowned", createdAt: new Date().toISOString() }]));
@@ -80,6 +88,28 @@ test("server knowledge, plans, tools and transient state stay isolated across se
   expect(userAWorkflow.workflow).toMatchObject({ status: "needs_human" });
   expect(userAWorkflow.workflow.checkpoint?.id).toBeTruthy();
   expect(JSON.stringify(userAWorkflow)).not.toContain("channel_values");
+  const nonTerminalFeedback = await page.request.put(`/api/workflows/${userAWorkflow.workflow.id}/feedback`, {
+    data: { reportUsability: "not_usable", humanEdited: false },
+  });
+  expect(nonTerminalFeedback.status()).toBe(409);
+  expect(await nonTerminalFeedback.json()).toMatchObject({ error: { code: "WORKFLOW_NOT_TERMINAL" } });
+  const userAWorkflowResume = await page.request.post(`/api/workflows/${userAWorkflow.workflow.id}/resume`, {
+    data: { kind: "approval", decision: "hybrid", note: "用于验证试点反馈只能关联终态工作流。" },
+  });
+  expect(userAWorkflowResume.status()).toBe(200);
+  const initialFeedback = await page.request.put(`/api/workflows/${userAWorkflow.workflow.id}/feedback`, {
+    data: {
+      reportUsability: "usable_with_edits",
+      humanEdited: true,
+      interventionReason: "risk_confirmation",
+      evidenceIssueType: "missing_evidence",
+      failureCategory: "report_quality",
+      note: "账号 A 的首次试点反馈。",
+    },
+  });
+  expect(initialFeedback.status()).toBe(200);
+  const userAFeedback = await initialFeedback.json() as { feedback: { id: string; workflowId: string; note: string | null } };
+  expect(userAFeedback.feedback).toMatchObject({ workflowId: userAWorkflow.workflow.id, note: "账号 A 的首次试点反馈。" });
   const documentMarker = `A-ONLY-DOCUMENT-${suffix}`;
   const documentResponse = await page.request.post("/api/documents", {
     multipart: { file: { name: `a-${suffix}.md`, mimeType: "text/markdown; charset=utf-8", buffer: Buffer.from(`# A知识\n${documentMarker} 只属于账号A。`, "utf8") } },
@@ -117,6 +147,10 @@ test("server knowledge, plans, tools and transient state stay isolated across se
   expect((await page.request.get(`/api/workflows/${userAWorkflow.workflow.id}`)).status()).toBe(404);
   expect((await page.request.post(`/api/workflows/${userAWorkflow.workflow.id}/resume`, { data: { kind: "approval", decision: "hybrid" } })).status()).toBe(404);
   expect((await page.request.post(`/api/workflows/${userAWorkflow.workflow.id}/recover`)).status()).toBe(404);
+  expect((await page.request.get(`/api/workflows/${userAWorkflow.workflow.id}/feedback`)).status()).toBe(404);
+  expect((await page.request.put(`/api/workflows/${userAWorkflow.workflow.id}/feedback`, {
+    data: { reportUsability: "not_usable", humanEdited: false },
+  })).status()).toBe(404);
   await openKnowledge(page);
   await expect(page.getByText("A-ONLY-KNOWLEDGE", { exact: true })).toHaveCount(0);
   await addKnowledge(page, "B-ONLY-KNOWLEDGE", "Only account B may read this browser snippet.");
@@ -136,6 +170,20 @@ test("server knowledge, plans, tools and transient state stay isolated across se
   expect(await userAReports.text()).toContain(userAReport.report.id);
   const userAWorkflows = await page.request.get("/api/workflows");
   expect(await userAWorkflows.text()).toContain(workflowMarker);
+  const storedFeedback = await page.request.get(`/api/workflows/${userAWorkflow.workflow.id}/feedback`);
+  expect(storedFeedback.status()).toBe(200);
+  expect(await storedFeedback.json()).toMatchObject({ feedback: { id: userAFeedback.feedback.id, note: "账号 A 的首次试点反馈。" } });
+  const updatedFeedback = await page.request.put(`/api/workflows/${userAWorkflow.workflow.id}/feedback`, {
+    data: {
+      reportUsability: "usable_without_edits",
+      humanEdited: false,
+      evidenceIssueType: "none",
+      failureCategory: "none",
+      note: "账号 A 的复盘更新。",
+    },
+  });
+  expect(updatedFeedback.status()).toBe(200);
+  expect(await updatedFeedback.json()).toMatchObject({ feedback: { id: userAFeedback.feedback.id, note: "账号 A 的复盘更新。", humanEdited: false } });
   await openKnowledge(page);
   await expect(page.getByText("A-ONLY-KNOWLEDGE", { exact: true })).toBeVisible();
   await expect(page.getByText("B-ONLY-KNOWLEDGE", { exact: true })).toHaveCount(0);

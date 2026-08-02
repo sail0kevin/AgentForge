@@ -5,7 +5,7 @@ import { retrieveChunks } from "../src/lib/rag/retrieval";
 
 const corpusFiles = [
   "README.md",
-  "docs/current-status - 当前开发状态.md",
+  "docs/2026-08-01 - current-development-status - 当前开发状态.md",
 ];
 
 const cases = [

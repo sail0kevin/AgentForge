@@ -5,12 +5,8 @@ import process from "node:process";
 import Database from "better-sqlite3";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
-if (/^postgres(ql)?:\/\//i.test(databaseUrl)) {
-  console.error(
-    "PostgreSQL migrations are not part of the current SQLite MVP. Validate prisma/schema.postgres.prisma separately before adding a dedicated PostgreSQL migration history."
-  );
-  process.exit(2);
-}
+const isPostgres = /^postgres(ql)?:\/\//i.test(databaseUrl);
+const schemaPath = isPostgres ? "prisma/postgres/schema.prisma" : "prisma/schema.prisma";
 
 const isWindows = process.platform === "win32";
 
@@ -69,25 +65,27 @@ function inspectLegacyDatabase(file) {
   }
 }
 
-const file = sqlitePath();
-const legacy = inspectLegacyDatabase(file);
-if (legacy.kind === "unknown") {
-  console.error("Refusing to baseline an unrecognized non-empty SQLite database. Back it up and compare its schema with prisma/migrations before resolving migration history.");
-  process.exit(3);
-}
-if (legacy.kind === "initial" && file) {
-  const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
-  const backup = `${file}.backup-${timestamp}`;
-  copyFileSync(file, backup);
-  console.log(`Legacy initial schema detected. Backup created: ${backup}`);
-  const baseline = runPrisma(["migrate", "resolve", "--applied", "20260715000000_init", "--schema", "prisma/schema.prisma"]);
-  if (baseline.error) throw baseline.error;
-  if (baseline.status !== 0) process.exit(baseline.status ?? 1);
+if (!isPostgres) {
+  const file = sqlitePath();
+  const legacy = inspectLegacyDatabase(file);
+  if (legacy.kind === "unknown") {
+    console.error("Refusing to baseline an unrecognized non-empty SQLite database. Back it up and compare its schema with prisma/migrations before resolving migration history.");
+    process.exit(3);
+  }
+  if (legacy.kind === "initial" && file) {
+    const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+    const backup = `${file}.backup-${timestamp}`;
+    copyFileSync(file, backup);
+    console.log(`Legacy initial schema detected. Backup created: ${backup}`);
+    const baseline = runPrisma(["migrate", "resolve", "--applied", "20260715000000_init", "--schema", schemaPath]);
+    if (baseline.error) throw baseline.error;
+    if (baseline.status !== 0) process.exit(baseline.status ?? 1);
+  }
 }
 
 // Prisma 7.8 schema engine intermittently fails to initialize SQLite on Windows
 // without Rust logging enabled. Keep the workaround scoped to migration commands.
-const result = runPrisma(["migrate", "deploy", "--schema", "prisma/schema.prisma"]);
+const result = runPrisma(["migrate", "deploy", "--schema", schemaPath]);
 
 if (result.error) throw result.error;
 process.exitCode = result.status ?? 1;

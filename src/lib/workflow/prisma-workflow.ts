@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { ExecutionPlanSchema } from "@/lib/planner/contracts";
+import { EvaluationResultSchema } from "@/lib/review/contracts";
 import { getWorkflowCheckpointer } from "./checkpointer";
 import {
   WORKFLOW_NODES,
@@ -15,14 +17,38 @@ import {
 } from "./contracts";
 import { continueProductWorkflow, createProductWorkflowGraph, resumeProductWorkflow, startProductWorkflow, type ProductWorkflowStateType } from "./product-graph";
 import { createPrismaWorkflowDependencies } from "./prisma-dependencies";
+import type { WorkflowLease } from "./workflow-lease";
+import { runWithLeaseRenewal } from "./lease-renewal";
+import { claimExpiredWorkflowLease, renewActiveWorkflowLease, writeFencedWorkflowState } from "./workflow-lease-store";
 
 // A top-level LangGraph thread uses the empty namespace; non-empty namespaces
 // are reserved for subgraphs. The stable threadId is the durable resume cursor.
 export const WORKFLOW_CHECKPOINT_NAMESPACE = "";
 const WORKFLOW_LEASE_MS = 30 * 60 * 1000;
+const WORKFLOW_LEASE_RENEW_INTERVAL_MS = 10 * 60 * 1000;
 
-function newLease() {
-  return new Date(Date.now() + WORKFLOW_LEASE_MS);
+// 每个应用实例需要稳定的身份；部署时应显式配置，开发环境使用进程级回退值。
+const workflowInstanceId = process.env.WORKFLOW_INSTANCE_ID || `local-${process.pid}`;
+
+function newLease(record: { leaseToken: number }): WorkflowLease {
+  return {
+    ownerId: workflowInstanceId,
+    token: record.leaseToken + 1,
+    expiresAt: new Date(Date.now() + WORKFLOW_LEASE_MS),
+  };
+}
+
+async function renewWorkflowLease(workflowId: string, lease: Pick<WorkflowLease, "ownerId" | "token">) {
+  const now = new Date();
+  // 复用共享操作，跨进程测试与生产服务执行完全相同的 fencing 条件。
+  const renewed = await renewActiveWorkflowLease({
+    workflows: prisma.developmentWorkflow,
+    workflowId,
+    lease,
+    now,
+    durationMs: WORKFLOW_LEASE_MS,
+  });
+  return renewed.count === 1;
 }
 
 type InterruptPayload =
@@ -31,8 +57,8 @@ type InterruptPayload =
 
 const workflowInclude = {
   nodes: { orderBy: { sortOrder: "asc" as const } },
-  planningArtifact: { select: { id: true, status: true, createdAt: true } },
-  reviewWorkflow: { select: { id: true, status: true, approvalStatus: true, approvalDecision: true, createdAt: true } },
+  planningArtifact: { select: { id: true, status: true, executionPlan: true, createdAt: true } },
+  reviewWorkflow: { select: { id: true, status: true, approvalStatus: true, approvalDecision: true, evaluationJson: true, createdAt: true } },
   reportArtifact: { select: { id: true, status: true, version: true, title: true, createdAt: true } },
 };
 
@@ -44,6 +70,44 @@ function parseInterrupt(value: string | null): InterruptPayload | null {
 function parseAgentConfig(value: string) {
   try { return WorkflowAgentConfigSchema.parse(JSON.parse(value)); }
   catch { return {}; }
+}
+
+function planTaskSummary(value: string | null) {
+  if (!value) return null;
+  try {
+    const plan = ExecutionPlanSchema.parse(JSON.parse(value));
+    // 仅提供审批页面编辑所需的任务字段，不将完整规划 Artifact 暴露给浏览器。
+    return plan.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      agentRole: task.agentRole,
+      dependsOn: task.dependsOn,
+      toolIds: task.toolIds,
+      estimatedTokens: task.estimatedTokens,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+function reviewInterventionSummary(value: string | null) {
+  if (!value) return null;
+  try {
+    const assessment = EvaluationResultSchema.parse(JSON.parse(value)).policyConfidence;
+    if (!assessment) return null;
+    // 审批页只需要策略信号和可解释原因，避免把完整评审内容下发到浏览器。
+    return {
+      kind: assessment.kind,
+      score: assessment.score,
+      level: assessment.level,
+      intervention: assessment.intervention,
+      hardHumanGate: assessment.hardHumanGate,
+      reasons: assessment.reasons,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function mapDevelopmentWorkflow(record: Awaited<ReturnType<typeof loadDevelopmentWorkflowRecord>>) {
@@ -70,13 +134,27 @@ export function mapDevelopmentWorkflow(record: Awaited<ReturnType<typeof loadDev
     })),
     interrupt: parseInterrupt(record.interruptJson),
     artifacts: {
-      plan: record.planningArtifact ? { ...record.planningArtifact, createdAt: record.planningArtifact.createdAt.toISOString() } : null,
-      review: record.reviewWorkflow ? { ...record.reviewWorkflow, createdAt: record.reviewWorkflow.createdAt.toISOString() } : null,
+      plan: record.planningArtifact ? {
+        id: record.planningArtifact.id,
+        status: record.planningArtifact.status,
+        tasks: planTaskSummary(record.planningArtifact.executionPlan),
+        createdAt: record.planningArtifact.createdAt.toISOString(),
+      } : null,
+      review: record.reviewWorkflow ? {
+        id: record.reviewWorkflow.id,
+        status: record.reviewWorkflow.status,
+        approvalStatus: record.reviewWorkflow.approvalStatus,
+        approvalDecision: record.reviewWorkflow.approvalDecision,
+        intervention: reviewInterventionSummary(record.reviewWorkflow.evaluationJson),
+        createdAt: record.reviewWorkflow.createdAt.toISOString(),
+      } : null,
       report: record.reportArtifact ? { ...record.reportArtifact, createdAt: record.reportArtifact.createdAt.toISOString() } : null,
     },
     checkpoint: record.checkpointId ? { id: record.checkpointId, namespace: record.checkpointNamespace } : null,
     lastErrorCode: record.lastErrorCode,
     leaseExpiresAt: record.leaseExpiresAt?.toISOString() ?? null,
+    leaseOwnerId: record.leaseOwnerId,
+    leaseToken: record.leaseToken,
     recoveryAvailable: (record.status === "failed" && Boolean(record.lastErrorCode))
       || (record.status === "running" && Boolean(record.leaseExpiresAt && record.leaseExpiresAt <= new Date())),
     version: record.version,
@@ -151,7 +229,14 @@ function workflowStatus(state: ProductWorkflowStateType, interrupt: InterruptPay
   return state.finalStatus ?? "running";
 }
 
-async function syncGraphState(workflowId: string, graph: ReturnType<typeof createProductWorkflowGraph>, threadId: string, lastResume?: WorkflowResume) {
+async function syncGraphState(input: {
+  workflowId: string;
+  graph: ReturnType<typeof createProductWorkflowGraph>;
+  threadId: string;
+  lease: Pick<WorkflowLease, "ownerId" | "token">;
+  lastResume?: WorkflowResume;
+}) {
+  const { workflowId, graph, threadId, lease, lastResume } = input;
   const snapshot = await graph.getState(graphConfig(threadId));
   const state = snapshot.values as ProductWorkflowStateType;
   const interrupt = interruptFromSnapshot(snapshot);
@@ -162,8 +247,11 @@ async function syncGraphState(workflowId: string, graph: ReturnType<typeof creat
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
-    await tx.developmentWorkflow.update({
-      where: { id: workflowId },
+    // 所有工作流状态写入同时校验 owner 和 token，阻止过期实例覆盖新持有者。
+    const updated = await writeFencedWorkflowState({
+      workflows: tx.developmentWorkflow,
+      workflowId,
+      lease,
       data: {
         status,
         currentNode,
@@ -177,10 +265,12 @@ async function syncGraphState(workflowId: string, graph: ReturnType<typeof creat
         lastResumeJson: lastResume ? JSON.stringify(lastResume) : undefined,
         lastErrorCode: null,
         leaseExpiresAt: null,
+        leaseOwnerId: null,
         finishedAt: terminal ? now : null,
         version: { increment: 1 },
       },
     });
+    if (updated.count !== 1) throw new Error("WORKFLOW_LEASE_FENCED");
     for (const node of WORKFLOW_NODES) {
       const mapped = nodeState({ key: node.key, state, interrupt });
       await tx.workflowNode.update({
@@ -206,9 +296,17 @@ function safeErrorCode(error: unknown) {
   return /^[A-Z0-9_:-]+$/.test(raw) ? raw.split(":")[0] : "WORKFLOW_FAILED";
 }
 
-async function markWorkflowFailed(id: string, error: unknown) {
+async function markWorkflowFailed(id: string, error: unknown, lease: Pick<WorkflowLease, "ownerId" | "token">) {
   const code = safeErrorCode(error);
-  await prisma.developmentWorkflow.update({ where: { id }, data: { status: "failed", lastErrorCode: code, interruptJson: null, leaseExpiresAt: null, finishedAt: new Date(), version: { increment: 1 } } });
+  // 失败状态也必须经过 fencing，避免旧实例把已恢复的工作流重新标记为失败。
+  const updated = await writeFencedWorkflowState({
+    workflows: prisma.developmentWorkflow,
+    workflowId: id,
+    lease,
+    data: { status: "failed", lastErrorCode: code, interruptJson: null, leaseExpiresAt: null, leaseOwnerId: null, finishedAt: new Date(), version: { increment: 1 } },
+  });
+  // 旧实例失去租约时不能静默吞掉失败写入，否则调用方会误以为状态已持久化。
+  if (updated.count !== 1) throw new Error("WORKFLOW_LEASE_FENCED");
   return code;
 }
 
@@ -233,6 +331,7 @@ export async function createDevelopmentWorkflow(input: {
     if (owned !== agentIds.length) throw new Error("WORKFLOW_AGENT_NOT_FOUND");
   }
   const threadId = crypto.randomUUID();
+  const lease = newLease({ leaseToken: 0 });
   const record = await prisma.developmentWorkflow.create({
     data: {
       userId: input.userId,
@@ -243,7 +342,9 @@ export async function createDevelopmentWorkflow(input: {
       status: "running",
       currentNode: "create_plan",
       startedAt: new Date(),
-      leaseExpiresAt: newLease(),
+      leaseExpiresAt: lease.expiresAt,
+      leaseOwnerId: lease.ownerId,
+      leaseToken: lease.token,
       nodes: { create: WORKFLOW_NODES.map((node) => ({ nodeKey: node.key, sortOrder: node.sortOrder })) },
     },
   });
@@ -251,12 +352,18 @@ export async function createDevelopmentWorkflow(input: {
     mode,
     agents,
     signal: input.signal ?? new AbortController().signal,
-  }), getWorkflowCheckpointer());
+  }), await getWorkflowCheckpointer());
   try {
-    await startProductWorkflow({ graph, workflowId: record.id, threadId, userId: input.userId, requirement: input.requirement });
-    return await syncGraphState(record.id, graph, threadId);
+    await runWithLeaseRenewal({
+      workflowId: record.id,
+      lease,
+      run: () => startProductWorkflow({ graph, workflowId: record.id, threadId, userId: input.userId, requirement: input.requirement }),
+      renew: () => renewWorkflowLease(record.id, lease),
+      renewalIntervalMs: WORKFLOW_LEASE_RENEW_INTERVAL_MS,
+    });
+    return await syncGraphState({ workflowId: record.id, graph, threadId, lease });
   } catch (error) {
-    await markWorkflowFailed(record.id, error);
+    await markWorkflowFailed(record.id, error, lease);
     throw error;
   }
 }
@@ -270,9 +377,11 @@ export async function resumeDevelopmentWorkflow(input: { id: string; userId: str
     if (record.lastResumeJson === JSON.stringify(resume)) return loadDevelopmentWorkflowRecord(record.id, input.userId);
     throw new Error("WORKFLOW_NOT_WAITING_FOR_INPUT");
   }
+  const lease = newLease(record);
   const claimed = await prisma.developmentWorkflow.updateMany({
-    where: { id: record.id, userId: input.userId, status: expectedStatus, version: record.version },
-    data: { status: "running", interruptJson: null, leaseExpiresAt: newLease(), version: { increment: 1 } },
+    // waiting 状态已释放上一个实例的租约；version + token 共同防止并发 resume。
+    where: { id: record.id, userId: input.userId, status: expectedStatus, version: record.version, leaseToken: record.leaseToken, leaseOwnerId: null },
+    data: { status: "running", interruptJson: null, leaseExpiresAt: lease.expiresAt, leaseOwnerId: lease.ownerId, leaseToken: lease.token, version: { increment: 1 } },
   });
   if (claimed.count !== 1) throw new Error("WORKFLOW_RESUME_CONFLICT");
 
@@ -282,12 +391,18 @@ export async function resumeDevelopmentWorkflow(input: { id: string; userId: str
     mode,
     agents,
     signal: input.signal ?? new AbortController().signal,
-  }), getWorkflowCheckpointer());
+  }), await getWorkflowCheckpointer());
   try {
-    await resumeProductWorkflow({ graph, threadId: record.threadId, resume });
-    return await syncGraphState(record.id, graph, record.threadId, resume);
+    await runWithLeaseRenewal({
+      workflowId: record.id,
+      lease,
+      run: () => resumeProductWorkflow({ graph, threadId: record.threadId, resume }),
+      renew: () => renewWorkflowLease(record.id, lease),
+      renewalIntervalMs: WORKFLOW_LEASE_RENEW_INTERVAL_MS,
+    });
+    return await syncGraphState({ workflowId: record.id, graph, threadId: record.threadId, lease, lastResume: resume });
   } catch (error) {
-    await markWorkflowFailed(record.id, error);
+    await markWorkflowFailed(record.id, error, lease);
     throw error;
   }
 }
@@ -299,10 +414,22 @@ export async function recoverDevelopmentWorkflow(input: { id: string; userId: st
   const recoverableFailure = record.status === "failed" && Boolean(record.lastErrorCode);
   if (!recoverableFailure && !staleRunning) throw new Error("WORKFLOW_RECOVERY_NOT_AVAILABLE");
 
-  const claimed = await prisma.developmentWorkflow.updateMany({
-    where: { id: record.id, userId: input.userId, status: record.status, version: record.version },
-    data: { status: "running", lastErrorCode: null, leaseExpiresAt: newLease(), finishedAt: null, version: { increment: 1 } },
-  });
+  const lease = newLease(record);
+  // failed 已释放租约；running 仅允许在旧租约过期后由新实例接管。
+  const claimed = record.status === "running"
+    ? await claimExpiredWorkflowLease({
+      workflows: prisma.developmentWorkflow,
+      workflowId: record.id,
+      userId: input.userId,
+      expectedVersion: record.version,
+      expectedLeaseToken: record.leaseToken,
+      lease,
+      now: new Date(),
+    })
+    : await prisma.developmentWorkflow.updateMany({
+      where: { id: record.id, userId: input.userId, status: record.status, version: record.version, leaseToken: record.leaseToken, leaseOwnerId: null },
+      data: { status: "running", lastErrorCode: null, leaseExpiresAt: lease.expiresAt, leaseOwnerId: lease.ownerId, leaseToken: lease.token, finishedAt: null, version: { increment: 1 } },
+    });
   if (claimed.count !== 1) throw new Error("WORKFLOW_RECOVERY_CONFLICT");
 
   const mode = WorkflowModeSchema.parse(record.mode);
@@ -311,14 +438,20 @@ export async function recoverDevelopmentWorkflow(input: { id: string; userId: st
     mode,
     agents,
     signal: input.signal ?? new AbortController().signal,
-  }), getWorkflowCheckpointer());
+  }), await getWorkflowCheckpointer());
   try {
     const snapshot = await graph.getState(graphConfig(record.threadId));
-    if (interruptFromSnapshot(snapshot)) return syncGraphState(record.id, graph, record.threadId);
-    await continueProductWorkflow({ graph, threadId: record.threadId });
-    return await syncGraphState(record.id, graph, record.threadId);
+    if (interruptFromSnapshot(snapshot)) return syncGraphState({ workflowId: record.id, graph, threadId: record.threadId, lease });
+    await runWithLeaseRenewal({
+      workflowId: record.id,
+      lease,
+      run: () => continueProductWorkflow({ graph, threadId: record.threadId }),
+      renew: () => renewWorkflowLease(record.id, lease),
+      renewalIntervalMs: WORKFLOW_LEASE_RENEW_INTERVAL_MS,
+    });
+    return await syncGraphState({ workflowId: record.id, graph, threadId: record.threadId, lease });
   } catch (error) {
-    await markWorkflowFailed(record.id, error);
+    await markWorkflowFailed(record.id, error, lease);
     throw error;
   }
 }

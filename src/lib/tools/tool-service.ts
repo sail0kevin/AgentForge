@@ -29,7 +29,10 @@ export async function executeToolForRun(input: {
   const existing = await prisma.toolInvocation.findUnique({ where: { id: input.toolCallId } });
   if (existing) {
     if (existing.userId !== input.userId || existing.runId !== input.runId || existing.toolId !== input.toolId) throw new ToolExecutionError("TOOL_CALL_ID_CONFLICT", "toolCallId already belongs to another invocation.", 409);
-    if (existing.status === "completed" && existing.outputJson) return { output: JSON.parse(existing.outputJson) as unknown, replayed: true };
+    if (existing.status === "completed" && existing.outputJson) {
+      if (!existing.replayed) await prisma.toolInvocation.update({ where: { id: input.toolCallId }, data: { replayed: true } });
+      return { output: JSON.parse(existing.outputJson) as unknown, replayed: true };
+    }
     throw new ToolExecutionError("TOOL_CALL_ALREADY_STARTED", "This tool call has already started.", 409);
   }
 

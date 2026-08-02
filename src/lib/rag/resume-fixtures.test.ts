@@ -9,6 +9,7 @@ test("resume evidence fixtures cover twelve retrieval intents", () => {
   assert.deepEqual(metrics, {
     recallAtK: 1,
     meanReciprocalRank: 1,
+    ndcgAtK: 1,
     irrelevantResultRate: 0,
     citationCompleteness: 1,
   });
@@ -18,7 +19,16 @@ test("resume evidence fixtures retain relevant chunks under shared noise", () =>
   const metrics = evaluateRetrieval(resumeFixtures, [...resumeFixtureChunks, ...resumeNoiseChunks], 5);
   assert.equal(metrics.recallAtK, 1);
   assert.equal(metrics.meanReciprocalRank, 1);
+  assert.equal(metrics.ndcgAtK, 1);
   assert.equal(metrics.citationCompleteness, 1);
   assert.ok(metrics.irrelevantResultRate > 0);
   assert.ok(metrics.irrelevantResultRate < 1);
+});
+
+test("resume evidence fixtures establish a deterministic NDCG@10 baseline", () => {
+  const metrics = evaluateRetrieval(resumeFixtures, [...resumeFixtureChunks, ...resumeNoiseChunks], 10);
+
+  assert.equal(metrics.ndcgAtK, 1);
+  assert.equal(metrics.recallAtK, 1);
+  assert.ok(metrics.irrelevantResultRate > 0);
 });

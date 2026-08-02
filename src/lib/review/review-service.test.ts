@@ -20,8 +20,23 @@ test("delivery and quality candidates are independently created and expose their
   } });
   assert.deepEqual(seen.map((item) => item.orientation), ["delivery", "quality"]);
   assert.ok(seen.every((item) => !item.keys.includes("candidates")));
-  assert.equal(result.status, "needs_human");
+  assert.equal(result.status, "needs_human", JSON.stringify(result.failures));
   assert.equal(result.evaluation.unresolvedConflicts.length, 1);
+  // 共享同一执行计划会带来结构重合；这里记录真实信号，不把角色名当成多样性证明。
+  assert.equal(result.candidateDiversity.status, "limited");
+  assert.equal(result.evidenceAssessment.status, "not_configured");
+  assert.equal(result.evidenceAssessment.effectiveSupportKind, "tier1_structural");
+});
+
+test("configured Tier 2 evidence is disclosed without changing the existing human gate", async () => {
+  const result = await runReviewWorkflow({ analysis, plan, budget, generators: {
+    tier2Verifier: async () => ({ label: "entailed", reason: "The cited candidate decision directly supports this finding." }),
+  } });
+  assert.equal(result.status, "needs_human");
+  assert.equal(result.evaluation.decision, "needs_human");
+  assert.equal(result.evidenceAssessment.status, "verified");
+  assert.deepEqual(result.evidenceAssessment.effectiveSupportedFindingIds, result.review.findings.map((finding) => finding.id));
+  assert.equal(result.evidenceAssessment.effectiveSupportKind, "tier2_semantic");
 });
 
 test("unsupported findings never become blocking evidence", async () => {
@@ -80,6 +95,9 @@ test("evaluator failure falls back to a labelled partial result", async () => {
   assert.equal(result.status, "partial");
   assert.ok(result.failures.some((failure) => failure.code === "EVALUATOR_FAILED"));
   assert.ok(result.evaluation.candidateEvaluations.length > 0);
+  assert.equal(result.evaluation.policyConfidence?.level, "low");
+  assert.equal(result.evaluation.policyConfidence?.intervention, "required");
+  assert.deepEqual(result.evaluation.policyConfidence?.failedStages, ["evaluate"]);
 });
 
 test("Evaluator cannot silently approve a supported high-impact cross-candidate conflict", async () => {
@@ -89,6 +107,8 @@ test("Evaluator cannot silently approve a supported high-impact cross-candidate 
       ...baseline.evaluation,
       decision: "approved" as const,
       selectedCandidateId: baseline.candidates[0].id,
+      supportedFindingIds: [],
+      ignoredFindingIds: [],
       unresolvedConflicts: [],
       nextAction: "Send the chosen candidate directly to the Reporter.",
     }),
@@ -97,4 +117,35 @@ test("Evaluator cannot silently approve a supported high-impact cross-candidate 
   assert.equal(result.evaluation.decision, "needs_human");
   assert.equal(result.evaluation.selectedCandidateId, null);
   assert.equal(result.evaluation.unresolvedConflicts.length, 1);
+  assert.equal(result.evaluation.policyConfidence?.hardHumanGate, true);
+  assert.equal(result.evaluation.policyConfidence?.intervention, "required");
+});
+
+test("low policy decision-support signal recommends human review without claiming model confidence", async () => {
+  const baseline = await runReviewWorkflow({ analysis, plan, budget });
+  const result = await runReviewWorkflow({ analysis, plan, budget, generators: {
+    review: async () => ({
+      schemaVersion: 1 as const,
+      findings: [
+        { id: "unsupported-a", candidateId: baseline.candidates[0].id, severity: "low" as const, category: "opinion", failureScenario: "没有可验证引用的意见不应被当作已支持的结论。", evidenceRefs: [], suggestion: "补充可验证来源。", relatedCandidateIds: [] },
+        { id: "unsupported-b", candidateId: baseline.candidates[1].id, severity: "low" as const, category: "opinion", failureScenario: "第二条没有可验证引用的意见也应保留为未支持。", evidenceRefs: [], suggestion: "补充可验证来源。", relatedCandidateIds: [] },
+      ],
+    }),
+    evaluate: async () => ({
+      ...baseline.evaluation,
+      decision: "approved" as const,
+      selectedCandidateId: baseline.candidates[0].id,
+      supportedFindingIds: [],
+      ignoredFindingIds: [],
+      unresolvedConflicts: [],
+      reasons: ["当前候选可直接进入报告。"],
+      nextAction: "生成报告。",
+    }),
+  } });
+  assert.equal(result.status, "needs_human");
+  assert.equal(result.evaluation.decision, "needs_human");
+  assert.equal(result.evaluation.policyConfidence?.kind, "policy_decision_support");
+  assert.equal(result.evaluation.policyConfidence?.hardHumanGate, false);
+  assert.equal(result.evaluation.policyConfidence?.intervention, "recommended");
+  assert.ok((result.evaluation.policyConfidence?.score ?? 1) < 0.4);
 });

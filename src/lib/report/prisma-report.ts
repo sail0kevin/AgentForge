@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ExecutionPlanSchema, RequirementAnalysisSchema } from "@/lib/planner/contracts";
+import { applyIncrementalApprovalPatch, IncrementalApprovalPatchSchema } from "@/lib/planner/incremental-approval";
 import { ApprovalDecisionSchema, CandidateSolutionSchema, EvaluationResultSchema, ReviewResultSchema } from "@/lib/review/contracts";
 import { DevelopmentReportSchema, type DevelopmentReport } from "./contracts";
 import type { ReportGenerationInput } from "./report-service";
@@ -30,6 +31,13 @@ export async function loadReportGenerationInput(reviewWorkflowId: string, userId
     throw new Error("PLANNING_ARTIFACT_NOT_READY");
   }
   if (!record.reviewJson || !record.evaluationJson) throw new Error("REVIEW_INCOMPLETE");
+  const originalPlan = ExecutionPlanSchema.parse(JSON.parse(record.planningArtifact.executionPlan));
+  const taskPatch = record.approvalTaskPatchJson ? IncrementalApprovalPatchSchema.parse(JSON.parse(record.approvalTaskPatchJson)) : null;
+  // 报告不改写 Planner 原始产物，而是在读取阶段按已保存的人工补丁派生有效计划。
+  const amended = taskPatch ? applyIncrementalApprovalPatch(originalPlan, taskPatch) : null;
+  if (amended && (record.approvalOriginalPlanSha256 !== amended.originalPlanSha256 || record.approvalAmendedPlanSha256 !== amended.amendedPlanSha256)) {
+    throw new Error("APPROVAL_PATCH_FINGERPRINT_MISMATCH");
+  }
   const decision = record.approvalDecision ? ApprovalDecisionSchema.parse(record.approvalDecision) : null;
   const approvalStatus = z.enum(["not_required", "approved", "rejected"]).parse(record.approvalStatus);
   const invocations = await prisma.toolInvocation.findMany({
@@ -62,7 +70,7 @@ export async function loadReportGenerationInput(reviewWorkflowId: string, userId
     planningArtifactId: record.planningArtifactId,
     requirement: record.planningArtifact.requirement,
     analysis: RequirementAnalysisSchema.parse(JSON.parse(record.planningArtifact.requirementAnalysis)),
-    plan: ExecutionPlanSchema.parse(JSON.parse(record.planningArtifact.executionPlan)),
+    plan: amended?.plan ?? originalPlan,
     reviewWorkflow: {
       id: record.id,
       status: record.status as "approved" | "partial" | "blocked" | "inconclusive",
@@ -70,7 +78,12 @@ export async function loadReportGenerationInput(reviewWorkflowId: string, userId
       review: ReviewResultSchema.parse(JSON.parse(record.reviewJson)),
       evaluation: EvaluationResultSchema.parse(JSON.parse(record.evaluationJson)),
       failures: failureSchema.parse(JSON.parse(record.failuresJson)),
-      approval: { status: approvalStatus, decision, note: record.approvalNote, decidedAt: record.decidedAt?.toISOString() ?? null },
+      approval: {
+        status: approvalStatus, decision, note: record.approvalNote, decidedAt: record.decidedAt?.toISOString() ?? null,
+        taskPatch,
+        originalPlanSha256: record.approvalOriginalPlanSha256,
+        amendedPlanSha256: record.approvalAmendedPlanSha256,
+      },
     },
     knowledgeEvidence,
   };

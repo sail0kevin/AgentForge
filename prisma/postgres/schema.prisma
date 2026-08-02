@@ -1,0 +1,422 @@
+generator client {
+  provider = "prisma-client-js"
+  // PostgreSQL client 独立输出，不能覆盖 SQLite 默认的 @prisma/client 生成产物。
+  output   = "../generated/postgres"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  name                 String?
+  globalBudget         Float                 @default(50.00)
+  passwordHash         String?
+  apiKeys              ApiKey[]
+  agents               Agent[]
+  workspaces           Workspace[]
+  runs                 Run[]
+  planningArtifacts    PlanningArtifact[]
+  reviewWorkflows      ReviewWorkflow[]
+  reportArtifacts      ReportArtifact[]
+  developmentWorkflows DevelopmentWorkflow[]
+  pilotFeedback        PilotFeedback[]
+  toolInvocations      ToolInvocation[]
+  documents            Document[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+}
+
+model ApiKey {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String
+  encryptedKey String
+  iv           String
+  authTag      String
+  maskedKey    String
+  keyLength    Int      @default(0)
+  isValid      Boolean  @default(true)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model Agent {
+  id                String             @id @default(cuid())
+  userId            String
+  name              String
+  avatar            String             @default("AI")
+  color             String             @default("#38bdf8")
+  provider          String
+  model             String
+  systemPrompt      String
+  temperature       Float              @default(0.70)
+  maxTokens         Int                @default(1200)
+  apiUrl            String             @default("")
+  config            String             @default("{}")
+  credential        AgentCredential?
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaces        WorkspaceAgent[]
+  messages          Message[]
+  tokenUsages       TokenUsage[]
+  planningArtifacts PlanningArtifact[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model AgentCredential {
+  id           String   @id @default(cuid())
+  agentId      String   @unique
+  encryptedKey String
+  iv           String
+  authTag      String
+  maskedKey    String
+  keyLength    Int      @default(0)
+  isValid      Boolean  @default(true)
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Workspace {
+  id          String           @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  mode        String           @default("sequential")
+  budgetLimit Float            @default(10.00)
+  totalSpent  Float            @default(0.00)
+  status      String           @default("idle")
+  activeRunId String?
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agents      WorkspaceAgent[]
+  messages    Message[]
+  tokenUsages TokenUsage[]
+  runs        Run[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model PlanningArtifact {
+  id                  String               @id @default(cuid())
+  runId               String               @unique
+  userId              String
+  plannerAgentId      String?
+  status              String
+  requirement         String
+  requirementAnalysis String?
+  executionPlan       String?
+  reportOutline       String?
+  clarification       String?
+  failureCode         String?
+  budgetState         String
+  schemaVersion       Int                  @default(1)
+  workflowNodeKey     String?              @unique
+  run                 Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plannerAgent        Agent?               @relation(fields: [plannerAgentId], references: [id], onDelete: SetNull)
+  reviewWorkflows     ReviewWorkflow[]
+  reportArtifacts     ReportArtifact[]
+  developmentWorkflow DevelopmentWorkflow?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([plannerAgentId])
+}
+
+model Run {
+  id               String            @id @default(cuid())
+  workspaceId      String
+  userId           String
+  status           String            @default("running")
+  input            String
+  totalSpent       Float             @default(0.00)
+  errorCode        String?
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  tokenUsages      TokenUsage[]
+  startedAt        DateTime          @default(now())
+  finishedAt       DateTime?
+  planningArtifact PlanningArtifact?
+  reviewWorkflow   ReviewWorkflow?
+  reportArtifact   ReportArtifact?
+  toolInvocations  ToolInvocation[]
+
+  @@index([workspaceId, startedAt])
+  @@index([userId, startedAt])
+}
+
+model ReviewWorkflow {
+  id                         String               @id @default(cuid())
+  runId                      String               @unique
+  planningArtifactId         String
+  userId                     String
+  status                     String
+  candidatesJson             String
+  reviewJson                 String?
+  evaluationJson             String?
+  failuresJson               String               @default("[]")
+  budgetState                String
+  currentRound               Int                  @default(0)
+  maxRounds                  Int                  @default(1)
+  approvalStatus             String               @default("not_required")
+  approvalDecision           String?
+  approvalNote               String?
+  approvalTaskPatchJson      String?
+  approvalOriginalPlanSha256 String?
+  approvalAmendedPlanSha256  String?
+  decidedAt                  DateTime?
+  schemaVersion              Int                  @default(1)
+  workflowNodeKey            String?              @unique
+  run                        Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  planningArtifact           PlanningArtifact     @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
+  user                       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportArtifacts            ReportArtifact[]
+  developmentWorkflow        DevelopmentWorkflow?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+
+  @@index([planningArtifactId, createdAt])
+  @@index([userId, createdAt])
+  @@index([approvalStatus, createdAt])
+}
+
+model ReportArtifact {
+  id                  String               @id @default(cuid())
+  runId               String               @unique
+  planningArtifactId  String
+  reviewWorkflowId    String
+  userId              String
+  parentReportId      String?
+  generationKey       String?
+  version             Int
+  status              String
+  title               String
+  executiveSummary    String
+  contentJson         String
+  sourceManifestJson  String
+  schemaVersion       Int                  @default(1)
+  run                 Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  planningArtifact    PlanningArtifact     @relation(fields: [planningArtifactId], references: [id], onDelete: Cascade)
+  reviewWorkflow      ReviewWorkflow       @relation(fields: [reviewWorkflowId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentReport        ReportArtifact?      @relation("ReportVersions", fields: [parentReportId], references: [id], onDelete: SetNull)
+  childReports        ReportArtifact[]     @relation("ReportVersions")
+  developmentWorkflow DevelopmentWorkflow?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([reviewWorkflowId, version])
+  @@unique([userId, generationKey])
+  @@index([planningArtifactId, createdAt])
+  @@index([userId, createdAt])
+  @@index([parentReportId])
+}
+
+model DevelopmentWorkflow {
+  id                  String            @id @default(cuid())
+  userId              String
+  threadId            String            @unique
+  status              String            @default("pending")
+  currentNode         String            @default("analyze_requirement")
+  requirement         String
+  mode                String            @default("baseline")
+  agentConfigJson     String            @default("{}")
+  planningArtifactId  String?           @unique
+  reviewWorkflowId    String?           @unique
+  reportArtifactId    String?           @unique
+  checkpointId        String?
+  checkpointNamespace String            @default("")
+  interruptJson       String?
+  lastResumeJson      String?
+  lastErrorCode       String?
+  // 租约到期是跨实例比较的绝对时刻，必须避免 timestamp 无时区在不同进程被按本地时区解释。
+  leaseExpiresAt      DateTime?         @db.Timestamptz(3)
+  leaseOwnerId        String?
+  leaseToken          Int               @default(0)
+  version             Int               @default(1)
+  schemaVersion       Int               @default(1)
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planningArtifact    PlanningArtifact? @relation(fields: [planningArtifactId], references: [id], onDelete: SetNull)
+  reviewWorkflow      ReviewWorkflow?   @relation(fields: [reviewWorkflowId], references: [id], onDelete: SetNull)
+  reportArtifact      ReportArtifact?   @relation(fields: [reportArtifactId], references: [id], onDelete: SetNull)
+  nodes               WorkflowNode[]
+  pilotFeedback       PilotFeedback?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+  @@index([leaseExpiresAt])
+}
+
+// 内部试点只保存结构化反馈，不保存 Prompt、原始模型输出或 Provider 凭证。
+model PilotFeedback {
+  id                 String              @id @default(cuid())
+  userId             String
+  workflowId         String              @unique
+  reportUsability    String
+  humanEdited        Boolean             @default(false)
+  interventionReason String?
+  evidenceIssueType  String?
+  failureCategory    String?
+  note               String?
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflow           DevelopmentWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([reportUsability, createdAt])
+}
+
+model WorkflowNode {
+  id           String              @id @default(cuid())
+  workflowId   String
+  nodeKey      String
+  sortOrder    Int
+  status       String              @default("pending")
+  attempt      Int                 @default(0)
+  artifactType String?
+  artifactId   String?
+  summary      String?
+  errorCode    String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  workflow     DevelopmentWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@unique([workflowId, nodeKey])
+  @@index([workflowId, sortOrder])
+}
+
+model WorkspaceAgent {
+  workspaceId String
+  agentId     String
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, agentId])
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  workspaceId String
+  role        String
+  agentId     String?
+  content     String
+  replyToId   String?
+  failed      Boolean     @default(false)
+  runId       String?
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent       Agent?      @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  tokenUsage  TokenUsage?
+  run         Run?        @relation(fields: [runId], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([runId, createdAt])
+}
+
+model Document {
+  id             String          @id @default(cuid())
+  userId         String
+  fileName       String
+  title          String
+  format         String
+  size           Int
+  content        String
+  checksumSha256 String          @default("")
+  sourceType     String          @default("local-upload")
+  sourceUrl      String?
+  sourceVersion  String          @default("1")
+  license        String          @default("unspecified")
+  reviewedAt     DateTime?
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks         DocumentChunk[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([userId])
+}
+
+model ToolInvocation {
+  id         String    @id
+  runId      String
+  userId     String
+  toolId     String
+  status     String
+  inputJson  String
+  outputJson String?
+  errorCode  String?
+  replayed   Boolean   @default(false)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  durationMs Int?
+  run        Run       @relation(fields: [runId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([runId, startedAt])
+  @@index([userId, startedAt])
+  @@index([toolId, startedAt])
+}
+
+model DocumentChunk {
+  id         String                  @id @default(cuid())
+  documentId String
+  content    String
+  startLine  Int
+  endLine    Int
+  metadata   String                  @default("{}")
+  document   Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  embedding  DocumentChunkEmbedding?
+  createdAt  DateTime                @default(now())
+
+  @@index([documentId])
+}
+
+model DocumentChunkEmbedding {
+  chunkId    String        @id
+  model      String
+  dimension  Int
+  vectorJson String
+  chunk      DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([model])
+}
+
+model TokenUsage {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  messageId    String    @unique
+  agentId      String?
+  runId        String?
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Float
+  costCny      Float
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  message      Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  agent        Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  run          Run?      @relation(fields: [runId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([runId, createdAt])
+}

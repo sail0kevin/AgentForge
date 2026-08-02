@@ -29,6 +29,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 生产依赖审计必须使用官方 registry，避免镜像不支持 audit API 时静默失效。
+      - name: Production dependency audit
+        run: npm run security:audit:production
+
       - name: Generate Prisma client
         run: npm run db:generate
 
@@ -44,5 +48,78 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Unit-test coverage gate (src/lib >= 80%)
+        run: npm run test:coverage
+
+      # 核心工作流和会话隔离涉及 API、数据库迁移与浏览器交互，不能只依赖单元测试。
+      - name: Core end-to-end tests
+        run: npm run test:e2e:core
+
+      - name: Session-isolation end-to-end test
+        run: npm run test:e2e:session
+
+      - name: RAG Golden Set regression gate
+        run: npm run quality:rag:golden
+
+      - name: Verify documentation names and local links
+        run: node scripts/verify-document-links.mjs
+
       - name: Production build
         run: npm run build
+
+  postgres-workflow-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: postgresql://agentforge:agentforge@localhost:5432/agentforge?schema=public
+      AGENTFORGE_POSTGRES_CHECKPOINT_TEST_URL: postgresql://agentforge:agentforge@localhost:5432/agentforge?schema=public
+      AGENTFORGE_POSTGRES_WORKFLOW_TEST_URL: postgresql://agentforge:agentforge@localhost:5432/agentforge?schema=public
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: agentforge
+          POSTGRES_PASSWORD: agentforge
+          POSTGRES_DB: agentforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentforge -d agentforge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate PostgreSQL Prisma client
+        run: npm run db:generate:postgres
+
+      - name: Apply PostgreSQL migrations
+        run: npm run db:migrate:postgres
+
+      - name: Initialize LangGraph workflow checkpoints
+        run: npm run db:setup:workflow-checkpoints
+
+      - name: Verify PostgreSQL checkpoint recovery
+        run: npm run test:integration:postgres-checkpoint
+
+      - name: Verify PostgreSQL workflow lease fencing
+        run: npm run test:integration:postgres-workflow-lease
+
+      - name: Rehearse PostgreSQL backup and isolated restore
+        env:
+          AGENTFORGE_POSTGRES_BACKUP_RESTORE_TEST_URL: postgresql://agentforge:agentforge@localhost:5432/agentforge?schema=public
+          AGENTFORGE_POSTGRES_BACKUP_RESTORE_CONFIRMED: isolated-test-database
+        run: npm run test:integration:postgres-backup-restore

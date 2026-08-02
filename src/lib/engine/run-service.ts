@@ -2,6 +2,8 @@ import { calculateCost, getBudgetStatus } from "@/lib/billing";
 import { toSafeRunError } from "@/lib/errors/run-error";
 import { parseRunServiceEvent, type RunServiceEvent } from "@/lib/engine/run-contract";
 import { resolveRunCompletionStatus } from "@/lib/engine/run-status";
+import { limitPriorAssistantContext } from "@/lib/engine/prior-assistant-context";
+import { traceAsync, type TraceProvider } from "@/lib/observability/tracing";
 import type { AgentConfig, LLMResult, WorkspaceMessage, WorkspaceSnapshot, WorkspaceStatus } from "@/lib/types";
 
 export type PriorAgentOutput = { agentName: string; content: string };
@@ -41,6 +43,7 @@ export type RunServiceInput = {
   signal: AbortSignal;
   persistence: RunServicePersistence;
   eventSink: (event: RunServiceEvent) => void | Promise<void>;
+  traceProvider?: TraceProvider;
 };
 
 type RunServiceEventPayload<T = RunServiceEvent> = T extends RunServiceEvent ? Omit<T, "version" | "runId"> : never;
@@ -50,6 +53,15 @@ type RunServiceEventPayload<T = RunServiceEvent> = T extends RunServiceEvent ? O
  * HTTP、Cookie、Prisma 查询、凭证解密和 SSE 编码由适配器负责；这里仅处理可测试的业务语义。
  */
 export async function runService(input: RunServiceInput): Promise<RunServiceResult> {
+  return traceAsync({
+    provider: input.traceProvider,
+    name: "agentforge.workspace.run",
+    attributes: { "agentforge.run_id": input.runId, "agentforge.agent_count": input.agents.length },
+    run: async (runSpan) => runServiceImpl(input, runSpan),
+  });
+}
+
+async function runServiceImpl(input: RunServiceInput, runSpan: import("@/lib/observability/tracing").TraceSpan): Promise<RunServiceResult> {
   const emit = async (event: RunServiceEventPayload) => {
     await input.eventSink(parseRunServiceEvent({ ...event, version: 1, runId: input.runId }));
   };
@@ -83,10 +95,37 @@ export async function runService(input: RunServiceInput): Promise<RunServiceResu
     await emit({ type: "agent_started", agent: runner.agent });
     let result: LLMResult;
     try {
-      result = await runner.invoke({ priorAssistantMessages: [...priorAssistantMessages], signal: input.signal });
+      // 每次调用前按最近结论裁剪，避免长工作区或连续失败让 Prompt 无上限增长。
+      result = await traceAsync({
+        provider: input.traceProvider,
+        name: "agentforge.workspace.agent",
+        attributes: {
+          "agentforge.run_id": input.runId,
+          "agentforge.agent_id": runner.agent.id,
+          "agentforge.provider": runner.agent.provider,
+          "agentforge.model": runner.agent.model,
+        },
+        run: async (agentSpan) => {
+          // 每次调用前按最近结论裁剪，避免长工作区或连续失败让 Prompt 无上限增长。
+          try {
+            const agentResult = await runner.invoke({ priorAssistantMessages: limitPriorAssistantContext(priorAssistantMessages), signal: input.signal });
+            const agentCost = calculateCost(runner.agent.model, agentResult.inputTokens, agentResult.outputTokens);
+            agentSpan.setAttribute("agentforge.input_tokens", agentResult.inputTokens);
+            agentSpan.setAttribute("agentforge.output_tokens", agentResult.outputTokens);
+            agentSpan.setAttribute("agentforge.cost_usd", agentCost.costUsd);
+            return agentResult;
+          } catch (error) {
+            // Agent span 与 Run span 只保留规范化错误码，不保留原始异常文本。
+            agentSpan.setAttribute("agentforge.error_code", toSafeRunError(error).code);
+            throw error;
+          }
+        },
+      });
     } catch (error) {
       hadAgentFailure = true;
       const safeError = toSafeRunError(error);
+      // 只记录规范化错误码，避免观测系统收到调用方或模型返回的原始文本。
+      runSpan.setAttribute("agentforge.error_code", safeError.code);
       const message: WorkspaceMessage = {
         id: crypto.randomUUID(), runId: input.runId, role: "assistant", agentId: runner.agent.id,
         content: `模型调用失败：${safeError.message}`, createdAt: new Date().toISOString(), failed: true,
@@ -119,6 +158,9 @@ export async function runService(input: RunServiceInput): Promise<RunServiceResu
   const withoutFinishedAt = { runId: input.runId, totalSpent, budgetStatus: finalStatus, errorCode, startedAt: input.startedAt };
   const finishedAt = await input.persistence.completeRun(withoutFinishedAt);
   const result = { ...withoutFinishedAt, finishedAt };
+  runSpan.setAttribute("agentforge.total_cost_usd", totalSpent);
+  runSpan.setAttribute("agentforge.budget_status", finalStatus);
+  if (errorCode) runSpan.setAttribute("agentforge.error_code", errorCode);
   await emit({ type: "run_completed", totalSpent, budgetStatus: finalStatus, errorCode, finishedAt });
   return result;
 }

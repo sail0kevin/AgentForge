@@ -15,7 +15,29 @@ const fixtures: RetrievalFixture[] = [
   { id: "timer", query: "番茄计时暂停恢复", relevantChunkIds: ["study-timer"] },
 ];
 
-test("fixed retrieval fixtures report recall, MRR, irrelevant rate and citation completeness", () => {
+test("fixed retrieval fixtures report recall, MRR, NDCG, irrelevant rate and citation completeness", () => {
   const metrics = evaluateRetrieval(fixtures, chunks, 1);
-  assert.deepEqual(metrics, { recallAtK: 1, meanReciprocalRank: 1, irrelevantResultRate: 0, citationCompleteness: 1 });
+  assert.deepEqual(metrics, { recallAtK: 1, meanReciprocalRank: 1, ndcgAtK: 1, irrelevantResultRate: 0, citationCompleteness: 1 });
+});
+
+test("NDCG rewards placing relevant evidence before irrelevant results", () => {
+  const retriever = () => [
+    { ...chunks[1], score: 1 },
+    { ...chunks[0], score: 0.5 },
+  ];
+  const metrics = evaluateRetrieval([fixtures[0]], chunks, 2, retriever);
+
+  assert.equal(metrics.recallAtK, 1);
+  assert.equal(metrics.meanReciprocalRank, 0.5);
+  assert.ok(Math.abs(metrics.ndcgAtK - (1 / Math.log2(3))) < 1e-12);
+});
+
+test("empty fixture set returns zero-valued retrieval metrics", () => {
+  assert.deepEqual(evaluateRetrieval([], chunks), {
+    recallAtK: 0,
+    meanReciprocalRank: 0,
+    ndcgAtK: 0,
+    irrelevantResultRate: 0,
+    citationCompleteness: 0,
+  });
 });

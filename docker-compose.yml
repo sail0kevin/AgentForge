@@ -1,0 +1,59 @@
+# AgentForge 本地 Postgres 编排文件。
+# 目标：一条 `npm run docker:up` 就能起一个可连接的 Postgres 实例，
+# 供 `npm run db:migrate:postgres` 应用独立迁移、以及 Postgres 版
+# Checkpoint 后端连接使用。
+#
+# 说明：按项目"本地优先"定位，本文件只编排 Postgres 数据库服务；
+# Next.js 应用仍在宿主机用 `npm run dev` 运行，避免在 Windows 上把
+# better-sqlite3 / Prisma 等原生依赖塞进容器构建带来的兼容性问题。
+
+services:
+  # Postgres 数据库服务：AgentForge 的 Postgres 持久化后端。
+  postgres:
+    image: postgres:16
+    container_name: agentforge-postgres
+    restart: unless-stopped
+    environment:
+      # 数据库账号 / 密码 / 库名。仅用于本地开发，生产请改用强随机密码并走密钥管理。
+      POSTGRES_USER: agentforge
+      POSTGRES_PASSWORD: agentforge
+      POSTGRES_DB: agentforge
+    ports:
+      # 宿主机 5432 -> 容器 5432，宿主机上的 Prisma / 应用据此连接。
+      - "5432:5432"
+    volumes:
+      # 命名卷持久化数据目录，容器删除后数据仍在（除非手动删卷）。
+      - agentforge-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # 用 pg_isready 探活，确保迁移 / 应用不会在数据库还没就绪时连接。
+      test: ["CMD-SHELL", "pg_isready -U agentforge -d agentforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # P0-2 专用验收库。它不与日常开发库共用数据库名、端口或数据卷，
+  # 仅由 `npm run test:integration:postgres:local` 临时启动并清理。
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agentforge_v2_test
+      POSTGRES_PASSWORD: agentforge_v2_test
+      POSTGRES_DB: agentforge_v2_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      # 测试数据放在容器临时文件系统中，服务停止后不会保留业务记录。
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentforge_v2_test -d agentforge_v2_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  # 上面 postgres 服务引用的命名卷声明。
+  agentforge-pgdata:
+
+# 对应的连接串（填到 .env 的 DATABASE_URL 即可启用 Postgres 路径）：
+#   DATABASE_URL="postgresql://agentforge:agentforge@localhost:5432/agentforge?schema=public"

@@ -37,6 +37,8 @@ export async function planRequirement(input: {
   budget?: BudgetState;
   generate?: PlannerGenerate;
   maxAttempts?: number;
+  /** Escape hatch for callers (e.g. Stage 5's evaluation harness) that already resolved clarification externally and must always get a plan back. Real product callers never set this, so the interactive clarification gate is unchanged for them. */
+  bypassClarificationGate?: boolean;
 }): Promise<PlannerResult> {
   const requirement = input.requirement.trim();
   if (!requirement) throw new Error("REQUIREMENT_EMPTY");
@@ -51,7 +53,7 @@ export async function planRequirement(input: {
     : analyzeRequirementBaseline(requirement);
 
   const clarification = clarificationFor(analysis);
-  if (clarification) return { status: "needs_clarification", analysis, clarification };
+  if (clarification && !input.bypassClarificationGate) return { status: "needs_clarification", analysis, clarification };
 
   const plan = input.generate
     ? await generateStructuredOutput({

@@ -1,0 +1,3 @@
+# PostgreSQL 独立迁移历史的提供方标识。
+# 该文件必须与 prisma/postgres/migrations 同目录，避免 Prisma 将 SQLite 锁文件用于 PostgreSQL 部署。
+provider = "postgresql"

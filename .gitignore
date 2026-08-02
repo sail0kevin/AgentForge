@@ -10,6 +10,7 @@ build/
 !.env.example
 
 # Local databases and caches
+prisma/generated/
 prisma/*.db
 prisma/*.db-journal
 prisma/*.db.backup-*

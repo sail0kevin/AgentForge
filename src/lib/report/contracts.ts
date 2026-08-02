@@ -2,8 +2,92 @@ import { z } from "zod";
 
 export const ReportStatusSchema = z.enum(["completed", "partial", "blocked", "inconclusive"]);
 export const ReportSourceTypeSchema = z.enum([
-  "requirement", "plan_task", "report_section", "candidate", "finding", "evaluation", "human_decision", "knowledge",
+  "requirement", "plan_task", "report_section", "candidate", "finding", "evaluation", "human_decision", "human_task_edit", "knowledge", "github_evidence",
 ]);
+
+// GitHub 仓库中的 UI 参考证据，必须记录版本、路径和复用限制。
+export const GitHubEvidenceSchema = z.object({
+  id: z.string().min(1).max(120),
+  repositoryUrl: z.string().url().max(500),
+  repositoryName: z.string().min(2).max(160),
+  commitOrTag: z.string().min(1).max(120),
+  path: z.string().min(1).max(500),
+  locator: z.string().max(500).nullable().default(null),
+  license: z.string().min(1).max(160),
+  evidenceType: z.enum(["design_system", "component_library", "accessibility_primitive", "application_architecture", "example_implementation"]),
+  insight: z.string().min(10).max(1_000),
+  applicableWhen: z.array(z.string().min(3).max(300)).min(1).max(12),
+  reusePolicy: z.enum(["reference_only", "adapt_with_license_review", "approved_reuse"]),
+});
+
+export const ProductUISolutionTypeSchema = z.enum(["experience_first", "visual_first", "engineering_first"]);
+
+export const ProductUIPageSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().min(2).max(160),
+  route: z.string().min(1).max(200),
+  purpose: z.string().min(10).max(500),
+  primaryAction: z.string().min(3).max(300),
+  sections: z.array(z.string().min(2).max(200)).min(1).max(20),
+  requiredStates: z.array(z.enum(["loading", "empty", "error", "success", "permission_denied", "mobile"])).min(1).max(10),
+  components: z.array(z.string().min(2).max(160)).min(1).max(30),
+  acceptanceCriteria: z.array(z.string().min(5).max(500)).min(1).max(15),
+});
+
+export const ProductUIFlowSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().min(2).max(160),
+  goal: z.string().min(10).max(500),
+  steps: z.array(z.string().min(3).max(500)).min(2).max(20),
+  failureRecovery: z.string().min(10).max(500),
+});
+
+export const ProductUIDesignTokensSchema = z.object({
+  colorStrategy: z.string().min(10).max(500),
+  typography: z.string().min(10).max(500),
+  spacing: z.string().min(5).max(300),
+  radius: z.string().min(5).max(200),
+  elevation: z.string().min(5).max(300),
+  motion: z.string().min(5).max(300),
+});
+
+export const ProductUIDesignDirectionSchema = z.object({
+  name: z.string().min(2).max(160),
+  positioning: z.string().min(10).max(500),
+  visualPrinciples: z.array(z.string().min(5).max(300)).min(3).max(10),
+  layoutStrategy: z.string().min(10).max(500),
+  componentStrategy: z.string().min(10).max(500),
+  avoid: z.array(z.string().min(5).max(300)).min(1).max(10),
+  tokens: ProductUIDesignTokensSchema,
+});
+
+export const ProductUIComponentSchema = z.object({
+  name: z.string().min(2).max(160),
+  responsibility: z.string().min(10).max(500),
+  variants: z.array(z.string().min(2).max(160)).min(1).max(12),
+  states: z.array(z.string().min(2).max(160)).min(1).max(12),
+  accessibility: z.array(z.string().min(5).max(300)).min(1).max(10),
+});
+
+export const ProductUISpecSchema = z.object({
+  schemaVersion: z.literal(1),
+  solutionId: z.string().min(1).max(120),
+  solutionType: ProductUISolutionTypeSchema,
+  productName: z.string().min(2).max(200),
+  productPositioning: z.string().min(20).max(1_000),
+  targetUsers: z.array(z.string().min(2).max(200)).min(1).max(12),
+  primaryScenarios: z.array(z.string().min(5).max(500)).min(1).max(12),
+  pages: z.array(ProductUIPageSchema).min(3).max(30),
+  userFlows: z.array(ProductUIFlowSchema).min(1).max(12),
+  designDirection: ProductUIDesignDirectionSchema,
+  components: z.array(ProductUIComponentSchema).min(3).max(40),
+  responsiveRules: z.array(z.string().min(10).max(500)).min(3).max(20),
+  interactionStates: z.array(z.string().min(5).max(500)).min(4).max(20),
+  implementationConstraints: z.array(z.string().min(5).max(500)).min(3).max(20),
+  visualAcceptanceCriteria: z.array(z.string().min(5).max(500)).min(5).max(30),
+  evidence: z.array(GitHubEvidenceSchema).min(1).max(30),
+  evidenceStatus: z.enum(["curated_reference", "sha_pinned", "not_yet_verified"]),
+});
 
 export const ReportSourceReferenceSchema = z.object({
   sourceType: ReportSourceTypeSchema,
@@ -45,6 +129,20 @@ export const DevelopmentReportSchema = z.object({
   risks: z.array(ReportClaimSchema).max(40),
   unresolvedItems: z.array(ReportClaimSchema).max(30),
   sourceManifest: z.array(SourceManifestEntrySchema).min(1).max(500),
+  // 可选的产品/UI 实施规格，供下游 AI 编程 Agent 消费。
+  productUISpec: ProductUISpecSchema.optional(),
+});
+
+export const ProductUIReportGroupSchema = z.object({
+  schemaVersion: z.literal(1),
+  groupId: z.string().min(1).max(120),
+  requirement: z.string().min(10).max(8_000),
+  reports: z.array(z.lazy(() => DevelopmentReportSchema)).min(2).max(6),
+  comparison: z.array(z.object({
+    solutionId: z.string().min(1).max(120),
+    strengths: z.array(z.string().min(5).max(500)).min(1).max(10),
+    tradeoffs: z.array(z.string().min(5).max(500)).min(1).max(10),
+  })).min(2).max(6),
 });
 
 export const ReportBudgetSchema = z.object({
@@ -56,3 +154,9 @@ export type ReportSourceReference = z.infer<typeof ReportSourceReferenceSchema>;
 export type ReportClaim = z.infer<typeof ReportClaimSchema>;
 export type DevelopmentReport = z.infer<typeof DevelopmentReportSchema>;
 export type ReportBudget = z.infer<typeof ReportBudgetSchema>;
+export type GitHubEvidence = z.infer<typeof GitHubEvidenceSchema>;
+export type ProductUISolutionType = z.infer<typeof ProductUISolutionTypeSchema>;
+export type ProductUIPage = z.infer<typeof ProductUIPageSchema>;
+export type ProductUIFlow = z.infer<typeof ProductUIFlowSchema>;
+export type ProductUISpec = z.infer<typeof ProductUISpecSchema>;
+export type ProductUIReportGroup = z.infer<typeof ProductUIReportGroupSchema>;

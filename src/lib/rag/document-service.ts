@@ -12,6 +12,10 @@
 import { prisma } from "@/lib/db";
 import { retrieveChunks, formatRetrievedChunks } from "@/lib/rag/retrieval";
 import type { Chunk } from "@/lib/rag/chunker";
+import { DEFAULT_EMBEDDING_MODEL, EMBEDDING_DIMENSION, embedText } from "@/lib/rag/embedding-client";
+import { embeddingsEnabled } from "@/lib/rag/document-embeddings";
+import { retrieveHybridChunks } from "@/lib/rag/hybrid-retrieval";
+import type { EmbeddedChunk } from "@/lib/rag/embedding-retrieval";
 
 export type DocumentCitation = {
   documentId: string;
@@ -99,6 +103,7 @@ export async function searchDocumentChunks(userId: string, query: string, limit:
         startLine: true,
         endLine: true,
         metadata: true,
+        embedding: { select: { model: true, dimension: true, vectorJson: true } },
         document: { select: { title: true, fileName: true, sourceType: true, sourceUrl: true, sourceVersion: true, license: true, reviewedAt: true, checksumSha256: true } },
       },
     });
@@ -127,8 +132,8 @@ export async function searchDocumentChunks(userId: string, query: string, limit:
       },
     }));
 
-    // 用 TF-IDF 检索最相关的知识块
-    return retrieveChunks(query, mapped, limit).map((result) => {
+    const results = await retrieveWithAvailableStrategy(query, mapped, chunks.map((chunk) => chunk.embedding), limit);
+    return results.map((result) => {
       const source = chunks.find((chunk) => chunk.id === result.id)!;
       return {
         id: result.id,
@@ -150,4 +155,41 @@ export async function searchDocumentChunks(userId: string, query: string, limit:
         },
       };
     });
+}
+
+function parseEmbedding(value: string, expectedDimension: number): number[] | null {
+  try {
+    const vector = JSON.parse(value);
+    return Array.isArray(vector) && vector.length === expectedDimension && vector.every((item) => typeof item === "number" && Number.isFinite(item)) ? vector : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hybrid mode is opt-in and all-or-nothing for one user corpus.
+ * 任何 chunk 缺少当前模型向量、Ollama 失败或向量损坏时都确定性回退到 TF-IDF，避免部分语料被静默忽略。
+ */
+export async function retrieveWithAvailableStrategy(
+  query: string,
+  chunks: Chunk[],
+  embeddings: Array<{ model: string; dimension: number; vectorJson: string } | null>,
+  limit: number,
+  options: { enabled?: boolean; embedQuery?: (input: string) => Promise<number[]> } = {},
+) {
+  if (!(options.enabled ?? embeddingsEnabled()) || chunks.length !== embeddings.length) return retrieveChunks(query, chunks, limit);
+  const model = process.env.OLLAMA_EMBED_MODEL || DEFAULT_EMBEDDING_MODEL;
+  const embedded: EmbeddedChunk[] = chunks.flatMap((chunk, index) => {
+    const record = embeddings[index];
+    const vector = record?.model === model && record.dimension === EMBEDDING_DIMENSION
+      ? parseEmbedding(record.vectorJson, EMBEDDING_DIMENSION)
+      : null;
+    return vector ? [{ ...chunk, embedding: vector }] : [];
+  });
+  if (embedded.length !== chunks.length) return retrieveChunks(query, chunks, limit);
+  try {
+    return retrieveHybridChunks(query, await (options.embedQuery ?? embedText)(query), embedded, limit);
+  } catch {
+    return retrieveChunks(query, chunks, limit);
+  }
 }

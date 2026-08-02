@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { applyIncrementalApprovalPatch, IncrementalApprovalPatchSchema, type IncrementalApprovalPatch } from "@/lib/planner/incremental-approval";
 import { CandidateSolutionSchema, EvaluationResultSchema, type ApprovalDecision, type ReviewBudget } from "./contracts";
 import type { ReviewWorkflowResult } from "./review-service";
 
@@ -53,6 +54,7 @@ export function mapReviewWorkflow(record: {
   reviewJson: string | null; evaluationJson: string | null; failuresJson: string; budgetState: string;
   currentRound: number; maxRounds: number; approvalStatus: string; approvalDecision: string | null;
   approvalNote: string | null; decidedAt: Date | null; schemaVersion: number; createdAt: Date; updatedAt: Date;
+  approvalTaskPatchJson: string | null; approvalOriginalPlanSha256: string | null; approvalAmendedPlanSha256: string | null;
 }) {
   return {
     id: record.id,
@@ -71,6 +73,9 @@ export function mapReviewWorkflow(record: {
       decision: record.approvalDecision,
       note: record.approvalNote,
       decidedAt: record.decidedAt?.toISOString() ?? null,
+      taskPatch: parseJson(record.approvalTaskPatchJson),
+      originalPlanSha256: record.approvalOriginalPlanSha256,
+      amendedPlanSha256: record.approvalAmendedPlanSha256,
     },
     schemaVersion: record.schemaVersion,
     createdAt: record.createdAt.toISOString(),
@@ -107,18 +112,28 @@ function applyHumanDecision(evaluationJson: string | null, candidatesJson: strin
 }
 
 /** Records a high-impact human decision exactly once; identical retries are idempotent. */
-export async function decideReviewWorkflow(input: { id: string; userId: string; decision: ApprovalDecision; note?: string }) {
-  const record = await prisma.reviewWorkflow.findFirst({ where: { id: input.id, userId: input.userId } });
+export async function decideReviewWorkflow(input: { id: string; userId: string; decision: ApprovalDecision; note?: string; taskPatch?: IncrementalApprovalPatch }) {
+  if (input.decision === "reject" && input.taskPatch) throw new Error("APPROVAL_PATCH_REJECT_CONFLICT");
+  const record = await prisma.reviewWorkflow.findFirst({ where: { id: input.id, userId: input.userId }, include: { planningArtifact: { select: { executionPlan: true } } } });
   if (!record) throw new Error("REVIEW_NOT_FOUND");
   const note = input.note?.trim() || null;
+  const taskPatch = input.taskPatch ? IncrementalApprovalPatchSchema.parse(input.taskPatch) : null;
+  const normalizedPatch = taskPatch ? JSON.stringify(taskPatch) : null;
   if (record.approvalStatus !== "pending") {
-    if (record.approvalDecision === input.decision && record.approvalNote === note) return record;
+    if (record.approvalDecision === input.decision && record.approvalNote === note && record.approvalTaskPatchJson === normalizedPatch) return record;
     throw new Error("REVIEW_ALREADY_DECIDED");
   }
   const storedEvaluation = record.evaluationJson ? EvaluationResultSchema.parse(JSON.parse(record.evaluationJson)) : null;
   if ((record.status !== "needs_human" && record.status !== "partial") || storedEvaluation?.decision !== "needs_human") {
     throw new Error("REVIEW_NOT_AWAITING_HUMAN");
   }
+
+  const amended = taskPatch
+    ? (() => {
+        if (!record.planningArtifact.executionPlan) throw new Error("PLANNING_ARTIFACT_NOT_READY");
+        return applyIncrementalApprovalPatch(JSON.parse(record.planningArtifact.executionPlan), taskPatch);
+      })()
+    : null;
 
   const evaluation = applyHumanDecision(record.evaluationJson, record.candidatesJson, input.decision, note);
   const decidedAt = new Date();
@@ -130,6 +145,9 @@ export async function decideReviewWorkflow(input: { id: string; userId: string; 
       approvalStatus: input.decision === "reject" ? "rejected" : "approved",
       approvalDecision: input.decision,
       approvalNote: note,
+      approvalTaskPatchJson: normalizedPatch,
+      approvalOriginalPlanSha256: amended?.originalPlanSha256 ?? null,
+      approvalAmendedPlanSha256: amended?.amendedPlanSha256 ?? null,
       decidedAt,
     },
   });
