@@ -110,6 +110,6 @@ Code Review 仅对少量文本模式给出带行号的 Finding；Bug Diagnosis �
 
 **已实现：** GitHub Actions 的 `quality` job 执行密钥卫生检查、lint、类型检查、单元测试、`src/lib/**` 覆盖率（行/分支/函数各 `>=80%`）、RAG Golden Set 和 production build。`postgres-workflow-integration` job 使用临时 PostgreSQL 16 service，部署迁移后执行 Checkpoint 恢复与租约 fencing 集成测试。
 
-**已验证（本地，2026-08-02 最新完整门禁）：** 覆盖率门禁实测为行 `92.30%`、分支 `87.62%`、函数 `89.49%`；该范围不含前端、API route、脚本、E2E、Provider 或生产运行时。
+**已验证（本地，2026-08-03 最新完整门禁）：** 覆盖率门禁实测为行 `91.55%`、分支 `86.85%`、函数 `89.35%`；该范围不含前端、API route、脚本、E2E、Provider 或生产运行时。
 
 **待实测：** 当前提交的远程 GitHub Actions 成功回传，以及由代码托管平台实际设置为合并保护规则的状态。

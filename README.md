@@ -84,23 +84,24 @@ Markdown 文档按 H1–H6 标题路径和真实行号切块，检索结果带 c
 
 ## 可复现的质量证据
 
-### 当前可信基线（2026-08-01）
+### 当前可信基线（2026-08-03）
 
-- 当前状态以 2026-08-02 工作区代码和本轮聚焦验证为准；历史页面中的 2026-07-19、2026-08-01 结果仍仅代表各自日期的发布或门禁快照。
+- 当前状态以 2026-08-03 工作区代码和本轮聚焦验证为准；历史页面中的 2026-07-19、2026-08-01、2026-08-02 结果仍仅代表各自日期的发布或门禁快照。
 - `WORKFLOW_CHECKPOINT_BACKEND=postgres` 已可启用 `PostgresSaver`，SQLite 仍是默认本地后端；2026-08-01 已在 WSL 随机专用临时 PostgreSQL 库完成三条 migration、跨实例 crash recovery 和多进程租约 / Fencing Token 验收，且测试资源已清理。Docker/CI 仍是待补充的独立环境证据；这不构成生产负载、队列、exactly-once 或多地域验收。
 - **已实现**：默认 TF-IDF 检索；设置 `RAG_EMBEDDINGS_ENABLED=true` 后，上传会在文档主事务成功后尝试持久化 bge-m3 向量，只有语料向量同模型、同维度且完整时才使用 RRF 混合检索，否则确定性回退到 TF-IDF。
 - **已验证**：12 条确定性 fixture 的 Golden Gate 覆盖 clean `Recall@1`、shared-noise `Recall@5` 与 `NDCG@10`，当前均为 1.0。它验证 fixture 的 TF-IDF 回归，不是 bge-m3 或生产知识库的召回提升结论。
 - **待实测**：本地 Ollama/bge-m3 实际调用、既有文档向量回填、多来源人工标注 Golden Set 以及 RRF 参数比较。
 - 已完成 24 条真实 LongCat-2.0 的单 Agent / 完整多 Agent 对比：单 Agent 覆盖率 99.3%，完整多 Agent 覆盖率 86.2%。这是关键词 checklist 的探索性结果，存在模型波动，不能用于声称任一方案的质量提升。
-- 2026-08-02 本轮聚焦验证通过：`208/208` Unit、`npm run db:validate`、`npm run db:validate:postgres`、TypeScript、ESLint 和生产构建；本轮未运行完整 E2E、真实 Provider 或数据库持久化集成测试。此前 2026-08-01 的 `quality:all` 结果仍保留为历史全门禁快照，不与本轮结果混写。四臂消融实验的 480 条记录仍是无模型 preflight，实际外部支出为 `$0`，不是质量实验结论。授权模板生成器的 `pending` 文件也不是外部费用审批。
+- 2026-08-03 最新完整 `npm run quality:all` 已通过：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、51 份 Markdown 文档命名/本地链接校验和 Next.js Production Build；随后补跑 `npm run db:validate` 与 `npm run db:validate:postgres` 也通过。真实 Provider、目标环境数据库持久化集成测试和真实网站视觉验收仍未执行，不能混写为已完成。四臂消融实验的 480 条记录仍是无模型 preflight，实际外部支出为 `$0`，不是质量实验结论。授权模板生成器的 `pending` 文件也不是外部费用审批。
 
 最近一次 `npm run quality:all` 会串联以下门禁；数字以本文档收口后的最终复跑结果为准：
 
 ```text
-Unit tests                193 / 193 (2026-08-01 full gate)
-Core Playwright E2E        24 / 24
+Unit tests                211 / 211 (2026-08-03 full gate)
+Core Playwright E2E        25 / 25
 Session isolation E2E       1 / 1
-TypeScript / ESLint / Build passed
+Coverage (src/lib/**)      91.55 / 86.85 / 89.35
+TypeScript / ESLint / Build / Docs passed
 ```
 
 ```bash
@@ -129,7 +130,7 @@ npm run quality:all
 - 盲评工具链：12 个冻结案例、5 种变体、60 项运行计划；合成 dry-run 贯通 60 项运行和 2 名合成评分者，未调用模型。
 - 自动化验证：**193/193 Unit、24/24 Core E2E、1/1 Session Isolation E2E**；`src/lib/**` 覆盖率为行 `92.30%`、分支 `87.62%`、函数 `89.49%`；TypeScript、ESLint 与生产构建通过。核心与 Session E2E 使用并在结束后清理专用 `.next-e2e` 构建目录，避免 Playwright 的 `next dev` 产物污染后续类型检查。
 
-以上是当前工作区的离线工程门禁结果，不是公开在线服务、真实模型盲评或多 Agent 质量收益结论。
+以上是当前工作区在 2026-08-03 的离线工程门禁结果，不是公开在线服务、真实模型盲评或多 Agent 质量收益结论。
 
 ## 三分钟本地演示
 

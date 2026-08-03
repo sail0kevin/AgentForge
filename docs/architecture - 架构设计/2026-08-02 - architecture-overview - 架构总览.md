@@ -1,7 +1,7 @@
 # AgentForge 架构总览
 <!-- 文件名：2026-08-02 - architecture-overview - 架构总览 -->
 
-更新时间：2026-08-02（Asia/Shanghai）
+更新时间：2026-08-03（Asia/Shanghai）
 
 ## 文档定位
 
@@ -98,7 +98,7 @@ flowchart LR
 ```
 
 **已实现**：本地 `quality:all` 和 GitHub Actions CI 质量门控。
-**已验证**：当前记录的 `209/209` Unit、`25/25` Core E2E、`1/1` Session E2E、类型检查、ESLint、文档检查和生产构建。
+**已验证（2026-08-03 最新完整门禁）**：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、类型检查、ESLint、51 份 Markdown 文档检查、生产构建，以及 `src/lib/**` 覆盖率行 `91.55%` / 分支 `86.85%` / 函数 `89.35%`。
 **待实测**：Docker、远程 CI 回传、目标环境 PostgreSQL、生产负载、备份恢复和真实外部模型质量。
 
 ## 当前交付边界

@@ -740,7 +740,183 @@ test("产品工作流可从补充信息 Checkpoint 进入新规划轮次并继�
   expect(await approval.json()).toMatchObject({ workflow: { status: "completed", artifacts: { report: { version: 1 } } } });
 });
 
-test("统一模型工作流校验完整角色，并可从失败 Checkpoint 幂等恢复", async ({ request }) => {
+test("产品/UI 报告可导出单方案 JSON 交付包，并以逐项运行证据收敛验收状态", async ({ request, page }) => {
+  const marker = `product-ui-handoff-${unique()}`;
+  const create = await request.post("/api/workflows", {
+    data: {
+      requirement: `为运营团队建设 ${marker} 内容管理后台，需要角色权限、审核流程、操作审计、可访问性和分阶段交付。`,
+      mode: "baseline",
+    },
+  });
+  expect(create.status()).toBe(202);
+  const pending = await create.json() as {
+    workflow: { id: string; artifacts: { review: { id: string } | null } };
+  };
+  expect(pending.workflow.artifacts.review?.id).toBeTruthy();
+
+  const approval = await request.post(`/api/workflows/${pending.workflow.id}/resume`, {
+    data: { kind: "approval", decision: "hybrid", note: "权限和审计优先，其他能力按风险分批交付。" },
+  });
+  expect(approval.status()).toBe(200);
+
+  const groupId = `e2e-handoff-${unique()}`;
+  const generated = await request.post("/api/reports/product-ui", {
+    data: { reviewWorkflowId: pending.workflow.artifacts.review?.id, groupId },
+  });
+  expect(generated.status()).toBe(201);
+  const createdGroup = await generated.json() as {
+    group: {
+      id: string;
+      groupId: string;
+      status: string;
+      reports: Array<{
+        productUISpec: {
+          solutionId: string;
+          acceptanceMatrix: Array<{ id: string }>;
+        } | null;
+      }>;
+    };
+    prompts: Array<{ solutionId: string | undefined; prompt: string }>;
+  };
+  expect(createdGroup.group).toMatchObject({ groupId, status: "generated" });
+  const solutionIds = createdGroup.group.reports
+    .map((report) => report.productUISpec?.solutionId)
+    .filter((solutionId): solutionId is string => Boolean(solutionId));
+  const acceptanceMatrixBySolution = new Map(
+    createdGroup.group.reports.flatMap((report) => {
+      const spec = report.productUISpec;
+      return spec ? [[spec.solutionId, spec.acceptanceMatrix] as const] : [];
+    }),
+  );
+  expect(solutionIds).toHaveLength(3);
+  expect(createdGroup.prompts).toHaveLength(3);
+  expect(solutionIds.every((solutionId) => (acceptanceMatrixBySolution.get(solutionId)?.length ?? 0) > 0)).toBeTruthy();
+
+  await page.goto(`/reports?groupId=${encodeURIComponent(createdGroup.group.id)}`);
+  await expect(page.getByRole("heading", { name: "产品/UI 实施报告中心" })).toBeVisible();
+  // 报告中心必须把下游实现所需的页面蓝图和稳定验收 ID 直接呈现出来，不能只藏在导出文件中。
+  await expect(page.getByRole("heading", { name: "页面清单、实施蓝图与状态" })).toBeVisible();
+  await expect(page.getByText("实施蓝图", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "稳定验收映射" })).toBeVisible();
+  await expect(page.getByText("page-home-blueprint", { exact: true }).first()).toBeVisible();
+  const jsonDownload = page.getByRole("link", { name: "下载 JSON 交付包", description: "下载当前方案的 JSON 交付包" });
+  await expect(jsonDownload).toHaveAttribute("href", new RegExp(`/api/reports/product-ui/${createdGroup.group.id}/export\\?solutionId=${solutionIds[0]}&format=json`));
+  await expect(page.getByLabel("AI 执行报告 Markdown")).not.toContainText("正在加载或尚未生成完整报告。");
+
+  const saveButton = page.getByRole("button", { name: "保存验收结果" });
+  await expect(saveButton).toBeDisabled();
+  await page.getByLabel("实际启动命令").fill("npm run dev");
+  await page.getByLabel("实际访问地址").fill("http://127.0.0.1:3110/browser-preview");
+  await page.getByLabel("截图路径（每行一个）").fill("e2e-artifacts/browser-home.png\ne2e-artifacts/browser-mobile.png");
+  await page.getByLabel("测试与验收记录（每行一个）").fill("桌面端首页和导航检查通过。\n移动端布局无溢出。");
+  const acceptanceNote = "E2E UI fixture records an item that still needs a real downstream website verification.";
+  await page.getByPlaceholder("补充本次真实验收结论或需要修改的内容").fill(acceptanceNote);
+  // 通用运行信息完整时，默认的“未验证”验收项仍必须阻止通过。
+  await expect(saveButton).toBeDisabled();
+
+  const selectedSolutionId = solutionIds[0]!;
+  const initialAcceptanceId = acceptanceMatrixBySolution.get(selectedSolutionId)?.[0]?.id;
+  expect(initialAcceptanceId).toBeTruthy();
+  await page.getByRole("button", { name: "需修改" }).click();
+  await page.getByLabel(`${initialAcceptanceId!} 状态`).selectOption("not_verified");
+  await page.getByLabel(`${initialAcceptanceId!} 验收结论`).fill("下游网站尚未提供该项真实验收证据。 ");
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+
+  // UI 保存的只是 E2E 夹具中的未验证结论，明确应收敛为“需修改”，不是网站已验收。
+  const afterRevision = await request.get(`/api/reports/product-ui/${createdGroup.group.id}`);
+  expect(afterRevision.status()).toBe(200);
+  const revisedPayload = await afterRevision.json() as { group: { status: string } };
+  expect(revisedPayload.group.status).toBe("needs_revision");
+
+  const detail = await request.get(`/api/reports/product-ui/${createdGroup.group.id}`);
+  expect(detail.status()).toBe(200);
+  const detailPayload = await detail.json() as {
+    reports: Array<{ solutionId: string | undefined; aiExecutionReport: string; prompt: string }>;
+  };
+  expect(detailPayload.reports).toHaveLength(3);
+  expect(detailPayload.reports[0]).toMatchObject({ solutionId: solutionIds[0] });
+  expect(detailPayload.reports[0]?.aiExecutionReport.length).toBeGreaterThan(1_000);
+  expect(detailPayload.reports[0]?.prompt.length).toBeGreaterThan(1_000);
+
+  const revisionHandoff = await request.get(`/api/reports/product-ui/${createdGroup.group.id}/export?solutionId=${encodeURIComponent(selectedSolutionId)}&format=json`);
+  expect(revisionHandoff.status()).toBe(200);
+  const revisionPayload = await revisionHandoff.json() as {
+    handoffType: string;
+    selectedSolutionId: string | null;
+    handoffContract: { requiredArtifacts: string[]; runtimeEvidence: string[]; statusRules: string[] };
+    solutions: Array<{
+      solutionId: string;
+      aiExecutionReport: string;
+      report: { productUISpec: { traceability: unknown[] } };
+      runtimeAcceptance: { status: string; hasRuntimeEvidence: boolean; notVerifiedAcceptanceIds: string[] };
+    }>;
+  };
+  expect(revisionPayload).toMatchObject({
+    handoffType: "agentforge_product_ui",
+    selectedSolutionId,
+  });
+  expect(revisionPayload.handoffContract.requiredArtifacts.length).toBeGreaterThan(0);
+  expect(revisionPayload.handoffContract.runtimeEvidence.length).toBeGreaterThan(0);
+  expect(revisionPayload.handoffContract.statusRules.length).toBeGreaterThan(0);
+  expect(revisionPayload.solutions).toHaveLength(1);
+  expect(revisionPayload.solutions[0]).toMatchObject({
+    solutionId: selectedSolutionId,
+    runtimeAcceptance: { status: "needs_revision", hasRuntimeEvidence: true },
+  });
+  expect(revisionPayload.solutions[0]?.runtimeAcceptance.notVerifiedAcceptanceIds).toContain(initialAcceptanceId);
+  expect(revisionPayload.solutions[0]?.aiExecutionReport.length).toBeGreaterThan(1_000);
+  expect(revisionPayload.solutions[0]?.report.productUISpec.traceability.length).toBeGreaterThan(0);
+
+  // 仅验证契约持久化与状态收敛：以下路径是 E2E 夹具，不代表真实下游网站已完成验收。
+  for (const solutionId of solutionIds) {
+    const acceptanceResults = (acceptanceMatrixBySolution.get(solutionId) ?? []).map((item) => ({
+      acceptanceId: item.id,
+      status: "passed" as const,
+      note: `E2E contract fixture verified ${item.id}`,
+      evidencePaths: [`e2e-artifacts/${solutionId}/${item.id}.png`],
+    }));
+    const feedback = await request.patch(`/api/reports/product-ui/${createdGroup.group.id}`, {
+      data: {
+        solutionId,
+        outcome: "pass",
+        note: `E2E runtime evidence for ${solutionId}`,
+        runtimeEvidence: {
+          launchCommand: "npm run dev",
+          previewUrl: `http://127.0.0.1:3110/preview/${solutionId}`,
+          screenshotPaths: [`e2e-artifacts/${solutionId}.png`],
+          verificationNotes: ["E2E contract fixture; not a production website acceptance."],
+          acceptanceResults,
+        },
+      },
+    });
+    expect(feedback.status()).toBe(200);
+    const feedbackPayload = await feedback.json() as { group: { status: string } };
+    expect(feedbackPayload.group.status).toBe(solutionId === solutionIds.at(-1) ? "accepted" : "in_review");
+  }
+
+  const acceptedHandoff = await request.get(`/api/reports/product-ui/${createdGroup.group.id}/export?format=json`);
+  expect(acceptedHandoff.status()).toBe(200);
+  const acceptedPayload = await acceptedHandoff.json() as {
+    status: string;
+    solutions: Array<{
+      runtimeAcceptance: {
+        status: string;
+        hasRuntimeEvidence: boolean;
+        hasCompleteAcceptanceEvidence: boolean;
+        runtimeEvidence: { launchCommand: string } | null;
+      };
+    }>;
+  };
+  expect(acceptedPayload.status).toBe("accepted");
+  expect(acceptedPayload.solutions).toHaveLength(3);
+  expect(acceptedPayload.solutions.every((solution) => (
+    solution.runtimeAcceptance.status === "pass"
+    && solution.runtimeAcceptance.hasRuntimeEvidence
+    && solution.runtimeAcceptance.hasCompleteAcceptanceEvidence
+    && solution.runtimeAcceptance.runtimeEvidence?.launchCommand === "npm run dev"
+  ))).toBeTruthy();
+});test("统一模型工作流校验完整角色，并可从失败 Checkpoint 幂等恢复", async ({ request }) => {
   const invalidServer = await startInvalidPlannerServer();
   try {
     const marker = `model-workflow-${unique()}`;

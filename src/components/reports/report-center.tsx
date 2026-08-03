@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, FileText, GitBranch, Loader2, RefreshCw, Scale, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, FileJson, FileText, GitBranch, Loader2, RefreshCw, Scale, ShieldAlert, Sparkles } from "lucide-react";
 
 type Evidence = { id: string; repositoryName: string; repositoryUrl: string; commitOrTag: string; path: string; license: string; evidenceStatus?: string; reusePolicy: string; insight: string; repositoryVerification: "not_checked" | "verified"; pathVerification: "not_checked" | "verified"; licenseVerification: "not_checked" | "verified" };
 type ProductUISpec = {
@@ -12,7 +12,8 @@ type ProductUISpec = {
   productPositioning: string;
   targetUsers: string[];
   primaryScenarios: string[];
-  pages: Array<{ id: string; name: string; route: string; purpose: string; primaryAction: string; sections: string[]; requiredStates: string[]; components: string[]; implementationInstructions?: string[]; acceptanceCriteria: string[] }>;
+  pages: Array<{ id: string; name: string; route: string; purpose: string; primaryAction: string; sections: string[]; requiredStates: string[]; components: string[]; blueprint?: { layout: string; aboveFold: string[]; contentRules: string[]; interactionRules: string[] }; implementationInstructions?: string[]; acceptanceCriteria: string[] }>;
+  acceptanceMatrix?: Array<{ id: string; targetType: string; targetId: string; criterion: string; verificationMethod: string; expectedEvidence: string }>;
   userFlows: Array<{ id: string; name: string; goal: string; steps: string[]; failureRecovery: string }>;
   designDirection: { name: string; positioning: string; visualPrinciples: string[]; layoutStrategy: string; componentStrategy: string; avoid: string[]; tokens: Record<string, string> };
   components: Array<{ name: string; responsibility: string; variants: string[]; states: string[]; accessibility: string[] }>;
@@ -28,7 +29,19 @@ type ProductUISpec = {
   evidenceAuditStatus: "not_checked" | "partially_verified" | "fully_verified";
 };
 type ProductUIReport = { id: string; title: string; executiveSummary: string; productUISpec?: ProductUISpec };
-type RuntimeEvidence = { launchCommand: string; previewUrl: string; screenshotPaths: string[]; verificationNotes: string[] };
+type RuntimeEvidence = {
+  launchCommand: string;
+  previewUrl: string;
+  screenshotPaths: string[];
+  verificationNotes: string[];
+  acceptanceResults: Array<{ acceptanceId: string; status: "passed" | "failed" | "not_verified"; note: string; evidencePaths: string[] }>;
+};
+type AcceptanceResultDraft = {
+  acceptanceId: string;
+  status: "passed" | "failed" | "not_verified";
+  note: string;
+  evidencePathsText: string;
+};
 type Feedback = { solutionId: string; outcome: "pass" | "needs_revision"; note: string; runtimeEvidence: RuntimeEvidence | null; checkedAt: string };
 type ReportGroup = { id: string; groupId: string; reviewWorkflowId: string; requirement: string; status: string; feedback: Feedback[]; reports: ProductUIReport[]; comparison: Array<{ solutionId: string; strengths: string[]; tradeoffs: string[] }>; createdAt: string };
 type SourceRef = { sourceType: string; refId: string; label: string; locator: string | null; usedByClaimIds: string[] };
@@ -99,7 +112,8 @@ export function ReportCenter() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedSolutionId, setSelectedSolutionId] = useState<string | null>(null);
   const [selectedLegacyId, setSelectedLegacyId] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
+  const [aiExecutionReport, setAiExecutionReport] = useState("");
+  const [loadedReportKey, setLoadedReportKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReviewId, setSelectedReviewId] = useState("");
@@ -109,6 +123,8 @@ export function ReportCenter() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [screenshotPathsText, setScreenshotPathsText] = useState("");
   const [verificationNotesText, setVerificationNotesText] = useState("");
+  // 默认“未验证”，避免界面在没有真实检查时暗示任何验收项已经通过。
+  const [acceptanceResultDrafts, setAcceptanceResultDrafts] = useState<AcceptanceResultDraft[]>([]);
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,17 +166,60 @@ export function ReportCenter() {
   const effectiveSolutionId = selectedGroup?.reports.some((report) => report.productUISpec?.solutionId === selectedSolutionId) ? selectedSolutionId : selectedGroup?.reports[0]?.productUISpec?.solutionId ?? null;
   const selectedReport = useMemo(() => selectedGroup?.reports.find((report) => report.productUISpec?.solutionId === effectiveSolutionId) ?? selectedGroup?.reports[0] ?? null, [selectedGroup, effectiveSolutionId]);
   const selectedSpec = selectedReport?.productUISpec ?? null;
+  const selectedReportKey = selectedGroup && selectedSpec ? `${selectedGroup.id}:${selectedSpec.solutionId}` : null;
+  const visibleAiExecutionReport = loadedReportKey === selectedReportKey ? aiExecutionReport : "";
   const reportableReviews = reviews.filter((review) => review.approval.status !== "pending" && review.status !== "needs_human");
+  const acceptanceMatrix = selectedSpec?.acceptanceMatrix ?? [];
+  const acceptancePassReady = acceptanceMatrix.every((item) => {
+    const draft = acceptanceResultDrafts.find((result) => result.acceptanceId === item.id);
+    return draft?.status === "passed" && draft.note.trim().length >= 3 && evidenceLines(draft.evidencePathsText).length > 0;
+  });
+  const acceptanceRevisionReady = acceptanceMatrix.length === 0 || acceptanceResultDrafts.some((draft) => (
+    (draft.status === "failed" || draft.status === "not_verified") && draft.note.trim().length >= 3
+  ));
+  const feedbackReady = Boolean(
+    feedbackNote.trim()
+    && launchCommand.trim()
+    && previewUrl.trim()
+    && evidenceLines(screenshotPathsText).length > 0
+    && evidenceLines(verificationNotesText).length > 0
+    && (feedbackOutcome === "pass" ? acceptancePassReady : acceptanceRevisionReady)
+  );
 
+  useEffect(() => {
+    // 切换方案或保存反馈后异步同步草稿，避免 Effect 内同步 setState 触发级联渲染。
+    const timer = window.setTimeout(() => {
+      if (!selectedSpec) {
+        setAcceptanceResultDrafts([]);
+        return;
+      }
+      const previousResults = selectedGroup?.feedback.find((item) => item.solutionId === selectedSpec.solutionId)?.runtimeEvidence?.acceptanceResults ?? [];
+      const resultById = new Map(previousResults.map((item) => [item.acceptanceId, item]));
+      setAcceptanceResultDrafts((selectedSpec.acceptanceMatrix ?? []).map((item) => {
+        const previous = resultById.get(item.id);
+        return {
+          acceptanceId: item.id,
+          status: previous?.status ?? "not_verified",
+          note: previous?.note ?? "",
+          evidencePathsText: previous?.evidencePaths.join("\n") ?? "",
+        };
+      }));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [selectedGroup?.feedback, selectedSpec]);
   useEffect(() => {
     if (!selectedGroup || !selectedSpec) return;
     const controller = new AbortController();
+    const currentReportKey = `${selectedGroup.id}:${selectedSpec.solutionId}`;
     void fetch(`/api/reports/product-ui/${selectedGroup.id}`, { signal: controller.signal, cache: "no-store" }).then(async (response) => {
       if (!response.ok) throw new Error("方案详情加载失败。 ");
-      const data = await response.json() as { reports?: Array<{ solutionId: string; aiExecutionMarkdown: string }>; prompts?: Array<{ solutionId: string; prompt: string }> };
+      const data = await response.json() as { reports?: Array<{ solutionId: string; aiExecutionReport?: string; aiExecutionMarkdown?: string; prompt?: string }>; prompts?: Array<{ solutionId: string; prompt: string }> };
       const report = data.reports?.find((item) => item.solutionId === selectedSpec.solutionId);
-      const legacyPrompt = data.prompts?.find((item) => item.solutionId === selectedSpec.solutionId)?.prompt;
-      setPrompt(report?.aiExecutionMarkdown ?? legacyPrompt ?? "");
+      // 旧字段 prompt 仅作为兼容兜底，前台主交付物始终是完整 AI 执行报告。
+      const legacyPromptFallback = data.prompts?.find((item) => item.solutionId === selectedSpec.solutionId)?.prompt;
+      // aiExecutionReport 是当前主交付物；旧字段仅用于兼容历史 API 和已保存报告。
+      setAiExecutionReport(report?.aiExecutionReport ?? report?.aiExecutionMarkdown ?? report?.prompt ?? legacyPromptFallback ?? "");
+      setLoadedReportKey(currentReportKey);
     }).catch((requestError) => {
       if (!(requestError instanceof DOMException && requestError.name === "AbortError")) setError(requestError instanceof Error ? requestError.message : "方案详情加载失败。 ");
     });
@@ -180,34 +239,53 @@ export function ReportCenter() {
     } catch (generationError) { setError(generationError instanceof Error ? generationError.message : "产品/UI报告生成失败。 "); } finally { setGenerating(false); }
   }
 
+  function updateAcceptanceResultDraft(acceptanceId: string, patch: Partial<Omit<AcceptanceResultDraft, "acceptanceId">>) {
+    setAcceptanceResultDrafts((current) => current.map((draft) => draft.acceptanceId === acceptanceId ? { ...draft, ...patch } : draft));
+  }
+
   async function saveFeedback() {
+    const acceptanceResults = acceptanceResultDrafts
+      .filter((draft) => draft.status !== "not_verified" || draft.note.trim() || draft.evidencePathsText.trim())
+      .map((draft) => ({
+        acceptanceId: draft.acceptanceId,
+        status: draft.status,
+        note: draft.note.trim(),
+        evidencePaths: evidenceLines(draft.evidencePathsText),
+      }));
     const runtimeEvidence = {
       launchCommand: launchCommand.trim(),
       previewUrl: previewUrl.trim(),
       screenshotPaths: evidenceLines(screenshotPathsText),
       verificationNotes: evidenceLines(verificationNotesText),
+      acceptanceResults,
     };
+    // 已填写的逐项结果必须具备可读结论；通过项还必须附带可复核的证据路径。
+    const invalidAcceptanceResult = acceptanceResults.some((result) => result.note.length < 3 || (result.status === "passed" && result.evidencePaths.length === 0));
     if (!selectedGroup || !selectedSpec || !feedbackNote.trim() || !runtimeEvidence.launchCommand || !runtimeEvidence.previewUrl || runtimeEvidence.screenshotPaths.length === 0 || runtimeEvidence.verificationNotes.length === 0) {
-      setError("请填写完整的运行验收证据和具体结果。 ");
+      setError("请填写完整的运行验收证据和具体结果。");
+      return;
+    }
+    if (invalidAcceptanceResult || (feedbackOutcome === "pass" ? !acceptancePassReady : !acceptanceRevisionReady)) {
+      setError(feedbackOutcome === "pass" ? "只有所有稳定验收项都通过并附带证据后，才能标记为通过。" : "标记为需修改时，至少填写一项失败或未验证的实际结论。");
       return;
     }
     setSavingFeedback(true); setError(null);
     try {
       const response = await fetch(`/api/reports/product-ui/${selectedGroup.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ solutionId: selectedSpec.solutionId, outcome: feedbackOutcome, note: feedbackNote.trim(), runtimeEvidence }) });
       const data = await response.json() as { group?: ReportGroup; error?: { message?: string } };
-      if (!response.ok || !data.group) throw new Error(data.error?.message ?? "验收结果保存失败。 ");
+      if (!response.ok || !data.group) throw new Error(data.error?.message ?? "验收结果保存失败。");
       setGroups((current) => current.map((group) => group.id === data.group!.id ? data.group! : group));
       setFeedbackNote("");
       setLaunchCommand("");
       setPreviewUrl("");
       setScreenshotPathsText("");
       setVerificationNotesText("");
-    } catch (feedbackError) { setError(feedbackError instanceof Error ? feedbackError.message : "验收结果保存失败。 "); } finally { setSavingFeedback(false); }
+      setAcceptanceResultDrafts((selectedSpec.acceptanceMatrix ?? []).map((item) => ({ acceptanceId: item.id, status: "not_verified", note: "", evidencePathsText: "" })));
+    } catch (feedbackError) { setError(feedbackError instanceof Error ? feedbackError.message : "验收结果保存失败。"); } finally { setSavingFeedback(false); }
   }
-
   async function copyReport() {
-    if (!prompt) return;
-    await navigator.clipboard.writeText(prompt);
+    if (!visibleAiExecutionReport) return;
+    await navigator.clipboard.writeText(visibleAiExecutionReport);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
@@ -221,7 +299,7 @@ export function ReportCenter() {
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px]">
         <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div><div className="flex items-center gap-2 text-sm font-semibold text-indigo-600"><Sparkles className="h-4 w-4" />AgentForge</div><h1 className="mt-2 text-3xl font-bold tracking-tight">产品/UI 实施报告中心</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">把已评审需求整理成多套可比较、可导出、可交给下游 AI 编程 Agent 的完整实现规格；网站生成后，再回到这里记录真实验收结果。</p></div>
+          <div><div className="flex items-center gap-2 text-sm font-semibold text-indigo-600"><Sparkles className="h-4 w-4" />AgentForge</div><h1 className="mt-2 text-3xl font-bold tracking-tight">产品/UI 实施报告中心</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">把已评审需求整理成多套可比较、可导出、可交给下游 AI 编程 Agent 的完整实施报告；网站生成后，再回到这里记录真实验收结果。</p></div>
           <div className="flex items-center gap-2">
             <Link href="/workflows" className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"><GitBranch className="h-4 w-4" />返回工作流</Link>
             <button type="button" onClick={() => void load()} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50" title="刷新报告中心"><RefreshCw className="h-4 w-4" />刷新</button>
@@ -232,7 +310,7 @@ export function ReportCenter() {
           <section className="mb-5 grid gap-3 md:grid-cols-3" aria-label="交付边界">
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900"><FileText className="h-4 w-4" />已实现</div>
-              <p className="mt-2 text-xs leading-5 text-emerald-800">需求澄清、评审和三套产品/UI实施规格已生成，可复制 Prompt 或导出 Markdown。</p>
+              <p className="mt-2 text-xs leading-5 text-emerald-800">需求澄清、评审和三套产品/UI 实施报告已生成，可直接复制完整报告或导出 Markdown。</p>
             </div>
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-indigo-900"><GitBranch className="h-4 w-4" />目标设计</div>
@@ -267,15 +345,16 @@ export function ReportCenter() {
           </aside>
 
           <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
-            {!selectedGroup || !selectedSpec ? <div className="grid min-h-[650px] place-items-center p-10 text-center"><div><Sparkles className="mx-auto h-10 w-10 text-slate-300" /><h2 className="mt-4 text-lg font-bold">选择或生成一组产品/UI报告</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">报告中心会保存多套页面、组件、状态、设计 Token、证据和下游 Prompt，供实际生成和验收使用。</p></div></div> : <>
-              <div className="border-b border-slate-200 p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${groupStatusStyles[selectedGroup.status] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}>{groupStatusLabels[selectedGroup.status] ?? selectedGroup.status}</span><span className="text-xs text-slate-500">报告组 {selectedGroup.groupId}</span></div><h2 className="mt-3 text-2xl font-bold">{selectedSpec.productName}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{selectedSpec.productPositioning}</p></div><a className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700" href={`/api/reports/product-ui/${selectedGroup.id}/export`}><Download className="h-4 w-4" />导出整组 Markdown</a></div><div className="mt-5 flex flex-wrap gap-2">{selectedGroup.reports.map((report) => { const id = report.productUISpec?.solutionId ?? ""; return <button key={id} type="button" onClick={() => setSelectedSolutionId(id)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${id === selectedSpec.solutionId ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-indigo-300"}`}>{solutionLabels[report.productUISpec?.solutionType ?? ""] ?? report.productUISpec?.solutionType}</button>; })}</div></div>
+            {!selectedGroup || !selectedSpec ? <div className="grid min-h-[650px] place-items-center p-10 text-center"><div><Sparkles className="mx-auto h-10 w-10 text-slate-300" /><h2 className="mt-4 text-lg font-bold">选择或生成一组产品/UI报告</h2><p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">报告中心会保存多套页面、组件、状态、设计 Token、证据和 AI 执行报告，供实际生成和验收使用。</p></div></div> : <>
+              <div className="border-b border-slate-200 p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${groupStatusStyles[selectedGroup.status] ?? "border-slate-200 bg-slate-50 text-slate-600"}`}>{groupStatusLabels[selectedGroup.status] ?? selectedGroup.status}</span><span className="text-xs text-slate-500">报告组 {selectedGroup.groupId}</span></div><h2 className="mt-3 text-2xl font-bold">{selectedSpec.productName}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{selectedSpec.productPositioning}</p></div><div className="flex flex-wrap items-center gap-2"><a className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`} title="下载当前方案的 Markdown 报告"><Download className="h-4 w-4" />下载 Markdown 报告</a><a className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}&format=json`} title="下载当前方案的 JSON 交付包"><FileJson className="h-4 w-4" />下载 JSON 交付包</a></div></div><div className="mt-5 flex flex-wrap gap-2">{selectedGroup.reports.map((report) => { const id = report.productUISpec?.solutionId ?? ""; return <button key={id} type="button" onClick={() => setSelectedSolutionId(id)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${id === selectedSpec.solutionId ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-indigo-300"}`}>{solutionLabels[report.productUISpec?.solutionType ?? ""] ?? report.productUISpec?.solutionType}</button>; })}</div></div>
               <div className="space-y-0 p-5 sm:p-6">
                 <Section title="产品范围"><div className="grid gap-5 md:grid-cols-2"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">目标用户</p><List items={selectedSpec.targetUsers} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">主要场景</p><List items={selectedSpec.primaryScenarios} /></div></div></Section>
                 <Section title={`设计方向：${selectedSpec.designDirection.name}`}><p className="text-sm leading-6 text-slate-700">{selectedSpec.designDirection.positioning}</p><div className="mt-4 grid gap-5 md:grid-cols-2"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">视觉原则</p><List items={selectedSpec.designDirection.visualPrinciples} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">布局和组件策略</p><p className="text-sm leading-6 text-slate-700">{selectedSpec.designDirection.layoutStrategy}<br />{selectedSpec.designDirection.componentStrategy}</p></div></div><div className="mt-4 grid gap-2 sm:grid-cols-3">{Object.entries(selectedSpec.designDirection.tokens).map(([key, value]) => <div key={key} className="rounded-lg bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{key}</p><p className="mt-1 text-xs leading-5 text-slate-700">{value}</p></div>)}</div></Section>
-                <Section title="页面清单与状态"><div className="space-y-3">{selectedSpec.pages.map((page) => <article key={page.id} className="rounded-lg border border-slate-200 p-4"><div className="flex flex-wrap items-baseline justify-between gap-2"><h4 className="font-bold">{page.name}</h4><code className="text-xs text-indigo-600">{page.route}</code></div><p className="mt-2 text-sm leading-6 text-slate-600">{page.purpose}</p><p className="mt-2 text-xs text-slate-500">主操作：{page.primaryAction}</p><div className="mt-3 flex flex-wrap gap-2">{page.requiredStates.map((state) => <span key={state} className="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">{state}</span>)}</div><p className="mt-3 text-xs leading-5 text-slate-500">组件：{page.components.join("、")}</p></article>)}</div></Section>
+                <Section title="页面清单、实施蓝图与状态"><div className="space-y-3">{selectedSpec.pages.map((page) => <article key={page.id} className="rounded-lg border border-slate-200 p-4"><div className="flex flex-wrap items-baseline justify-between gap-2"><h4 className="font-bold">{page.name}</h4><code className="text-xs text-indigo-600">{page.route}</code></div><p className="mt-2 text-sm leading-6 text-slate-600">{page.purpose}</p><p className="mt-2 text-xs text-slate-500">主操作：{page.primaryAction}</p><div className="mt-3 flex flex-wrap gap-2">{page.requiredStates.map((state) => <span key={state} className="rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600">{state}</span>)}</div><p className="mt-3 text-xs leading-5 text-slate-500">组件：{page.components.join("、")}</p>{page.blueprint && <div className="mt-4 border-t border-slate-200 pt-4"><p className="text-xs font-semibold text-slate-700">实施蓝图</p><p className="mt-2 text-xs leading-5 text-slate-600">布局：{page.blueprint.layout}</p><div className="mt-3 grid gap-4 md:grid-cols-3"><div><p className="text-[11px] font-semibold text-slate-500">首屏</p><List items={page.blueprint.aboveFold} /></div><div><p className="text-[11px] font-semibold text-slate-500">内容规则</p><List items={page.blueprint.contentRules} /></div><div><p className="text-[11px] font-semibold text-slate-500">交互规则</p><List items={page.blueprint.interactionRules} /></div></div>{page.implementationInstructions && <div className="mt-3"><p className="text-[11px] font-semibold text-slate-500">页面实施要求</p><List items={page.implementationInstructions} /></div>}</div>}</article>)}</div></Section>
                 <Section title="用户流程与失败恢复"><div className="space-y-4">{selectedSpec.userFlows.map((flow) => <article key={flow.id}><h4 className="font-semibold">{flow.name}</h4><p className="mt-1 text-sm text-slate-600">{flow.goal}</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-slate-700">{flow.steps.map((step) => <li key={step}>{step}</li>)}</ol><p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">失败恢复：{flow.failureRecovery}</p></article>)}</div></Section>
                 <Section title="组件契约"><div className="grid gap-3 md:grid-cols-2">{selectedSpec.components.map((component) => <article key={component.name} className="rounded-lg border border-slate-200 p-4"><h4 className="font-semibold">{component.name}</h4><p className="mt-2 text-sm leading-6 text-slate-600">{component.responsibility}</p><p className="mt-2 text-xs leading-5 text-slate-500">变体：{component.variants.join("、")}<br />状态：{component.states.join("、")}</p><p className="mt-2 text-xs leading-5 text-slate-500">无障碍：{component.accessibility.join("；")}</p></article>)}</div></Section>
                 <Section title="响应式、交互与视觉验收"><div className="grid gap-5 md:grid-cols-3"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">响应式</p><List items={selectedSpec.responsiveRules} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">交互状态</p><List items={selectedSpec.interactionStates} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">验收标准</p><List items={selectedSpec.visualAcceptanceCriteria} /></div></div></Section>
+                {selectedSpec.acceptanceMatrix && selectedSpec.acceptanceMatrix.length > 0 && <Section title="稳定验收映射"><p className="mb-4 text-sm leading-6 text-slate-600">下游 AI 编程 Agent 必须在运行网站后按以下稳定 ID 回传实际结果、复现方式和真实证据路径。</p><div className="space-y-3">{selectedSpec.acceptanceMatrix.map((item) => <article key={item.id} className="border-b border-slate-200 pb-3 last:border-b-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><code className="text-xs font-semibold text-indigo-600">{item.id}</code><span className="text-[11px] text-slate-500">{item.targetType} · {item.targetId}</span></div><p className="mt-2 text-sm leading-6 text-slate-700">{item.criterion}</p><div className="mt-2 grid gap-2 text-xs leading-5 text-slate-500 md:grid-cols-2"><p>验证方式：{item.verificationMethod}</p><p>真实证据：{item.expectedEvidence}</p></div></article>)}</div></Section>}
                 <Section title="交付边界与来源映射"><div className="grid gap-5 md:grid-cols-2"><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">本方案包含</p><List items={selectedSpec.deliveryBoundary.included} /><p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">本方案不包含</p><List items={selectedSpec.deliveryBoundary.excluded} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">下游交接</p><p className="text-sm leading-6 text-slate-700">{selectedSpec.deliveryBoundary.handoff}</p><div className="mt-4 space-y-2">{selectedSpec.traceability.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-500">{item.area}</span><span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">{traceabilityStatusLabels[item.status] ?? item.status}</span></div><p className="mt-2 text-xs leading-5 text-slate-700">{item.statement}</p><p className="mt-1 text-[11px] leading-5 text-slate-500">来源：{item.sourceRefs.map((reference) => `${reference.sourceType}:${reference.refId}`).join("、")}</p></article>)}</div></div></div></Section>
                <Section title="GitHub/UI 参考证据">
                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
@@ -297,11 +376,41 @@ export function ReportCenter() {
 
           <aside className="space-y-5">
             {selectedGroup && selectedSpec && <>
-               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><Clipboard className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">AI 执行报告</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">当前完整报告就是交给 Claude、Codex、Cursor 等 AI 编程工具的实施输入，包含页面、视觉、交互、响应式、证据和验收标准。</p><button type="button" onClick={() => void copyReport()} disabled={!prompt} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" title="复制完整 AI 执行报告">{copied ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}{copied ? "已复制完整报告" : "复制完整 AI 执行报告"}</button><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><Download className="h-4 w-4" />下载 Markdown 报告</a></section>
+               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><Clipboard className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">AI 执行报告</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">当前完整报告就是交给 Claude、Codex、Cursor 等 AI 编程工具的实施输入，包含页面、视觉、交互、响应式、证据和验收标准。</p><button type="button" onClick={() => void copyReport()} disabled={!visibleAiExecutionReport} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" title="复制完整 AI 执行报告">{copied && visibleAiExecutionReport ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}{copied && visibleAiExecutionReport ? "已复制完整报告" : "复制完整 AI 执行报告"}</button><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><Download className="h-4 w-4" />下载 Markdown 报告</a><div className="mt-3 rounded-lg border border-slate-200 bg-slate-950 p-3"><p className="mb-2 text-[11px] font-semibold text-slate-200">Markdown 预览</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-slate-100" aria-label="AI 执行报告 Markdown">{visibleAiExecutionReport || "正在加载或尚未生成完整报告。"}</pre></div></section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-bold">方案取舍</h2><div className="mt-3 space-y-3">{selectedGroup.comparison.map((item) => <div key={item.solutionId} className={`rounded-lg p-3 ${item.solutionId === selectedSpec.solutionId ? "bg-indigo-50" : "bg-slate-50"}`}><p className="text-sm font-semibold">{solutionLabels[selectedGroup.reports.find((report) => report.productUISpec?.solutionId === item.solutionId)?.productUISpec?.solutionType ?? ""] ?? item.solutionId}</p><p className="mt-2 text-xs leading-5 text-emerald-800">优势：{item.strengths.join("；")}</p><p className="mt-1 text-xs leading-5 text-amber-800">取舍：{item.tradeoffs.join("；")}</p></div>)}</div></section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成后验收</h2></div>
                 <p className="mt-2 text-xs leading-5 text-slate-500">网站实际运行后，记录真实启动信息和验收证据。没有运行证据时不能标记通过。</p>
+                {acceptanceMatrix.length > 0 ? (
+                  <fieldset className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <legend className="px-1 text-xs font-bold text-slate-700">逐项稳定验收（{acceptanceMatrix.length} 项）</legend>
+                    {acceptanceMatrix.map((item) => {
+                      const draft = acceptanceResultDrafts.find((result) => result.acceptanceId === item.id) ?? { acceptanceId: item.id, status: "not_verified" as const, note: "", evidencePathsText: "" };
+                      return (
+                        <div key={item.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                          <code className="text-[11px] font-semibold text-indigo-700">{item.id}</code>
+                          <p className="mt-1 text-xs font-semibold leading-5 text-slate-800">{item.criterion}</p>
+                          <p className="mt-1 text-[11px] leading-5 text-slate-500">核验方式：{item.verificationMethod}</p>
+                          <label className="mt-2 block text-xs font-semibold text-slate-600">实际状态
+                            <select value={draft.status} onChange={(event) => updateAcceptanceResultDraft(item.id, { status: event.target.value as AcceptanceResultDraft["status"] })} aria-label={`${item.id} 状态`} className="mt-1 h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-indigo-500">
+                              <option value="not_verified">未验证</option>
+                              <option value="passed">通过</option>
+                              <option value="failed">失败</option>
+                            </select>
+                          </label>
+                          <label className="mt-2 block text-xs font-semibold text-slate-600">实际结论
+                            <textarea value={draft.note} onChange={(event) => updateAcceptanceResultDraft(item.id, { note: event.target.value })} aria-label={`${item.id} 验收结论`} className="mt-1 min-h-16 w-full rounded-lg border border-slate-300 p-2 text-xs outline-none focus:border-indigo-500" placeholder="记录真实检查结果，不要填写目标设计。" />
+                          </label>
+                          <label className="mt-2 block text-xs font-semibold text-slate-600">实际证据路径（每行一个）
+                            <textarea value={draft.evidencePathsText} onChange={(event) => updateAcceptanceResultDraft(item.id, { evidencePathsText: event.target.value })} aria-label={`${item.id} 证据路径`} className="mt-1 min-h-16 w-full rounded-lg border border-slate-300 p-2 text-xs outline-none focus:border-indigo-500" placeholder="artifacts/home-desktop.png" />
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </fieldset>
+                ) : (
+                  <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">这是历史报告，没有稳定验收矩阵；系统仅按兼容规则保存运行证据，不能据此证明新报告的逐项验收已经完成。</p>
+                )}
                 <div className="mt-3 flex gap-2">
                   <button type="button" onClick={() => setFeedbackOutcome("pass")} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${feedbackOutcome === "pass" ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-300 text-slate-600"}`}><CheckCircle2 className="mx-auto mb-1 h-4 w-4" />通过</button>
                   <button type="button" onClick={() => setFeedbackOutcome("needs_revision")} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold ${feedbackOutcome === "needs_revision" ? "border-red-500 bg-red-50 text-red-700" : "border-slate-300 text-slate-600"}`}><AlertTriangle className="mx-auto mb-1 h-4 w-4" />需修改</button>
@@ -313,7 +422,7 @@ artifacts/home-mobile.png" /></label>
                 <label className="mt-3 block text-xs font-semibold text-slate-600">测试与验收记录（每行一个）<textarea value={verificationNotesText} onChange={(event) => setVerificationNotesText(event.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-indigo-500" placeholder="Chrome 桌面端：首页和表单检查通过。
 移动端：布局无溢出。" /></label>
                 <textarea value={feedbackNote} onChange={(event) => setFeedbackNote(event.target.value)} className="mt-3 min-h-24 w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-indigo-500" placeholder="补充本次真实验收结论或需要修改的内容" />
-                <button type="button" disabled={savingFeedback || !feedbackNote.trim() || !launchCommand.trim() || !previewUrl.trim() || evidenceLines(screenshotPathsText).length === 0 || evidenceLines(verificationNotesText).length === 0} onClick={() => void saveFeedback()} className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{savingFeedback && <Loader2 className="h-4 w-4 animate-spin" />}保存验收结果</button>
+                <button type="button" disabled={savingFeedback || !feedbackReady} onClick={() => void saveFeedback()} className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{savingFeedback && <Loader2 className="h-4 w-4 animate-spin" />}保存验收结果</button>
                 {selectedGroup.feedback.length > 0 && <div className="mt-4 border-t border-slate-200 pt-3">{selectedGroup.feedback.map((item) => <div key={item.solutionId} className="mb-3 text-xs leading-5 text-slate-600"><span className="font-semibold">{item.outcome === "pass" ? "通过" : "需修改"}</span> · {item.note}{item.runtimeEvidence && <div className="mt-1 space-y-1 text-slate-500"><div>地址：{item.runtimeEvidence.previewUrl}</div><div>截图：{item.runtimeEvidence.screenshotPaths.length} 张 · 验收记录：{item.runtimeEvidence.verificationNotes.length} 条</div></div>}</div>)}</div>}
               </section>
             </>}

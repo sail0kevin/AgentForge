@@ -8,6 +8,7 @@ import {
   type ProductUIReportGroup,
   type ProductUIRuntimeEvidence,
 } from "./contracts";
+import { getProductUIAcceptanceProgress } from "./product-ui-acceptance";
 
 export type ProductUIReportGroupFeedback = ProductUIReportFeedback;
 
@@ -15,13 +16,18 @@ export type ProductUIReportGroupFeedback = ProductUIReportFeedback;
 export function deriveProductUIReportGroupStatus(
   feedback: ProductUIReportGroupFeedback[],
   solutionIds: string[],
+  requiredAcceptanceIdsBySolution: Record<string, string[]> = {},
 ): "generated" | "in_review" | "accepted" | "needs_revision" {
-  if (feedback.some((item) => item.outcome === "needs_revision")) return "needs_revision";
-  // 只有每套方案均包含结构化运行证据且通过，才能标记为已验收。
+  if (feedback.some((item) => (
+    item.outcome === "needs_revision"
+    || getProductUIAcceptanceProgress(item.runtimeEvidence, requiredAcceptanceIdsBySolution[item.solutionId] ?? []).failedAcceptanceIds.length > 0
+  ))) return "needs_revision";
+  // 新报告还要求每个稳定验收 ID 都已通过且附有真实证据；旧报告保留原有兼容语义。
   if (solutionIds.length > 0 && solutionIds.every((solutionId) => feedback.some((item) => (
     item.solutionId === solutionId
     && item.outcome === "pass"
     && item.runtimeEvidence
+    && getProductUIAcceptanceProgress(item.runtimeEvidence, requiredAcceptanceIdsBySolution[solutionId] ?? []).hasCompleteAcceptanceEvidence
   )))) return "accepted";
   return feedback.length > 0 ? "in_review" : "generated";
 }
@@ -121,6 +127,15 @@ export async function updateProductUIReportFeedback(input: {
   });
   const solutionIds = group.reports.map((report) => report.productUISpec?.solutionId).filter((solutionId): solutionId is string => Boolean(solutionId));
   if (!solutionIds.includes(input.solutionId)) throw new Error("PRODUCT_UI_SOLUTION_NOT_FOUND");
+  const requiredAcceptanceIdsBySolution = Object.fromEntries(group.reports.flatMap((report) => {
+    const solutionId = report.productUISpec?.solutionId;
+    return solutionId ? [[solutionId, report.productUISpec?.acceptanceMatrix?.map((item) => item.id) ?? []]] : [];
+  }));
+  const requiredAcceptanceIds = requiredAcceptanceIdsBySolution[input.solutionId] ?? [];
+  const invalidAcceptanceIds = runtimeEvidence.acceptanceResults
+    .map((item) => item.acceptanceId)
+    .filter((acceptanceId) => !requiredAcceptanceIds.includes(acceptanceId));
+  if (invalidAcceptanceIds.length > 0) throw new Error("PRODUCT_UI_ACCEPTANCE_RESULT_INVALID");
   const nextFeedback = [...feedback.filter((item) => item.solutionId !== input.solutionId), {
     solutionId: input.solutionId,
     outcome: input.outcome,
@@ -128,7 +143,7 @@ export async function updateProductUIReportFeedback(input: {
     runtimeEvidence,
     checkedAt: new Date().toISOString(),
   }];
-  const nextStatus = deriveProductUIReportGroupStatus(nextFeedback, solutionIds);
+  const nextStatus = deriveProductUIReportGroupStatus(nextFeedback, solutionIds, requiredAcceptanceIdsBySolution);
   const updated = await prisma.productUIReportGroup.update({
     where: { id: existing.id },
     data: { feedbackJson: JSON.stringify(nextFeedback), status: nextStatus },

@@ -1,7 +1,7 @@
 # AgentForge 当前开发状态
 <!-- 文件名：2026-08-01 - current-development-status - 当前开发状态 -->
 
-更新时间：2026-08-02（Asia/Shanghai）
+更新时间：2026-08-03（Asia/Shanghai）
 
 ## 当前目标
 
@@ -9,17 +9,19 @@
 
 当前里程碑是“从需求到可恢复、可审计产品/UI报告组”的 Web MVP：认证用户可以在独立工作流页创建 baseline 或 model 任务，得到需求分析、补充问题、执行计划和动态目录，让计划授权的只读工具检索当前账号的版本化文档，生成独立 delivery/quality 候选、结构化 Finding 和 Evaluator 结果；缺失信息或高影响冲突会使用持久 Checkpoint 暂停，提交补充信息或人工裁决后从同一 thread 恢复；Reporter 随后生成并持久化三套产品/UI实施报告，报告中心支持查看、导出、复制下游 Prompt，并在网站真实运行后记录每套方案的通过或需修改结果。真实外部模型质量盲评和真实网站生成仍未完成；固定 SHA 只保证参考快照可复现，不代表许可证已经完成复用审计，也不代表下游网站已经通过验收。
 
-## 产品/UI实施报告链路（2026-08-02）
+## 产品/UI实施报告链路（2026-08-03）
 
 - **已实现**：从已完成的评审工作流生成三套方案，分别表达体验、视觉和工程取舍；每套包含页面与路由、区块、状态、流程、失败恢复、设计方向、Design Token、组件、响应式规则、无障碍要求和视觉验收标准。
 - **已实现**：`ProductUIReportGroup` 持久化、用户隔离、`groupId` 幂等、报告组状态、单套/整组 Markdown 导出、机器可读 JSON handoff、下游 AI 编程 Prompt 和网站真实验收反馈回写。
+- **已实现**：报告中心为当前选中的方案提供唯一的“下载 JSON 交付包”入口，并展示完整 AI 执行报告 Markdown 预览；下游 AI 编程工具可直接消费同一份机器可读契约，不需要手工拼接 API 地址。
 - **已实现**：反馈状态按真实结果收敛为 `generated`、`in_review`、`accepted` 或 `needs_revision`；反馈只能绑定报告组中存在的 `solutionId`。
 - **已实现**：每套产品/UI规格新增交付边界和来源映射，具体记录需求目标、范围、计划任务、候选/评审意见、知识库与 GitHub/UI参考，并为每条结论标记 `implemented`、`target_design`、`verified` 或 `unverified`；默认 GitHub/UI 参考目录现在使用完整 commit SHA。
 - **已实现**：报告 Markdown 和下游 Prompt 会导出上述映射；报告中心可查看包含/不包含范围、下游交接说明和每条结论的来源，避免把目标设计误认为已上线网站。
 - **已实现**：导出状态声明已区分“完整 SHA 可复现”与“许可证复用审计、语义复核、真实网站验收”；固定版本不会被误写成完整来源审计。
 - **已实现**：生成后验收要求结构化保存实际启动命令、访问地址、截图路径和测试/验收记录；缺少任一运行证据时，即使填写“通过”，报告组也只能保持 `in_review`。旧的自由文本反馈仍可读取，但不会推进到 `accepted`。
 - **目标设计 / 未验证**：启动命令、访问地址、截图和验收记录必须来自下游真实运行环境；当前仓库只负责保存、展示和判定证据是否齐全，不宣称网站视觉、响应式或交互结果已经通过。
-- **已验证**：报告生成契约测试覆盖三套方案、唯一方案标识、完整 SHA 的 GitHub/UI 参考证据，以及混合未固定证据仍保持 `not_yet_verified` 的边界；2026-08-02 最新完整门禁通过 209/209 Unit、25/25 Core E2E、1/1 Session E2E、SQLite/PostgreSQL schema 校验、TypeScript、ESLint、文档命名/本地链接校验和生产构建。
+- **已验证**：报告生成契约测试覆盖三套方案、唯一方案标识、完整 SHA 的 GitHub/UI 参考证据，以及混合未固定证据仍保持 `not_yet_verified` 的边界；2026-08-03 完整 `quality:all` 已通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、51 份 Markdown 文档命名/本地链接校验和生产构建，随后 SQLite/PostgreSQL schema 校验也通过。
+- **已验证**：在该完整门禁之后新增的产品/UI报告 E2E 已通过聚焦 `1/1` 与核心套件 `26/26`，浏览器覆盖唯一 JSON 下载链接、完整报告加载、验收表单的必填约束和证据回显；接口覆盖单方案 JSON handoff、三方案运行证据回写和 `generated` → `in_review` → `accepted` 状态收敛。该测试使用隔离 SQLite 与预设运行证据夹具，不构成真实下游网站、视觉或用户验收。真实 Provider、目标环境数据库持久化和网站视觉验收仍需独立证据。
 - **目标设计**：下游 AI 编程 Agent 根据 Prompt 生成真实网站/UI，再将截图、交互和响应式结果提交回来验收；AgentForge 当前不声称自己已经生成网站。
 - **未验证**：GitHub 参考目录已固定默认 SHA，但许可证复用审计、语义内容复核、真实 Provider 质量、真实视觉验收和生产 PostgreSQL 备份恢复仍需独立运行。
 ## 已完成
@@ -82,7 +84,7 @@
 
 ## 核心验收命令
 
-## 当前可信基线（2026-08-01）
+## 当前可信基线（2026-08-03）
 
 > 本节是 V2 推进中的状态校正。文档中保留的 2026-07-19 验收结果是当时发布快照，不覆盖之后尚未提交的 V1 后续实现。
 
@@ -100,9 +102,9 @@ npm run quality:all
 
 该统一门禁依次执行固定检索夹具、仓库文档检索、盲评清单与运行计划校验、盲评合成端到端演练、单元测试、核心 E2E、Session 隔离 E2E、TypeScript、ESLint 和 Production Build。2026-08-01 最近一次完整运行退出码为 `0`：157/157 Unit、24/24 Core E2E、1/1 Session E2E，类型检查、ESLint 和 Production Build 均通过；仓库文档检索仍为固定 6-case 冒烟验证，不能替代真实语义质量评测。该次修复了 E2E `next dev` 生成的临时 `.next/dev/types` 污染后续类型检查的问题：E2E 现在使用并在结束后清理专用 `.next-e2e` 构建目录，完整门禁已按该顺序复验。
 
-## 2026-08-02 最新完整门禁补充
+## 2026-08-03 最新完整门禁补充
 
-- `npm run quality:all` 最新完整运行退出码为 `0`：`209/209` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、50 份 Markdown 文档命名/本地链接校验和 Next.js Production Build 均通过。
+- `npm run quality:all` 于 2026-08-03 完整运行退出码为 `0`：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、`src/lib/**` 覆盖率行 `91.55%` / 分支 `86.85%` / 函数 `89.35%`、TypeScript、ESLint、51 份 Markdown 文档命名/本地链接校验和 Next.js Production Build 均通过。该完整门禁早于本轮新增的产品/UI报告 E2E；新增用例已单独通过聚焦 `1/1`、核心 E2E `26/26` 与 TypeScript，尚未重新执行整套 `quality:all`。
 - Session 隔离 E2E 已适配当前首页默认进入“交付台”的流程，并验证进入“Agent 配置与调试”、能力库访问和登出后返回“登录 AgentForge”。
 - 仓库文档检索仍是固定 6-case 冒烟验证；真实 Provider 消融实验、人工 RAG Golden Set、目标环境 PostgreSQL/Docker/远程 CI、生产负载和下游网站视觉验收仍未完成。
 
@@ -136,7 +138,7 @@ npm run quality:all
 - RAG 已包含 TF-IDF、bge-m3 Embedding 与 RRF 融合；Golden Set v0 和仓库文档冒烟评测仅是离线回归保护，尚不足以代表通用检索或真实生产语料质量。
 - Review当前只有3类确定性流程契约样例；盲评工具链和协议已具备，但尚未完成单 Agent、双 Agent、双 Agent + RAG、交叉评审和人工裁决的真实模型盲评，因此不能宣称报告语义质量已经提升。
 - 盲评基础设施已完成冻结清单、预算、最低案例/评分者门槛、评分包需求上下文与身份泄露偏差的协议门禁加固；当前仍只能用于合成工具链演练，尚未有真实模型输出和至少两名独立评分者的结果，因此不能作质量比较结论。
-- 当前正式报告导出只有Markdown；PDF/DOCX尚未决定是否纳入交付范围。
+- 当前正式报告已支持单套/整组 Markdown 导出和机器可读 JSON 交付包；PDF/DOCX 尚未决定是否纳入交付范围。
 - 对话、报告和工作流已经分为独立页面；Checkpoint 默认使用本地 SQLite，也可切换 PostgreSQL。跨实例恢复集成测试、租约与 Fencing Token 已实现，并已在 WSL 专用随机临时 PostgreSQL 库完成恢复及多进程验收；Docker Compose 和当前提交对应的远程 CI 回传仍待补充。
 - 受控 Tool API和工作流适配器已完成，但模型供应商原生 function/tool calling 和面向任意专业任务的自动调度仍未接入。
 - 0.1正式交付范围为Web MVP；Electron壳仅为实验入口，尚未完成数据目录、安装后migration、端口、签名和干净机器验收，不得描述为已交付桌面版。
@@ -156,7 +158,7 @@ npm run quality:all
 5. ReportArtifact持久化、动态报告、来源追踪、版本、幂等、Markdown导出和报告中心已完成。
 6. Phase 7已完成：前端结构、Workspace创建契约、全量质量检查和Web/Electron交付边界已收口。
 7. 当前 V2 主线等待负责人授权后收集冻结四臂消融实验的真实模型输出并进行配对统计；P0-2 已完成 WSL 专用临时库验收，后续补充 Docker/CI 环境证据。任何外部模型调用均需负责人显式确认预算。
-## 2026-08-02 最新完整质量门禁
+## 2026-08-03 最新完整质量门禁
 
 ### 已实现
 
@@ -167,7 +169,7 @@ npm run quality:all
 
 - 本机 `npm run quality:all` 已成功退出，未调用 Provider、未产生外部费用。
 - 历史完整门禁（2026-08-01）：单元测试 `193/193`；`src/lib/**` 覆盖率：行 `92.30%`、分支 `87.62%`、函数 `89.49%`。历史聚焦验证（2026-08-02）：`208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和生产构建通过；当时未把结果写成完整 E2E 或 `quality:all`。
-- 最新完整门禁（2026-08-02）：`209/209` Unit、核心 E2E `25/25`、Session 隔离 E2E `1/1` 通过；TypeScript、ESLint、50 份 Markdown 的命名/本地链接校验和 Next.js 生产构建通过。
+- 最近一次完整门禁（2026-08-03）：本机 `npm run quality:all` 全部通过；单元测试与覆盖率门禁、核心 E2E `25/25`、Session 隔离 E2E `1/1`、TypeScript、ESLint、51 份 Markdown 的命名/本地链接校验和 Next.js 生产构建均成功退出。本轮随后新增的产品/UI报告 E2E 单独通过核心套件 `26/26`，覆盖单方案 JSON handoff、三方案运行证据回写和报告组状态从 `generated` 经 `in_review` 收敛至 `accepted`。该用例使用隔离 SQLite 与预设证据夹具，证明的是产品链路回归，不代表已经生成或验收真实下游网站。
 
 ### 2026-08-02 P0-1 最新无费用证据
 

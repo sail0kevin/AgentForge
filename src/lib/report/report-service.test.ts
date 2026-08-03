@@ -133,12 +133,13 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.ok(group.reports.every((report) => report.productUISpec?.evidence.length === DEFAULT_GITHUB_UI_EVIDENCE.length));
   assert.ok(DEFAULT_GITHUB_UI_EVIDENCE.every(hasPinnedGitHubCommit));
   assert.ok(group.reports.every((report) => report.productUISpec?.evidenceStatus === "sha_pinned"));
-  assert.ok(group.reports.every((report) => report.productUISpec?.evidenceAuditStatus === "not_checked"));
+  assert.deepEqual(DEFAULT_GITHUB_UI_EVIDENCE.map((item) => item.path), ["README.md / apps/v4/registry / apps/v4/content/docs/registry", "packages/react", "components / docs"]);
+  assert.ok(group.reports.every((report) => report.productUISpec?.evidenceAuditStatus === "fully_verified"));
   assert.ok(new Set(group.reports.map((report) => report.productUISpec?.designDirection.name)).size === 3);
   assert.ok(group.reports.every((report) => (report.productUISpec?.deliveryBoundary.included.length ?? 0) > 0));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.area === "requirement")));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "target_design")));
-  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.filter((item) => item.area === "github").every((item) => item.status === "unverified")));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.filter((item) => item.area === "github").every((item) => item.status === "verified")));
 
   const report = group.reports[0];
   const markdown = renderProductUISpecMarkdown(report, { generatedAt: "2026-08-02T00:00:00.000Z" });
@@ -148,9 +149,9 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.match(markdown, /\/workspace/);
   assert.match(markdown, /GitHub/);
   assert.doesNotMatch(markdown, /main 分支版本尚未冻结 commit SHA/);
-  assert.match(markdown, /证据审计状态：not_checked/);
+  assert.match(markdown, /证据审计状态：fully_verified/);
   assert.match(markdown, /固定 SHA 只保证引用快照可复现/);
-  assert.match(markdown, /仓库核验：not_checked/);
+  assert.match(markdown, /仓库核验：verified/);
   assert.match(markdown, /交付边界与来源映射/);
   assert.match(markdown, /需求目标：/);
   assert.match(prompt, /loading/);
@@ -163,7 +164,7 @@ test("product/UI report group generates three distinct downstream-ready target d
   ];
   const mixedEvidenceGroup = createProductUIReportGroup(input, { evidence: mixedEvidence });
   assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.evidenceStatus === "not_yet_verified"));
-  assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.traceability.some((trace) => trace.area === "github" && trace.status === "unverified")));
+  assert.ok(mixedEvidenceGroup.reports.every((item) => item.productUISpec?.traceability.some((trace) => trace.area === "github" && trace.status === "verified")));
 
   const fullyVerifiedEvidence = DEFAULT_GITHUB_UI_EVIDENCE.map((item) => ({
     ...item,
@@ -183,21 +184,48 @@ test("product/UI feedback status requires runtime evidence before acceptance", a
     previewUrl: "http://localhost:3000",
     screenshotPaths: ["artifacts/home-desktop.png"],
     verificationNotes: ["Chrome 桌面端：首页、表单和移动端检查通过。"],
+    acceptanceResults: [],
   };
+  const requiredAcceptanceIdsBySolution = Object.fromEntries(solutionIds.map((solutionId) => [solutionId, ["page-home-structure", "responsive-global-layout"]]));
+  const completeAcceptanceResults = requiredAcceptanceIdsBySolution.experience.map((acceptanceId) => ({
+    acceptanceId,
+    status: "passed" as const,
+    note: `已检查 ${acceptanceId}`,
+    evidencePaths: [`artifacts/${acceptanceId}.png`],
+  }));
+  const completeRuntimeEvidence = { ...runtimeEvidence, acceptanceResults: completeAcceptanceResults };
+
   assert.equal(deriveProductUIReportGroupStatus([], solutionIds), "generated");
   assert.equal(deriveProductUIReportGroupStatus([
     { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence: null, checkedAt: "2026-08-02T00:00:00.000Z" },
   ], solutionIds), "in_review");
+  // 没有稳定验收矩阵的旧报告继续按运行证据兼容判断。
   assert.equal(deriveProductUIReportGroupStatus([
     { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
     { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
     { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
   ], solutionIds), "accepted");
+  // 新报告只有每套方案所有稳定 ID 都有通过状态和证据时才能 accepted。
   assert.equal(deriveProductUIReportGroupStatus([
-    { solutionId: "experience", outcome: "needs_revision", note: "移动端需要调整", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
-    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
-    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
-  ], solutionIds), "needs_revision");
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds, requiredAcceptanceIdsBySolution), "accepted");
+  assert.equal(deriveProductUIReportGroupStatus([
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds, requiredAcceptanceIdsBySolution), "in_review");
+  assert.equal(deriveProductUIReportGroupStatus([
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence: { ...completeRuntimeEvidence, acceptanceResults: [{ ...completeAcceptanceResults[0], status: "failed" as const }] }, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds, requiredAcceptanceIdsBySolution), "needs_revision");
+  assert.equal(deriveProductUIReportGroupStatus([
+    { solutionId: "experience", outcome: "pass", note: "页面已运行", runtimeEvidence: { ...completeRuntimeEvidence, acceptanceResults: [{ ...completeAcceptanceResults[0], status: "not_verified" as const }] }, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "visual", outcome: "pass", note: "视觉已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+    { solutionId: "engineering", outcome: "pass", note: "交互已验收", runtimeEvidence: completeRuntimeEvidence, checkedAt: "2026-08-02T00:00:00.000Z" },
+  ], solutionIds, requiredAcceptanceIdsBySolution), "in_review");
   const generatedGroup = createProductUIReportGroup(await fixture("Build a legacy-compatible product UI report group."));
   const legacyGroup = ProductUIReportGroupSchema.parse({
     ...generatedGroup,
@@ -205,14 +233,20 @@ test("product/UI feedback status requires runtime evidence before acceptance", a
   });
   assert.equal(legacyGroup.feedback[0]?.runtimeEvidence, null);
 });
-
 test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptance state", async () => {
   const group = createProductUIReportGroup(await fixture("Build a product workspace with three UI directions and downstream implementation handoff."));
+  const completeAcceptanceResults = (group.reports[0].productUISpec?.acceptanceMatrix ?? []).map((item) => ({
+    acceptanceId: item.id,
+    status: "passed" as const,
+    note: `Unit fixture verified ${item.id}`,
+    evidencePaths: [`artifacts/${item.id}.png`],
+  }));
   const runtimeEvidence = {
     launchCommand: "npm run dev",
     previewUrl: "http://localhost:3000",
     screenshotPaths: ["artifacts/home-desktop.png"],
     verificationNotes: ["桌面端和移动端页面已运行检查。"],
+    acceptanceResults: completeAcceptanceResults,
   };
   const withFeedback = ProductUIReportGroupSchema.parse({
     ...group,
@@ -230,6 +264,9 @@ test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptan
   assert.equal(bundle.handoffType, "agentforge_product_ui");
   assert.equal(bundle.solutions.length, 3);
   assert.ok(bundle.solutions.every((solution) => solution.report.productUISpec));
+  assert.ok(bundle.solutions.every((solution) => solution.aiExecutionReport.length > 0));
+  assert.ok(bundle.solutions.every((solution) => solution.aiExecutionReport === solution.aiExecutionMarkdown));
+  assert.ok(bundle.solutions.every((solution) => solution.aiExecutionReport === solution.markdown));
   assert.ok(bundle.solutions.every((solution) => solution.downstreamPrompt.includes("下游 AI 编程 Agent")));
   assert.equal(bundle.solutions[0].runtimeAcceptance.status, "pass");
   assert.equal(bundle.solutions[0].runtimeAcceptance.hasRuntimeEvidence, true);
@@ -249,6 +286,65 @@ test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptan
   assert.equal(selected.comparison.length, 1);
 });
 
+test("product/UI report is the primary executable handoff and exposes evidence boundaries", async () => {
+  const group = createProductUIReportGroup(await fixture("Build a product UI report that a downstream coding agent can implement and verify."));
+  const report = group.reports[0];
+  const spec = report.productUISpec;
+
+  assert.ok(spec);
+
+  const markdown = renderProductUISpecMarkdown(report, {
+    generatedAt: "2026-08-03T00:00:00.000Z",
+  });
+  const prompt = buildDownstreamAgentPrompt(report);
+
+  assert.ok(markdown.includes("## AI 执行契约"));
+  assert.ok(markdown.includes("## 页面清单"));
+  assert.ok(markdown.includes("实施要求："));
+  assert.ok(markdown.includes("## 交付边界与来源映射"));
+  assert.ok(markdown.includes("## 当前状态声明"));
+  assert.ok(markdown.includes("implemented"));
+  assert.ok(markdown.includes("page-home-structure"));
+  assert.ok(markdown.includes("blueprint"));
+  assert.ok(markdown.includes("target_design"));
+  assert.ok(markdown.includes("verified"));
+  assert.ok(markdown.includes("verified"));
+
+  assert.ok(spec.pages.every((page) =>
+    (page.implementationInstructions?.length ?? 0) > 0 ||
+    page.acceptanceCriteria.length > 0
+  ));
+  assert.ok(spec.pages.every((page) => {
+    const blueprint = page.blueprint;
+    return Boolean(
+      blueprint &&
+      blueprint.layout.length > 0 &&
+      blueprint.aboveFold.length > 0 &&
+      blueprint.contentRules.length > 0 &&
+      blueprint.interactionRules.length > 0
+    );
+  }));
+
+  const acceptanceMatrix = spec.acceptanceMatrix ?? [];
+  const acceptanceIds = new Set(acceptanceMatrix.map((item) => item.id));
+  assert.ok(acceptanceMatrix.length > 0);
+  assert.ok(spec.pages.every((page) => acceptanceIds.has(`page-${page.id}-structure`)));
+  assert.ok(spec.pages.every((page) => acceptanceIds.has(`page-${page.id}-blueprint`)));
+  for (const targetType of ["responsive", "accessibility", "evidence", "export", "runtime"] as const) {
+    assert.ok(acceptanceMatrix.some((item) => item.targetType === targetType));
+  }
+
+  assert.ok(prompt.includes("AI 执行契约"));
+  assert.ok(prompt.includes("只能填写真实值"));
+  assert.ok(prompt.includes("launchCommand"));
+  assert.ok(prompt.includes("verificationNotes"));
+  assert.ok(prompt.includes("page-home-structure"));
+  assert.ok(prompt.includes("\u771f\u5b9e\u8bc1\u636e"));
+  assert.ok(prompt.includes("## 产品定位"));
+  assert.ok(prompt.includes("## 页面清单"));
+  assert.ok(prompt.includes("## 交付边界与来源映射"));
+  assert.ok(prompt.includes(markdown.slice(markdown.indexOf("## 产品定位"))));
+});
 test("text-only pass feedback cannot be exported as runtime acceptance", async () => {
   const group = createProductUIReportGroup(await fixture("Build a report that must distinguish design intent from verified website output."));
   const legacyFeedbackGroup = ProductUIReportGroupSchema.parse({

@@ -1,7 +1,7 @@
 # AgentForge 简历项目描述
 <!-- 文件名：2026-08-02 - resume-project-description - 简历项目描述 -->
 
-更新时间：2026-08-02（Asia/Shanghai）
+更新时间：2026-08-03（Asia/Shanghai）
 
 > 本文档是简历和面试表达入口。当前事实以[当前开发状态](./2026-08-01 - current-development-status - 当前开发状态.md)和[V2证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md)为准。
 
@@ -80,8 +80,8 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 
 ## 面试中可以直接讲的真实结果
 
-- 历史完整门禁（2026-08-01）：`193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E；本轮聚焦验证（2026-08-02）为 `208/208` Unit，并通过 `db:validate`、`db:validate:postgres`、TypeScript、ESLint 和生产构建。
-- 当前 `src/lib/**` 覆盖率：行 `92.30%`、分支 `87.62%`、函数 `89.49%`。
+- 历史完整门禁（2026-08-01）：`193/193` Unit、`24/24` Core E2E、`1/1` Session Isolation E2E；当前最新完整门禁（2026-08-03）为 `211/211` Unit、`25/25` Core E2E、`1/1` Session Isolation E2E，并通过 `db:validate`、`db:validate:postgres`、TypeScript、ESLint、Markdown 文档校验和生产构建。
+- 当前 `src/lib/**` 覆盖率：行 `91.55%`、分支 `86.85%`、函数 `89.35%`。
 - PostgreSQL：WSL 专用随机临时数据库完成 migration、跨 Saver/Graph Checkpoint 恢复、多进程租约领取/续租/接管、Fencing Token 旧写入拒绝。
 - RAG：12 条确定性 Golden Set fixture 的 `Recall@1`、共享噪声 `Recall@5` 和 `NDCG@10` 回归门禁通过；这不是生产知识库召回率。
 - 消融实验：已完成 24 案例 × 5 重复 × 4 臂，共 480 条无模型 preflight；实际 Provider 调用为 0，实际外部支出为 `$0`。真实四臂质量结果尚未产生。
@@ -92,7 +92,7 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 | 类别 | 当前内容 |
 |---|---|
 | 已实现 | LangGraph 产品工作流、Planner 澄清、双候选、Reviewer、Evaluator、人工审批、增量审批、三套产品/UI报告组、持久化、Markdown 导出、下游 Prompt、验收反馈回写、SQLite/PostgreSQL Checkpoint 分支、租约/Fencing、RAG 检索链、OTel 导出边界、Code Review/Bug Diagnosis 场景图 |
-| 已验证 | 历史完整门禁、本轮 208/208 Unit、schema 校验、类型检查、ESLint、生产构建、报告契约与 Markdown 导出测试、WSL 专用 PostgreSQL 临时库恢复和租约验收、确定性 RAG fixture 回归、消融计划和授权预检 |
+| 已验证 | 历史完整门禁、当前 211/211 Unit + 25/25 Core E2E + 1/1 Session E2E、schema 校验、类型检查、ESLint、生产构建、报告契约与 Markdown 导出测试、WSL 专用 PostgreSQL 临时库恢复和租约验收、确定性 RAG fixture 回归、消融计划和授权预检 |
 | 待实测 | 真实四臂消融质量结果、人工标注多来源 Golden Set 的真实 Recall@5/MRR/NDCG、真实 Provider 的 Token/延迟/成本收益、GitHub 参考证据的 SHA/许可证复核、真实网站视觉验收、真实数据库持久化集成、Docker Compose、远程 CI、生产并发负载和用户试点反馈 |
 | 目标设计 | 后台任务队列、exactly-once 语义、多地域部署、生产级 NLI 语义验证、通用仓库 Code Review、自动修复、Electron 正式交付和 PDF/DOCX 导出 |
 
@@ -109,11 +109,11 @@ AgentForge 是一个基于 Next.js、LangGraph 和 Prisma 的 local-first Web MV
 1. 先讲产品问题：零散需求很难直接交给编程 Agent，单 Agent 输出容易遗漏约束，也缺少独立检查和恢复机制。
 2. 再讲交付链：Planner 澄清、多方案生成、评审、Evaluator、人工确认、三套产品/UI报告和下游 Prompt。
 3. 再讲工程难点：结构化 Artifact、证据绑定、Checkpoint、幂等、租约/Fencing 和用户隔离。
-4. 再讲质量方法：历史 193/193 全门禁、本轮 208/208 Unit、RAG fixture、四臂消融协议和真实结果边界。
+4. 再讲质量方法：历史 193/193 全门禁、当前 211/211 Unit 与 25/25 Core E2E、RAG fixture、四臂消融协议和真实结果边界。
 5. 最后主动讲限制：多 Agent 质量收益尚未被证明，真实模型实验、人工 RAG 集和生产环境验收仍在推进。
 
 ## 推荐简历最终表述
 
 **AgentForge｜需求到产品/UI实施报告平台**
 
-独立设计并实现基于 Next.js、LangGraph、Prisma 的 local-first 多智能体需求到产品/UI实施报告平台。将需求澄清、计划拆解、交付/质量双候选、证据化交叉评审、Evaluator、人工审批和三套产品/UI报告组织为可暂停、可恢复、可审计的状态图；报告包含页面、路由、状态、流程、设计方向、组件、无障碍和视觉验收标准，可导出 Markdown 并复制给下游 AI 编程 Agent。实现 ProductUIReportGroup 持久化、SQLite/PostgreSQL Checkpoint 切换、工作流租约与 Fencing Token、多用户/Session 隔离、TF-IDF + 可选 Embedding/RRF 检索、OTLP 可观测性边界及 Code Review/Bug Diagnosis 场景图；网站真实生成和 GitHub 证据复核明确作为下游/后续验收边界。本轮通过 `208/208` Unit、schema 校验、TypeScript、ESLint 和生产构建；历史完整门禁与真实模型质量结果分别按日期和证据边界说明。
+独立设计并实现基于 Next.js、LangGraph、Prisma 的 local-first 多智能体需求到产品/UI实施报告平台。将需求澄清、计划拆解、交付/质量双候选、证据化交叉评审、Evaluator、人工审批和三套产品/UI报告组织为可暂停、可恢复、可审计的状态图；报告包含页面、路由、状态、流程、设计方向、组件、无障碍和视觉验收标准，可导出 Markdown 并复制给下游 AI 编程 Agent。实现 ProductUIReportGroup 持久化、SQLite/PostgreSQL Checkpoint 切换、工作流租约与 Fencing Token、多用户/Session 隔离、TF-IDF + 可选 Embedding/RRF 检索、OTLP 可观测性边界及 Code Review/Bug Diagnosis 场景图；网站真实生成和 GitHub 证据复核明确作为下游/后续验收边界。当前通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、schema 校验、TypeScript、ESLint、Markdown 文档校验和生产构建；历史完整门禁与真实模型质量结果分别按日期和证据边界说明。

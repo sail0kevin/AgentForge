@@ -1,3 +1,4 @@
+import { getProductUIAcceptanceProgress } from "./product-ui-acceptance";
 import type {
   DevelopmentReport,
   ProductUIReportGroup,
@@ -6,7 +7,7 @@ import type {
   ProductUISpec,
 } from "./contracts";
 
-export const PRODUCT_UI_HANDOFF_SCHEMA_VERSION = 2 as const;
+export const PRODUCT_UI_HANDOFF_SCHEMA_VERSION = 3 as const;
 
 export type ProductUIHandoffContract = {
   requiredArtifacts: string[];
@@ -26,11 +27,13 @@ const PRODUCT_UI_HANDOFF_CONTRACT: ProductUIHandoffContract = {
     "launchCommand 必须是本次真实运行使用的命令",
     "previewUrl 必须指向本次运行的可访问地址",
     "screenshotPaths 必须指向实际生成的截图文件",
-    "verificationNotes 必须说明已检查的页面、流程、响应式和遗留问题",
+    "verificationNotes 必须说明已检查对象、遗留问题与复现方式，不能替代逐项验收结果",
+    "acceptanceResults 必须逐项回传验收矩阵稳定 ID、状态、结论和实际证据路径",
+    "只有 status=passed 的验收项且 evidencePaths 非空，才会计入完整验收证据",
   ],
   statusRules: [
     "pending 表示尚未完成真实运行验收，不能描述为网站已完成",
-    "pass 只有在存在完整运行证据并确认验收通过后才能使用",
+    "pass 只有在存在完整运行证据、每个稳定验收 ID 均为 passed 且每项都有证据路径后才能使用",
     "needs_revision 表示至少有一项验收不通过，必须保留问题说明",
   ],
 };
@@ -45,12 +48,21 @@ export type ProductUIHandoffSolution = {
     note: string | null;
     checkedAt: string | null;
     hasRuntimeEvidence: boolean;
+    requiredAcceptanceIds: string[];
+    passedAcceptanceIds: string[];
+    failedAcceptanceIds: string[];
+    notVerifiedAcceptanceIds: string[];
+    missingAcceptanceIds: string[];
+    hasCompleteAcceptanceEvidence: boolean;
     runtimeEvidence: ProductUIRuntimeEvidence | null;
   };
   handoffContract: ProductUIHandoffContract;
   report: DevelopmentReport;
   // 完整报告是主交付物，复制或下载它即可交给下游 AI 编程工具。
+  aiExecutionReport: string;
+  /** @deprecated 使用 aiExecutionReport；保留供旧消费者读取。 */
   aiExecutionMarkdown: string;
+  /** @deprecated 使用 aiExecutionReport；保留供旧消费者读取。 */
   markdown: string;
   /** @deprecated 兼容旧消费者；不再作为独立核心产物展示。 */
   downstreamPrompt: string;
@@ -93,6 +105,17 @@ function traceabilityMarkdown(spec: ProductUISpec) {
     `- **${item.area} / ${item.status}**：${item.statement}`,
     `  - 来源：${item.sourceRefs.map((reference) => `${reference.sourceType}:${reference.refId}`).join("、")}`,
   ].join("\n")).join("\n");
+}
+
+function acceptanceMatrixMarkdown(spec: ProductUISpec) {
+  if (!spec.acceptanceMatrix?.length) return "- 历史规格未包含验收矩阵。";
+  return spec.acceptanceMatrix.map((item) => [
+    `### ${item.id}`,
+    `对象：${item.targetType} / ${item.targetId}`,
+    `验收标准：${item.criterion}`,
+    `验证方式：${item.verificationMethod}`,
+    `预期证据：${item.expectedEvidence}`,
+  ].join("\n")).join("\n\n");
 }
 
 function executionContractMarkdown(spec: ProductUISpec) {
@@ -139,6 +162,15 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     `区块：${page.sections.join("、")}`,
     `组件：${page.components.join("、")}`,
     `状态：${page.requiredStates.join("、")}`,
+    page.blueprint ? "页面实施蓝图：\n" + [
+      `布局：${page.blueprint.layout}`,
+      "首屏必须出现：",
+      bulletList(page.blueprint.aboveFold),
+      "内容规则：",
+      bulletList(page.blueprint.contentRules),
+      "交互规则：",
+      bulletList(page.blueprint.interactionRules),
+    ].join("\n") : "",
     page.implementationInstructions?.length ? "实施要求：\n" + bulletList(page.implementationInstructions) : "",
     "验收：",
     bulletList(page.acceptanceCriteria),
@@ -157,6 +189,7 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     bulletList(flow.steps),
     `失败恢复：${flow.failureRecovery}`,
   ].join("\n")).join("\n\n");
+  const acceptanceMatrix = acceptanceMatrixMarkdown(spec);
   const tokens = spec.designDirection.tokens;
   return [
     `# ${spec.productName} · ${spec.designDirection.name}`,
@@ -231,6 +264,10 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "",
     bulletList(spec.visualAcceptanceCriteria),
     "",
+    "## 验收映射矩阵",
+    "",
+    acceptanceMatrix,
+    "",
     "## 交付边界与来源映射",
     "",
     "### 本方案包含",
@@ -259,23 +296,24 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
   ].join("\n");
 }
 
-export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
+export function buildDownstreamAgentPrompt(report: DevelopmentReport, aiExecutionReport?: string) {
   const spec = report.productUISpec;
   if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
-  const markdown = renderProductUISpecMarkdown(report);
+  // 兼容旧 Prompt 入口；传入已渲染报告时避免重复生成同一份 Markdown。
+  const markdown = aiExecutionReport ?? renderProductUISpecMarkdown(report);
   return [
     "你是负责把 AgentForge AI 可执行产品/UI实施报告落地为可运行网站的 AI 编程 Agent。",
     "下面的完整报告就是实施输入；请直接依据报告实现，不要把目标设计描述成已经存在的功能，也不要编造截图、性能数字、召回率或测试结果。",
     "",
     "交付要求：",
-    "1. 先实现页面路由、页面区块和主操作，再实现组件状态。",
+    "1. 先按每个页面的 blueprint 实现布局、首屏、内容和交互规则，再完成路由、页面区块和主操作。",
     "2. 覆盖 loading、empty、error、success、权限和移动端状态。",
     "3. 让键盘操作、焦点管理、错误描述和非颜色语义可以被验收。",
     "4. 运行网站后输出实际使用的启动命令、页面截图路径和未通过的验收项。",
     "5. 不得把 GitHub 参考仓库整页复制到产品中；复用前检查许可证和固定版本。",
     "6. 固定 SHA 只保证引用快照可复现；只有仓库、路径和许可证核验均为 verified 时，才能把来源审计标记为 fully_verified。",
     "7. 先阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
-    "8. 完成后必须回传真实交付证据；没有启动命令、预览地址和截图时，不得声称网站已经通过验收。",
+    "8. 完成后必须按验收矩阵稳定 ID 回传真实交付证据；acceptanceResults 必须逐项填写状态、结论和实际证据路径，未通过项必须包含复现方式。",
     "",
     "回传交付证据（只能填写真实值，不得使用臆造结果）：",
     "```json",
@@ -283,7 +321,13 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
       launchCommand: "<实际启动命令>",
       previewUrl: "<实际预览地址>",
       screenshotPaths: ["<实际截图路径>"],
-      verificationNotes: ["<逐项记录已通过和未通过的验收项>"],
+      verificationNotes: ["<本次运行范围、遗留问题与复现方式>"],
+      acceptanceResults: [{
+        acceptanceId: "<验收矩阵稳定 ID>",
+        status: "passed | failed | not_verified",
+        note: "<实际验收结论或复现方式>",
+        evidencePaths: ["<实际截图、测试报告或录像路径>"],
+      }],
     }, null, 2),
     "```",
     "",
@@ -302,15 +346,24 @@ function latestFeedback(feedback: ProductUIReportFeedback[], solutionId: string)
   return [...feedback].reverse().find((item) => item.solutionId === solutionId) ?? null;
 }
 
-function buildRuntimeAcceptance(feedback: ProductUIReportFeedback[], solutionId: string): ProductUIHandoffSolution["runtimeAcceptance"] {
-  const item = latestFeedback(feedback, solutionId);
-  // 只有文字反馈而没有启动命令、地址和截图时，不能把报告标成已通过。
-  const status = item?.outcome === "pass" && !item.runtimeEvidence ? "pending" : item?.outcome ?? "pending";
+function buildRuntimeAcceptance(
+  feedback: ProductUIReportFeedback[],
+  spec: ProductUISpec,
+): ProductUIHandoffSolution["runtimeAcceptance"] {
+  const item = latestFeedback(feedback, spec.solutionId);
+  const progress = getProductUIAcceptanceProgress(item?.runtimeEvidence, spec.acceptanceMatrix?.map((matrixItem) => matrixItem.id) ?? []);
+  // 通过状态必须同时具备运行证据和逐项可复核的验收结果，不能由自由文本推断。
+  const status = item?.outcome === "needs_revision" || progress.failedAcceptanceIds.length > 0
+    ? "needs_revision"
+    : item?.outcome === "pass" && item.runtimeEvidence && progress.hasCompleteAcceptanceEvidence
+      ? "pass"
+      : "pending";
   return {
     status,
     note: item?.note ?? null,
     checkedAt: item?.checkedAt ?? null,
     hasRuntimeEvidence: Boolean(item?.runtimeEvidence),
+    ...progress,
     runtimeEvidence: item?.runtimeEvidence ?? null,
   };
 }
@@ -341,17 +394,19 @@ export function buildProductUIHandoffBundle(
     solutions: reports.map((report) => {
       const spec = report.productUISpec;
       if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
+      const aiExecutionReport = renderProductUISpecMarkdown(report, metadata);
       return {
         solutionId: spec.solutionId,
         solutionType: spec.solutionType,
         evidenceStatus: spec.evidenceStatus,
         evidenceAuditStatus: spec.evidenceAuditStatus,
-        runtimeAcceptance: buildRuntimeAcceptance(group.feedback, spec.solutionId),
+        runtimeAcceptance: buildRuntimeAcceptance(group.feedback, spec),
         handoffContract: PRODUCT_UI_HANDOFF_CONTRACT,
         report,
-        aiExecutionMarkdown: renderProductUISpecMarkdown(report, metadata),
-        markdown: renderProductUISpecMarkdown(report, metadata),
-        downstreamPrompt: buildDownstreamAgentPrompt(report),
+        aiExecutionReport,
+        aiExecutionMarkdown: aiExecutionReport,
+        markdown: aiExecutionReport,
+        downstreamPrompt: buildDownstreamAgentPrompt(report, aiExecutionReport),
       };
     }),
   };

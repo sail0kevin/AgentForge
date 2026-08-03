@@ -65,7 +65,7 @@ ollama serve
 npm run quality:all
 ```
 
-2026-08-02 当前工作区的聚焦验证为 `208/208` Unit；SQLite/PostgreSQL schema 校验、TypeScript、ESLint 和 Production Build 通过。历史完整门禁和本轮聚焦门禁按日期分别记录，不把单次聚焦验证写成全部质量结论。
+2026-08-03 当前工作区的最新完整门禁为 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E；SQLite/PostgreSQL schema 校验、TypeScript、ESLint、51 份 Markdown 文档校验和 Production Build 也已通过。历史完整门禁和当前门禁按日期分别记录，不把离线工程门禁写成真实 Provider 或真实网站验收结论。
 
 ### 项目真实文档检索
 

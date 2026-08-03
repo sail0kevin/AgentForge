@@ -9,8 +9,8 @@
 
 - 2026-07-19：历史收口结果，完整 `npm run quality:all` 通过；单元测试 `72/72`，核心 SQLite E2E `24/24`，Session 隔离 E2E `1/1`。
 - 2026-08-01：历史完整门禁结果，单元测试 `193/193`，覆盖率和核心 E2E 结果见当前开发状态文档。
-- 2026-08-02：本轮聚焦验证通过 `208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和 Next.js Production Build；本轮未将结果冒充完整 E2E、真实 Provider 运行或 `quality:all`。
-- 2026-08-02：最新完整 `npm run quality:all` 退出码为 `0`，通过 `209/209` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、50 份 Markdown 命名/本地链接校验和 Next.js Production Build；仓库检索仍是固定 6-case 冒烟验证。
+- 2026-08-02：历史聚焦验证通过 `208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和 Next.js Production Build；当时未将结果冒充完整 E2E、真实 Provider 运行或 `quality:all`。
+- 2026-08-03：最新完整 `npm run quality:all` 退出码为 `0`，通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、`src/lib/**` 覆盖率行 `91.55%` / 分支 `86.85%` / 函数 `89.35%`、TypeScript、ESLint、51 份 Markdown 命名/本地链接校验和 Next.js Production Build；仓库检索仍是固定 6-case 冒烟验证。
 
 上述时间线只记录已经执行的命令和结果。真实模型质量、人工 RAG Golden Set、目标环境 PostgreSQL 持久化、Docker/远程 CI、真实网站视觉验收和生产负载仍需独立证据。
 
@@ -71,7 +71,7 @@
 npm run quality:all
 ```
 
-2026-07-19 的 `72/72` Unit、`24/24` Core E2E、`1/1` Session E2E 是历史发布快照；2026-08-01 的 `193/193` Unit、`24/24` Core E2E、`1/1` Session E2E 是历史完整门禁快照。2026-08-02 的 `208/208` Unit 是历史聚焦验证快照；同日最新完整 `quality:all` 为 `209/209` Unit、`25/25` Core E2E、`1/1` Session E2E，并通过 TypeScript、ESLint、50 份 Markdown 命名/本地链接校验和生产构建。完整边界见 [V2 证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md) 与 [内部试点交付计划](./2026-08-02 - internal-pilot-delivery-plan - 内部试点交付计划.md)；盲评 dry-run 只验证工具链，不是实际模型质量实验。
+2026-07-19 的 `72/72` Unit、`24/24` Core E2E、`1/1` Session E2E 是历史发布快照；2026-08-01 的 `193/193` Unit、`24/24` Core E2E、`1/1` Session E2E 是历史完整门禁快照。2026-08-02 的 `208/208` Unit 是历史聚焦验证快照；2026-08-03 最新完整 `quality:all` 为 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E，并通过 `src/lib/**` 覆盖率行 `91.55%` / 分支 `86.85%` / 函数 `89.35%`、TypeScript、ESLint、51 份 Markdown 命名/本地链接校验和生产构建。完整边界见 [V2 证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md) 与 [内部试点交付计划](./2026-08-02 - internal-pilot-delivery-plan - 内部试点交付计划.md)；盲评 dry-run 只验证工具链，不是实际模型质量实验。
 
 ## 简历入口
 

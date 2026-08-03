@@ -99,6 +99,6 @@ npm run quality:all
 
 2026-08-01 历史完整门禁证据：单元测试 193/193，覆盖率与核心 E2E 结果见当前开发状态文档。
 
-本轮证据：2026-08-02 聚焦验证通过 `208/208` Unit、`npm run db:validate`、`npm run db:validate:postgres`、TypeScript、ESLint 和 Next.js Production Build；本轮没有把完整 E2E、真实 Provider、目标环境数据库持久化或真实网站视觉验收写成已通过。完整实验和失败记录见[工程整改与开发总报告](../remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md)。
+当前证据：2026-08-03 最新完整 `quality:all` 通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、51 份 Markdown 文档校验、Next.js Production Build 和 `src/lib/**` 覆盖率行 `91.55%` / 分支 `86.85%` / 函数 `89.35%`；随后 `npm run db:validate` 与 `npm run db:validate:postgres` 也通过。当前没有把真实 Provider、目标环境数据库持久化或真实网站视觉验收写成已通过。完整实验和失败记录见[工程整改与开发总报告](../remediation - 工程整改实施/2026-07-19 - final-report - 工程整改与开发总报告.md)。
 
 当前事实见[开发状态](../2026-08-01 - current-development-status - 当前开发状态.md)，正式目标见[设计文档](../design - 产品设计方案/旧 - design-index - 设计文档总入口.md)，实施顺序见[整改总览](../remediation - 工程整改实施/2026-07-20 - remediation-index - 整改执行总览.md)。

@@ -27,6 +27,13 @@ export const GitHubEvidenceSchema = z.object({
 export const ProductUISolutionTypeSchema = z.enum(["experience_first", "visual_first", "engineering_first"]);
 export const ProductUIEvidenceAuditStatusSchema = z.enum(["not_checked", "partially_verified", "fully_verified"]);
 
+export const ProductUIPageBlueprintSchema = z.object({
+  layout: z.string().min(10).max(500),
+  aboveFold: z.array(z.string().min(5).max(300)).min(1).max(12),
+  contentRules: z.array(z.string().min(5).max(500)).min(1).max(12),
+  interactionRules: z.array(z.string().min(5).max(500)).min(1).max(12),
+});
+
 export const ProductUIPageSchema = z.object({
   id: z.string().min(1).max(100),
   name: z.string().min(2).max(160),
@@ -36,6 +43,8 @@ export const ProductUIPageSchema = z.object({
   sections: z.array(z.string().min(2).max(200)).min(1).max(20),
   requiredStates: z.array(z.enum(["loading", "empty", "error", "success", "permission_denied", "mobile"])).min(1).max(10),
   components: z.array(z.string().min(2).max(160)).min(1).max(30),
+  // 页面蓝图把首屏层级、内容槽位和交互关系交给下游 AI，避免仅凭页面名称猜测布局。
+  blueprint: ProductUIPageBlueprintSchema.optional(),
   // 页面级实施要求让下游 AI 不必猜测内容、布局和交互细节。
   implementationInstructions: z.array(z.string().min(5).max(500)).min(1).max(12).optional(),
   acceptanceCriteria: z.array(z.string().min(5).max(500)).min(1).max(15),
@@ -74,6 +83,15 @@ export const ProductUIComponentSchema = z.object({
   variants: z.array(z.string().min(2).max(160)).min(1).max(12),
   states: z.array(z.string().min(2).max(160)).min(1).max(12),
   accessibility: z.array(z.string().min(5).max(300)).min(1).max(10),
+});
+
+export const ProductUIAcceptanceMatrixItemSchema = z.object({
+  id: z.string().min(1).max(120),
+  targetType: z.enum(["page", "flow", "component", "responsive", "accessibility", "evidence", "export", "runtime"]),
+  targetId: z.string().min(1).max(160),
+  criterion: z.string().min(10).max(500),
+  verificationMethod: z.string().min(10).max(500),
+  expectedEvidence: z.string().min(10).max(500),
 });
 
 export const ProductUITraceabilityStatusSchema = z.enum(["implemented", "target_design", "verified", "unverified"]);
@@ -118,6 +136,8 @@ export const ProductUISpecSchema = z.object({
   interactionStates: z.array(z.string().min(5).max(500)).min(4).max(20),
   implementationConstraints: z.array(z.string().min(5).max(500)).min(3).max(20),
   visualAcceptanceCriteria: z.array(z.string().min(5).max(500)).min(5).max(30),
+  // 每条验收要求都绑定稳定 ID、对象和证据形式，支持下游逐项回传真实结果。
+  acceptanceMatrix: z.array(ProductUIAcceptanceMatrixItemSchema).min(6).max(100).optional(),
   deliveryBoundary: ProductUIDeliveryBoundarySchema,
   // 新报告会填写该契约；optional 保证历史报告仍可读取。
   aiExecutionContract: ProductUIAIExecutionContractSchema.optional(),
@@ -177,6 +197,25 @@ export const ProductUIRuntimeEvidenceSchema = z.object({
   previewUrl: z.string().url().max(1_000),
   screenshotPaths: z.array(z.string().trim().min(1).max(1_000)).min(1).max(20),
   verificationNotes: z.array(z.string().trim().min(3).max(1_000)).min(1).max(30),
+  // 新报告按验收矩阵的稳定 ID 回传结果；默认值保证历史反馈 JSON 仍可读取。
+  acceptanceResults: z.array(z.object({
+    acceptanceId: z.string().trim().min(1).max(120),
+    status: z.enum(["passed", "failed", "not_verified"]),
+    note: z.string().trim().min(3).max(1_000),
+    evidencePaths: z.array(z.string().trim().min(1).max(1_000)).max(20),
+  })).max(100).default([]).superRefine((items, context) => {
+    const seen = new Set<string>();
+    for (const [index, item] of items.entries()) {
+      if (seen.has(item.acceptanceId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index, "acceptanceId"],
+          message: "每个验收矩阵 ID 只能回传一次结果。",
+        });
+      }
+      seen.add(item.acceptanceId);
+    }
+  }),
 });
 
 export const ProductUIReportFeedbackSchema = z.object({
@@ -215,10 +254,14 @@ export type GitHubEvidence = z.infer<typeof GitHubEvidenceSchema>;
 export type ProductUIEvidenceAuditStatus = z.infer<typeof ProductUIEvidenceAuditStatusSchema>;
 export type ProductUISolutionType = z.infer<typeof ProductUISolutionTypeSchema>;
 export type ProductUIPage = z.infer<typeof ProductUIPageSchema>;
+export type ProductUIPageBlueprint = z.infer<typeof ProductUIPageBlueprintSchema>;
 export type ProductUIFlow = z.infer<typeof ProductUIFlowSchema>;
+export type ProductUIComponent = z.infer<typeof ProductUIComponentSchema>;
+export type ProductUIAcceptanceMatrixItem = z.infer<typeof ProductUIAcceptanceMatrixItemSchema>;
 export type ProductUITraceability = z.infer<typeof ProductUITraceabilitySchema>;
 export type ProductUIAIExecutionContract = z.infer<typeof ProductUIAIExecutionContractSchema>;
 export type ProductUISpec = z.infer<typeof ProductUISpecSchema>;
 export type ProductUIReportGroup = z.infer<typeof ProductUIReportGroupSchema>;
 export type ProductUIRuntimeEvidence = z.infer<typeof ProductUIRuntimeEvidenceSchema>;
+export type ProductUIAcceptanceResult = ProductUIRuntimeEvidence["acceptanceResults"][number];
 export type ProductUIReportFeedback = z.infer<typeof ProductUIReportFeedbackSchema>;

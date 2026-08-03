@@ -6,6 +6,10 @@ import {
   type GitHubEvidence,
   type ProductUIReportGroup,
   type ProductUIAIExecutionContract,
+  type ProductUIAcceptanceMatrixItem,
+  type ProductUIComponent,
+  type ProductUIFlow,
+  type ProductUIPage,
   type ProductUISolutionType,
   type ProductUISpec,
   type ProductUITraceability,
@@ -116,7 +120,37 @@ function traceability(input: ReportGenerationInput, solutionType: ProductUISolut
   return items.slice(0, 40);
 }
 
-function commonPages(type: ProductUISolutionType) {
+function pageBlueprint(pageId: string, type: ProductUISolutionType) {
+  const emphasis = type === "experience_first" ? "任务连续性" : type === "visual_first" ? "首屏层级" : "工程可测试性";
+  const blueprints: Record<string, { layout: string; aboveFold: string[]; contentRules: string[]; interactionRules: string[] }> = {
+    home: {
+      layout: "顶部导航下方采用单一主任务区，需求编辑器占据首屏主体，约束表单和最近工作区作为次级内容顺序排列。",
+      aboveFold: ["产品目标和当前入口", "需求输入编辑器", "提交需求并开始分析的主操作"],
+      contentRules: ["保留用户粘贴的完整需求和草稿内容", "约束字段与需求输入保持同一上下文", "最近工作区不抢占主任务视觉层级"],
+      interactionRules: ["提交期间锁定重复提交并显示可取消状态", "校验失败时定位到具体字段并保留输入", `界面优先保证${emphasis}，不以装饰性内容替代任务入口`],
+    },
+    workspace: {
+      layout: "桌面端采用流程侧栏、当前任务主区和证据上下文区三栏布局；移动端按阶段、任务、决策顺序纵向排列。",
+      aboveFold: ["当前工作流阶段和状态", "待处理问题或当前任务", "下一步操作和人工干预入口"],
+      contentRules: ["Finding 必须显示来源、影响、建议和状态", "候选方案与当前阶段保持明确关联", "证据默认收起但可从结论直接展开"],
+      interactionRules: ["阶段切换不能丢失当前产物版本", "审批和修改都显示保存状态并留下审计记录", "高风险 Finding 必须提供定向修改或人工确认动作"],
+    },
+    results: {
+      layout: "以方案切换和报告内容为主轴，页面清单、设计 Token、证据和验收矩阵按决策顺序分段展示。",
+      aboveFold: ["当前方案名称和适用取舍", "报告摘要与页面实施蓝图", "复制、Markdown 和 JSON 导出操作"],
+      contentRules: ["每个页面显示路由、区块、组件、蓝图和状态", "目标设计与已验证证据使用不同状态标识", "验收矩阵可按稳定 ID 定位和复制"],
+      interactionRules: ["切换方案时保留当前阅读位置或明确回到摘要", "导出前提示缺失证据和未验证项", "验收项详情支持记录真实证据路径和复现步骤"],
+    },
+    settings: {
+      layout: "采用分组表单和证据表格布局，模型预算、证据审计和可观测性设置分别拥有清晰的保存边界。",
+      aboveFold: ["当前运行配置摘要", "模型与预算设置", "证据审计状态和保存操作"],
+      contentRules: ["GitHub 证据显示仓库、版本、路径、许可证和核验状态", "未完成审计的字段不得显示为 fully_verified", "保存失败时保留原配置和可重试入口"],
+      interactionRules: ["危险或高成本设置需要明确确认", "保存状态区分未保存、保存中、已保存和失败", "权限不足时只读展示不可执行设置"],
+    },
+  };
+  return blueprints[pageId];
+}
+function commonPages(type: ProductUISolutionType): ProductUIPage[] {
   const focus = type === "experience_first" ? "任务路径和失败恢复" : type === "visual_first" ? "首屏层级和结果呈现" : "组件复用和可测试状态";
   return [
     {
@@ -128,6 +162,7 @@ function commonPages(type: ProductUISolutionType) {
       sections: ["需求输入", "约束与目标", "最近工作区"],
       requiredStates: ["loading", "empty", "error", "success", "mobile"],
       components: ["RequirementEditor", "ConstraintForm", "RecentWorkspaceList"],
+      blueprint: pageBlueprint("home", type),
       implementationInstructions: ["首屏先呈现需求输入和目标约束，再展示最近工作区，不用装饰性首屏替代主要任务。", "输入区域需要支持粘贴长需求、保留草稿，并在提交失败后给出可执行修复建议。"],
       acceptanceCriteria: [`首屏明确${focus}，用户能在一次扫描内找到提交入口。`, "提交失败时保留已输入内容并给出可执行修复建议。"],
     },
@@ -140,6 +175,7 @@ function commonPages(type: ProductUISolutionType) {
       sections: ["流程状态", "当前问题", "候选方案", "人工决策"],
       requiredStates: ["loading", "empty", "error", "success", "permission_denied", "mobile"],
       components: ["WorkflowStepper", "FindingList", "CandidateComparison", "ApprovalPanel"],
+      blueprint: pageBlueprint("workspace", type),
       implementationInstructions: ["把当前阶段、待处理问题和下一步操作放在首屏可见区域，证据作为可展开上下文。", "每个 Finding 都要显示来源、影响、建议动作和保存状态，人工审批后保留审计记录。"],
       acceptanceCriteria: ["每个阶段显示来源、状态和下一步操作。", "人工修改或审批后，界面能区分已保存与待提交状态。"],
     },
@@ -152,6 +188,7 @@ function commonPages(type: ProductUISolutionType) {
       sections: ["方案对比", "页面清单", "设计方向", "组件状态", "视觉验收"],
       requiredStates: ["loading", "empty", "error", "success", "mobile"],
       components: ["SolutionTabs", "PageInventory", "DesignTokenPanel", "ReportExportActions"],
+      blueprint: pageBlueprint("results", type),
       implementationInstructions: ["把完整 AI 可执行报告作为主要内容，方案切换、复制和下载都围绕报告完成。", "页面清单、设计 Token、组件状态、证据和验收标准必须可以从结果页逐项查看。"],
       acceptanceCriteria: ["三套方案可横向比较，且每套都能单独导出完整 AI 可执行报告。", "导出内容包含页面、组件、响应式、状态、证据和视觉验收要求。"],
     },
@@ -164,6 +201,7 @@ function commonPages(type: ProductUISolutionType) {
       sections: ["模型与预算", "证据目录", "许可证状态", "可观测性"],
       requiredStates: ["loading", "empty", "error", "success", "permission_denied", "mobile"],
       components: ["ModelSettings", "EvidenceTable", "LicenseStatus", "TelemetrySettings"],
+      blueprint: pageBlueprint("settings", type),
       acceptanceCriteria: ["未冻结 SHA 的 GitHub 证据明确显示为未验证。", "保存失败时不丢失原有配置，也不伪造成功状态。"],
     },
   ];
@@ -203,7 +241,7 @@ function designDirection(type: ProductUISolutionType) {
   };
 }
 
-function flow(type: ProductUISolutionType) {
+function flow(type: ProductUISolutionType): ProductUIFlow[] {
   const suffix = type === "experience_first" ? "连续完成任务" : type === "visual_first" ? "比较结果并选择方向" : "确认实现边界";
   return [
     {
@@ -216,7 +254,7 @@ function flow(type: ProductUISolutionType) {
   ];
 }
 
-function components(type: ProductUISolutionType) {
+function components(type: ProductUISolutionType): ProductUIComponent[] {
   const emphasis = type === "experience_first" ? "恢复动作" : type === "visual_first" ? "视觉层级" : "测试契约";
   return [
     { name: "RequirementEditor", responsibility: "收集需求、目标、约束和已知事实，并在提交前显示信息完整性。", variants: ["compact", "full"], states: ["idle", "dirty", "submitting", "invalid", "saved"], accessibility: ["提供关联 label 和错误描述", "支持键盘提交和恢复焦点"] },
@@ -227,21 +265,112 @@ function components(type: ProductUISolutionType) {
   ];
 }
 
+// 验收矩阵把页面、流程、组件和证据绑定到稳定 ID，方便下游 Agent 回传可核验结果。
+function acceptanceMatrix(
+  pages: ProductUIPage[],
+  flows: ProductUIFlow[],
+  componentList: ProductUIComponent[],
+  responsiveRules: string[],
+  evidence: GitHubEvidence[],
+): ProductUIAcceptanceMatrixItem[] {
+  const pageItems = pages.flatMap((page) => [
+    {
+      id: `page-${page.id}-structure`,
+      targetType: "page" as const,
+      targetId: page.id,
+      criterion: `${page.name}必须实现路由、页面区块、主操作和报告中声明的必要状态。`,
+      verificationMethod: `启动网站后访问${page.route}，逐项检查区块、主操作和${page.requiredStates.join("、")}状态。`,
+      expectedEvidence: `记录${page.id}页面的预览地址、桌面端和移动端截图，以及失败状态的复现说明。`,
+    },
+    {
+      id: `page-${page.id}-blueprint`,
+      targetType: "page" as const,
+      targetId: page.id,
+      criterion: `${page.name}的首屏层级、内容规则和交互规则必须与页面蓝图一致。`,
+      verificationMethod: "按页面蓝图逐条对照首屏、内容顺序和交互反馈，并记录不一致项。",
+      expectedEvidence: "引用验收截图或录屏路径，并在verificationNotes中写入该稳定验收项ID。",
+    },
+  ]);
+  const flowItems = flows.map((flow) => ({
+    id: `flow-${flow.id}-completion`,
+    targetType: "flow" as const,
+    targetId: flow.id,
+    criterion: `${flow.name}必须按报告步骤完成，并在失败时保留状态和恢复入口。`,
+    verificationMethod: "从流程第一步开始执行至结束，再模拟失败或拒绝，检查是否能从当前状态恢复。",
+    expectedEvidence: "记录流程各关键节点的截图、运行日志或自动化测试结果，并标注未通过步骤。",
+  }));
+  const componentItems = componentList.map((component) => ({
+    id: `component-${component.name.toLowerCase()}-states`,
+    targetType: "component" as const,
+    targetId: component.name,
+    criterion: `${component.name}必须实现报告声明的变体、状态和无障碍行为。`,
+    verificationMethod: `在组件使用页面触发${component.states.join("、")}状态，并检查键盘操作和错误反馈。`,
+    expectedEvidence: "提供组件状态截图或自动化测试结果，并在说明中引用该组件验收项ID。",
+  }));
+  return [
+    ...pageItems,
+    ...flowItems,
+    ...componentItems,
+    {
+      id: "responsive-global-layout",
+      targetType: "responsive" as const,
+      targetId: "global",
+      criterion: "桌面、平板和移动端都必须保持核心内容可读，主要操作可达且没有关键内容溢出。",
+      verificationMethod: `在至少三种视口检查布局、长文本、表格、导航和主要操作；对照${responsiveRules.length}条响应式规则。`,
+      expectedEvidence: "提供不同视口的真实截图或自动化检查结果，并记录发生溢出的页面和复现尺寸。",
+    },
+    {
+      id: "accessibility-keyboard-and-semantics",
+      targetType: "accessibility" as const,
+      targetId: "global",
+      criterion: "核心流程必须支持键盘访问、可见焦点、关联标签、错误描述和不依赖颜色的状态表达。",
+      verificationMethod: "使用键盘完成核心流程，并检查焦点顺序、语义结构、标签关联和错误提示。",
+      expectedEvidence: "记录键盘操作结果、自动化无障碍检查结果或明确的未通过复现步骤。",
+    },
+    {
+      id: "github-ui-evidence-boundary",
+      targetType: "evidence" as const,
+      targetId: "github-ui",
+      criterion: "GitHub/UI参考只能作为设计依据；复用代码前必须核对固定版本、路径和许可证状态。",
+      verificationMethod: "逐条检查仓库地址、commit或tag、路径、许可证和三项独立核验状态。",
+      expectedEvidence: evidence.length > 0
+        ? "引用报告中的GitHub证据ID和核验字段；未完成核验时明确标记not_yet_verified。"
+        : "记录没有可用GitHub证据的原因和后续补充路径。",
+    },
+    {
+      id: "export-report-completeness",
+      targetType: "export" as const,
+      targetId: "product-ui-report",
+      criterion: "导出的报告必须包含页面蓝图、用户流程、组件状态、响应式要求、证据边界和验收矩阵。",
+      verificationMethod: "分别检查Markdown、JSON handoff和下游Prompt，确认稳定验收项ID未丢失。",
+      expectedEvidence: "保存导出文件路径或内容校验结果，并列出缺失章节或字段。",
+    },
+    {
+      id: "runtime-evidence-return",
+      targetType: "runtime" as const,
+      targetId: "downstream-website",
+      criterion: "下游网站只有在真实启动、访问、截图和验收完成后才能标记为通过。",
+      verificationMethod: "执行真实启动命令，访问预览地址，检查截图和verificationNotes中的验收项ID。",
+      expectedEvidence: "必须回传launchCommand、previewUrl、screenshotPaths、测试结果和未通过项复现方式。",
+    },
+  ];
+}
 function aiExecutionContract(solutionType: ProductUISolutionType): ProductUIAIExecutionContract {
   const emphasis = solutionType === "experience_first" ? "任务连续性" : solutionType === "visual_first" ? "视觉识别度" : "工程可测试性";
   return {
     objective: `把本报告直接实现为可运行、可验收的网站或 UI 原型，重点保证${emphasis}，并让实现结果与页面、组件、证据和验收条目逐项对应。`,
     outputRequirements: [
-      "先实现报告中列出的路由、页面区块和主要用户流程，再补齐组件变体与状态。",
+      "先读取每个页面的 blueprint，按 layout、aboveFold、contentRules 和 interactionRules 实现页面，再补齐页面区块和主要用户流程。",
       "使用真实且与产品场景相关的界面文案和示例数据，不用 lorem ipsum 或与需求无关的占位内容。",
       "交付可启动的项目代码，并保留报告中要求的响应式、键盘操作和错误恢复行为。",
-      "完成后输出真实启动命令、预览地址、截图路径、测试结果和未通过的验收项。",
+      "完成后按验收矩阵的稳定 ID 输出真实启动命令、预览地址、截图路径、测试结果和未通过的验收项。",
     ],
     implementationOrder: [
       "确认技术栈、入口路由和现有组件边界，记录无法满足的前置条件。",
       "实现页面骨架、导航和主流程，确保桌面端与移动端均可进入核心任务。",
       "实现设计 Token、组件变体、加载/空/错/成功状态和权限状态。",
       "根据视觉验收标准运行网站，逐页记录结果并修复高影响问题。",
+      "回传 verificationNotes 时必须引用验收矩阵 ID；未通过项必须写明复现步骤、实际结果和证据路径。",
     ],
     contentRequirements: [
       "页面标题、按钮、字段、错误提示和空状态必须服务于当前需求，不得只生成抽象演示文案。",
@@ -254,12 +383,22 @@ function aiExecutionContract(solutionType: ProductUISolutionType): ProductUIAIEx
     verificationChecklist: [
       "逐页检查路由、页面区块、主要操作和关键状态。",
       "在桌面端和移动端检查布局、文字溢出、交互可达性和视觉层级。",
-      "把每一项未通过内容连同复现方式记录回传，不用笼统的‘已完成’替代。",
+      "按验收矩阵稳定 ID 记录每一项通过、未通过或未验证结果；未通过项必须附复现方式和真实证据路径。",
     ],
   };
 }
 
 export function createProductUISpec(input: ReportGenerationInput, solutionType: ProductUISolutionType, evidence: GitHubEvidence[] = input.githubEvidence ?? DEFAULT_GITHUB_UI_EVIDENCE): ProductUISpec {
+  const pages = commonPages(solutionType);
+  const userFlows = flow(solutionType);
+  const componentList = components(solutionType);
+  const responsiveRules = [
+    "桌面端使用稳定的两栏或三栏布局，内容区设置最大宽度，避免长行影响阅读。",
+    "平板端收起次要侧栏，证据和目录改为可展开区域。",
+    "移动端将流程、候选方案和验收清单改为纵向顺序，主操作固定在可见区域。",
+    "表格在窄屏转换为带字段标签的堆叠行，不允许横向滚动隐藏关键操作。",
+    "页面和组件使用稳定的尺寸约束，加载、错误和长文本状态不得造成布局跳动。",
+  ];
   const spec = {
      schemaVersion: 1 as const,
     solutionId: `product-ui-${solutionType}`,
@@ -268,11 +407,11 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
     productPositioning: `这是基于当前需求和现有 AgentForge 工作流生成的${SOLUTION_LABELS[solutionType]}。它属于目标设计规格，不能表述为已经存在的页面或已验证的视觉结果。`,
     targetUsers: targetUsers(input),
     primaryScenarios: ["需求澄清和结构化规划", "多 Agent 方案评审", "人工审批与增量修改", "将报告交给下游 AI 生成网站或 UI", "运行页面后按视觉验收标准复核"],
-    pages: commonPages(solutionType),
-    userFlows: flow(solutionType),
+    pages,
+    userFlows,
     designDirection: designDirection(solutionType),
-    components: components(solutionType),
-    responsiveRules: ["桌面端使用稳定的两栏或三栏布局，内容区设置最大宽度，避免长行影响阅读。", "平板端收起次要侧栏，证据和目录改为可展开区域。", "移动端将流程、候选方案和验收清单改为纵向顺序，主操作固定在可见区域。", "表格在窄屏转换为带字段标签的堆叠行，不允许横向滚动隐藏关键操作。", "页面和组件使用稳定的尺寸约束，加载、错误和长文本状态不得造成布局跳动。"],
+    components: componentList,
+     responsiveRules,
     interactionStates: ["初始化时显示当前阶段和可用操作，不展示假进度。", "模型调用中显示预算和取消入口，完成后明确产物版本。", "需求不完整时进入澄清状态，保留原始输入和待回答问题。", "评审发现高风险问题时，提供定向修改和人工确认路径。", "导出被阻止时说明缺失证据或验证状态，不生成看似完整的文件。", "权限不足时隐藏不可执行操作并说明需要的权限。"],
      implementationConstraints: ["报告内容必须区分事实、假设、目标设计、已验证项和未验证项。", "GitHub 参考必须记录仓库 URL、commit SHA、路径、许可证、复用策略和三项独立核验状态；固定 SHA 只保证引用快照可复现，不代表仓库、路径或许可证已审计。", "公开仓库只能作为参考，是否复用代码必须经过许可证和版本审计。", "AI 执行报告不得编造页面截图、性能数字、召回率或视觉验收结果。", "每套方案必须独立生成唯一 solutionId，并保留自己的取舍和验收内容。", "实现时应优先复用项目现有组件、状态持久化、权限和可观测性边界。"],
     visualAcceptanceCriteria: ["首屏能识别产品目标、当前阶段和主要操作，且不需要阅读长段说明。", "所有页面都有 loading、empty、error、success 和移动端状态的实现或明确占位。", "用户可以从报告内容追溯到需求、计划、评审 Finding 或带固定 SHA 的 GitHub 证据。", "组件交互有键盘路径、焦点可见性、错误描述和非颜色语义。", "运行生成的网站后，验收者可以按页面、流程、响应式和视觉层级逐项记录结果。", "没有真实截图或自动化检查结果时，界面不得宣称已经通过视觉验收。"],
@@ -281,6 +420,7 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
       excluded: [...input.analysis.outOfScope.slice(0, 10), "下游网站的真实运行、截图和视觉验收结果"].slice(0, 20),
       handoff: "本规格是交给下游 AI 编程 Agent 的实施输入，不是已经上线的网站。下游完成实现后，必须回传真实启动命令、截图路径、测试结果和未通过的验收项。",
      },
+      acceptanceMatrix: acceptanceMatrix(pages, userFlows, componentList, responsiveRules, evidence),
      aiExecutionContract: aiExecutionContract(solutionType),
     traceability: traceability(input, solutionType, evidence),
     evidence,

@@ -23,12 +23,17 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const group = mapProductUIReportGroup(record);
   return Response.json({
     group,
-    reports: group.reports.map((report) => ({
-      solutionId: report.productUISpec?.solutionId,
-      aiExecutionMarkdown: renderProductUISpecMarkdown(report, { generatedAt: group.createdAt }),
-      // 兼容旧客户端；新客户端应直接使用 aiExecutionMarkdown。
-      prompt: buildDownstreamAgentPrompt(report),
-    })),
+    reports: group.reports.map((report) => {
+      const aiExecutionReport = renderProductUISpecMarkdown(report, { generatedAt: group.createdAt });
+      const legacyPrompt = buildDownstreamAgentPrompt(report, aiExecutionReport);
+      return {
+        solutionId: report.productUISpec?.solutionId,
+        aiExecutionReport,
+        /** 兼容旧客户端；新客户端应直接使用 aiExecutionReport。 */
+        aiExecutionMarkdown: aiExecutionReport,
+        prompt: legacyPrompt,
+      };
+    }),
     prompts: group.reports.map((report) => ({ solutionId: report.productUISpec?.solutionId, prompt: buildDownstreamAgentPrompt(report) })),
   });
 }
@@ -46,6 +51,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const code = error instanceof Error ? error.message : "PRODUCT_UI_FEEDBACK_FAILED";
     if (code === "PRODUCT_UI_GROUP_NOT_FOUND") return Response.json({ error: { code, message: "Product/UI report group not found." } }, { status: 404 });
     if (code === "PRODUCT_UI_SOLUTION_NOT_FOUND") return Response.json({ error: { code, message: "Product/UI solution not found." } }, { status: 404 });
+    if (code === "PRODUCT_UI_ACCEPTANCE_RESULT_INVALID") return Response.json({ error: { code, message: "验收结果包含当前方案验收矩阵中不存在的 ID。" } }, { status: 400 });
     return Response.json({ error: { code: "PRODUCT_UI_FEEDBACK_FAILED", message: "Feedback could not be saved." } }, { status: 422 });
   }
 }

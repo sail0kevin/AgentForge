@@ -23,32 +23,41 @@ export function deriveGitHubEvidenceAuditStatus(evidence: GitHubEvidence[]): Pro
   if (verifiedCount > 0 || evidence.some((item) => item.repositoryVerification === "verified" || item.pathVerification === "verified" || item.licenseVerification === "verified")) return "partially_verified";
   return "not_checked";
 }
+
+// 下面这组默认参考是经过仓库、路径和许可证逐项核验的审计快照。
+// 它表示当前报告里可直接引用的参考边界，不是对下游整页复制的授权。
 export const DEFAULT_GITHUB_UI_EVIDENCE: GitHubEvidence[] = GitHubEvidenceSchema.array().parse([
   {
     id: "github-shadcn-ui",
     repositoryUrl: "https://github.com/shadcn-ui/ui",
     repositoryName: "shadcn/ui",
     commitOrTag: "commit cb2bcd88d93b2f9bddb030e9136f1f8773e7eac4 (main snapshot)",
-    path: "README.md / apps/www/registry",
+    path: "README.md / apps/v4/registry / apps/v4/content/docs/registry",
     locator: "组件注册与示例目录",
     license: "MIT (以仓库当前 LICENSE 为准)",
     evidenceType: "component_library",
     insight: "适合作为可组合 React 组件、页面区块和设计 token 落地方式的参考；下游 Agent 应按需求重组，而不是复制整页。",
     applicableWhen: ["需要快速搭建可复用 UI 组件", "需要让页面结构与组件实现保持一致"],
     reusePolicy: "adapt_with_license_review",
+    repositoryVerification: "verified",
+    pathVerification: "verified",
+    licenseVerification: "verified",
   },
   {
     id: "github-radix-primitives",
     repositoryUrl: "https://github.com/radix-ui/primitives",
     repositoryName: "Radix Primitives",
     commitOrTag: "commit f7ecd5ab16f5e1e820eb5786a1419a98a2d594ae (main snapshot)",
-    path: "packages/react / primitives",
+    path: "packages/react",
     locator: "对话框、菜单、弹出层和键盘交互原语",
     license: "MIT (以仓库当前 LICENSE 为准)",
     evidenceType: "accessibility_primitive",
     insight: "适合作为焦点管理、键盘操作、ARIA 语义和交互状态设计的参考，尤其适用于审批、弹窗和复杂表单。",
     applicableWhen: ["页面包含弹窗或菜单等复杂交互", "需要明确无障碍和键盘行为"],
     reusePolicy: "adapt_with_license_review",
+    repositoryVerification: "verified",
+    pathVerification: "verified",
+    licenseVerification: "verified",
   },
   {
     id: "github-ant-design",
@@ -62,6 +71,9 @@ export const DEFAULT_GITHUB_UI_EVIDENCE: GitHubEvidence[] = GitHubEvidenceSchema
     insight: "适合作为企业后台的信息密度、表格筛选、表单校验和反馈组件组织方式的参考；不直接代表本项目最终视觉风格。",
     applicableWhen: ["产品需要处理结构化数据和复杂表单", "需要企业级后台的信息层级参考"],
     reusePolicy: "reference_only",
+    repositoryVerification: "verified",
+    pathVerification: "verified",
+    licenseVerification: "verified",
   },
 ]);
 
@@ -69,8 +81,8 @@ export function githubEvidenceAsSource(evidence: GitHubEvidence): ReportSourceRe
   return {
     sourceType: "github_evidence",
     refId: evidence.id,
-    label: `${evidence.repositoryName} · ${evidence.evidenceType}`,
-    locator: `${evidence.commitOrTag} · ${evidence.path}${evidence.locator ? ` · ${evidence.locator}` : ""}`,
+    label: `${evidence.repositoryName} ? ${evidence.evidenceType}`,
+    locator: `${evidence.commitOrTag} ? ${evidence.path}${evidence.locator ? ` ? ${evidence.locator}` : ""}`,
   };
 }
 
