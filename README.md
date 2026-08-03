@@ -30,6 +30,22 @@ AgentForge 是一个 **local-first Web MVP**，目标是把零散产品需求转
 | ![完成的工作流](docs/screenshots/workflow-completed.png) | ![报告中心](docs/screenshots/report-demo.png) | ![新版工作台](docs/screenshots/workspace-redesign.png) |
 | 从规划到人工裁决与报告生成 | 动态目录、来源、风险与版本记录 | 持久需求任务、Agent 成员和统一导航 |
 
+### 报告到真实页面的示范
+
+当前工作区新增了一个由三种 Product/UI 报告方向（体验优先、视觉优先、工程优先）共同落地的企业团队考勤工作台示范页面。它不是分析报告截图，而是可运行的 Next.js 页面：
+
+- 页面地址：`/generated/attendance`
+- 启动方式：`npm run dev` 后访问 `http://127.0.0.1:3010/generated/attendance`
+- 已实现交互：立即打卡、状态筛选、查看全部成员、移动端导航抽屉、Toast 状态反馈
+- 已实现产品结果：实时出勤概览、团队成员状态、周趋势、待处理事项、AI 团队洞察和报告导出入口
+- 数据边界：当前使用本地确定性演示数据，不代表真实企业考勤数据，也不代表真实模型质量
+
+公开截图：
+
+- `docs/screenshots/2026-08-03 - generated-attendance-desktop.png`
+- `docs/screenshots/2026-08-03 - generated-attendance-mobile.png`
+- `docs/screenshots/2026-08-03 - generated-attendance-checked-in.png`
+
 ## 核心工作流
 
 ```mermaid
