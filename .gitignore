@@ -28,6 +28,7 @@ test-results/
 
 # Local tooling and temporary verification assets
 .claude/
+artifacts/
 verification-*.png
 ui-screenshot.png
 docs/screenshots/workflow-demo.png
