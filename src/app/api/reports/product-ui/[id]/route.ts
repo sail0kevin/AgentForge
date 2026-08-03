@@ -2,7 +2,7 @@ import { z, ZodError } from "zod";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
 import { ProductUIRuntimeEvidenceSchema } from "@/lib/report/contracts";
-import { buildDownstreamAgentPrompt } from "@/lib/report/product-ui-export";
+import { buildDownstreamAgentPrompt, renderProductUISpecMarkdown } from "@/lib/report/product-ui-export";
 import { mapProductUIReportGroup, updateProductUIReportFeedback } from "@/lib/report/product-ui-group-service";
 
 export const runtime = "nodejs";
@@ -23,6 +23,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const group = mapProductUIReportGroup(record);
   return Response.json({
     group,
+    reports: group.reports.map((report) => ({
+      solutionId: report.productUISpec?.solutionId,
+      aiExecutionMarkdown: renderProductUISpecMarkdown(report, { generatedAt: group.createdAt }),
+      // 兼容旧客户端；新客户端应直接使用 aiExecutionMarkdown。
+      prompt: buildDownstreamAgentPrompt(report),
+    })),
     prompts: group.reports.map((report) => ({ solutionId: report.productUISpec?.solutionId, prompt: buildDownstreamAgentPrompt(report) })),
   });
 }

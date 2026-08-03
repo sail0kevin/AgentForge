@@ -12,7 +12,7 @@ type ProductUISpec = {
   productPositioning: string;
   targetUsers: string[];
   primaryScenarios: string[];
-  pages: Array<{ id: string; name: string; route: string; purpose: string; primaryAction: string; sections: string[]; requiredStates: string[]; components: string[]; acceptanceCriteria: string[] }>;
+  pages: Array<{ id: string; name: string; route: string; purpose: string; primaryAction: string; sections: string[]; requiredStates: string[]; components: string[]; implementationInstructions?: string[]; acceptanceCriteria: string[] }>;
   userFlows: Array<{ id: string; name: string; goal: string; steps: string[]; failureRecovery: string }>;
   designDirection: { name: string; positioning: string; visualPrinciples: string[]; layoutStrategy: string; componentStrategy: string; avoid: string[]; tokens: Record<string, string> };
   components: Array<{ name: string; responsibility: string; variants: string[]; states: string[]; accessibility: string[] }>;
@@ -21,6 +21,7 @@ type ProductUISpec = {
   implementationConstraints: string[];
   visualAcceptanceCriteria: string[];
   deliveryBoundary: { included: string[]; excluded: string[]; handoff: string };
+  aiExecutionContract?: { objective: string; outputRequirements: string[]; implementationOrder: string[]; contentRequirements: string[]; forbiddenClaims: string[]; verificationChecklist: string[] };
   traceability: Array<{ id: string; area: string; statement: string; status: string; sourceRefs: Array<{ sourceType: string; refId: string; label: string; locator: string | null }> }>;
   evidence: Evidence[];
   evidenceStatus: string;
@@ -156,8 +157,10 @@ export function ReportCenter() {
     const controller = new AbortController();
     void fetch(`/api/reports/product-ui/${selectedGroup.id}`, { signal: controller.signal, cache: "no-store" }).then(async (response) => {
       if (!response.ok) throw new Error("方案详情加载失败。 ");
-      const data = await response.json() as { prompts: Array<{ solutionId: string; prompt: string }> };
-      setPrompt(data.prompts.find((item) => item.solutionId === selectedSpec.solutionId)?.prompt ?? "");
+      const data = await response.json() as { reports?: Array<{ solutionId: string; aiExecutionMarkdown: string }>; prompts?: Array<{ solutionId: string; prompt: string }> };
+      const report = data.reports?.find((item) => item.solutionId === selectedSpec.solutionId);
+      const legacyPrompt = data.prompts?.find((item) => item.solutionId === selectedSpec.solutionId)?.prompt;
+      setPrompt(report?.aiExecutionMarkdown ?? legacyPrompt ?? "");
     }).catch((requestError) => {
       if (!(requestError instanceof DOMException && requestError.name === "AbortError")) setError(requestError instanceof Error ? requestError.message : "方案详情加载失败。 ");
     });
@@ -202,7 +205,7 @@ export function ReportCenter() {
     } catch (feedbackError) { setError(feedbackError instanceof Error ? feedbackError.message : "验收结果保存失败。 "); } finally { setSavingFeedback(false); }
   }
 
-  async function copyPrompt() {
+  async function copyReport() {
     if (!prompt) return;
     await navigator.clipboard.writeText(prompt);
     setCopied(true);
@@ -294,7 +297,7 @@ export function ReportCenter() {
 
           <aside className="space-y-5">
             {selectedGroup && selectedSpec && <>
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><Clipboard className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">下游 Prompt</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">把当前方案交给 AI 编程 Agent 时使用。它只描述目标设计，不声称网站已经生成。</p><button type="button" onClick={() => void copyPrompt()} disabled={!prompt} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" title="复制下游 Prompt">{copied ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}{copied ? "已复制" : "复制当前 Prompt"}</button><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><Download className="h-4 w-4" />导出当前方案</a></section>
+               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><Clipboard className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">AI 执行报告</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">当前完整报告就是交给 Claude、Codex、Cursor 等 AI 编程工具的实施输入，包含页面、视觉、交互、响应式、证据和验收标准。</p><button type="button" onClick={() => void copyReport()} disabled={!prompt} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" title="复制完整 AI 执行报告">{copied ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}{copied ? "已复制完整报告" : "复制完整 AI 执行报告"}</button><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><Download className="h-4 w-4" />下载 Markdown 报告</a></section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-bold">方案取舍</h2><div className="mt-3 space-y-3">{selectedGroup.comparison.map((item) => <div key={item.solutionId} className={`rounded-lg p-3 ${item.solutionId === selectedSpec.solutionId ? "bg-indigo-50" : "bg-slate-50"}`}><p className="text-sm font-semibold">{solutionLabels[selectedGroup.reports.find((report) => report.productUISpec?.solutionId === item.solutionId)?.productUISpec?.solutionType ?? ""] ?? item.solutionId}</p><p className="mt-2 text-xs leading-5 text-emerald-800">优势：{item.strengths.join("；")}</p><p className="mt-1 text-xs leading-5 text-amber-800">取舍：{item.tradeoffs.join("；")}</p></div>)}</div></section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成后验收</h2></div>

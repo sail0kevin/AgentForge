@@ -5,6 +5,7 @@ import {
   type DevelopmentReport,
   type GitHubEvidence,
   type ProductUIReportGroup,
+  type ProductUIAIExecutionContract,
   type ProductUISolutionType,
   type ProductUISpec,
   type ProductUITraceability,
@@ -127,6 +128,7 @@ function commonPages(type: ProductUISolutionType) {
       sections: ["需求输入", "约束与目标", "最近工作区"],
       requiredStates: ["loading", "empty", "error", "success", "mobile"],
       components: ["RequirementEditor", "ConstraintForm", "RecentWorkspaceList"],
+      implementationInstructions: ["首屏先呈现需求输入和目标约束，再展示最近工作区，不用装饰性首屏替代主要任务。", "输入区域需要支持粘贴长需求、保留草稿，并在提交失败后给出可执行修复建议。"],
       acceptanceCriteria: [`首屏明确${focus}，用户能在一次扫描内找到提交入口。`, "提交失败时保留已输入内容并给出可执行修复建议。"],
     },
     {
@@ -138,6 +140,7 @@ function commonPages(type: ProductUISolutionType) {
       sections: ["流程状态", "当前问题", "候选方案", "人工决策"],
       requiredStates: ["loading", "empty", "error", "success", "permission_denied", "mobile"],
       components: ["WorkflowStepper", "FindingList", "CandidateComparison", "ApprovalPanel"],
+      implementationInstructions: ["把当前阶段、待处理问题和下一步操作放在首屏可见区域，证据作为可展开上下文。", "每个 Finding 都要显示来源、影响、建议动作和保存状态，人工审批后保留审计记录。"],
       acceptanceCriteria: ["每个阶段显示来源、状态和下一步操作。", "人工修改或审批后，界面能区分已保存与待提交状态。"],
     },
     {
@@ -148,8 +151,9 @@ function commonPages(type: ProductUISolutionType) {
       primaryAction: "导出 UI 实施规格和下游 Prompt",
       sections: ["方案对比", "页面清单", "设计方向", "组件状态", "视觉验收"],
       requiredStates: ["loading", "empty", "error", "success", "mobile"],
-      components: ["SolutionTabs", "PageInventory", "DesignTokenPanel", "PromptExportButton"],
-      acceptanceCriteria: ["三套方案可横向比较，且每套都能单独导出。", "导出内容包含页面、组件、响应式、状态和视觉验收要求。"],
+      components: ["SolutionTabs", "PageInventory", "DesignTokenPanel", "ReportExportActions"],
+      implementationInstructions: ["把完整 AI 可执行报告作为主要内容，方案切换、复制和下载都围绕报告完成。", "页面清单、设计 Token、组件状态、证据和验收标准必须可以从结果页逐项查看。"],
+      acceptanceCriteria: ["三套方案可横向比较，且每套都能单独导出完整 AI 可执行报告。", "导出内容包含页面、组件、响应式、状态、证据和视觉验收要求。"],
     },
     {
       id: "settings",
@@ -206,7 +210,7 @@ function flow(type: ProductUISolutionType) {
       id: "generate-ui-report",
       name: `从需求到${suffix}`,
       goal: "将一份需求转化为多套可交付给下游 AI 的产品/UI实施报告。",
-      steps: ["提交需求和约束", "Planner 判断信息是否足够", "补充缺失信息并恢复流程", "生成并评审多套方案", "阅读报告和证据", "导出规格与下游 Prompt"],
+      steps: ["提交需求和约束", "Planner 判断信息是否足够", "补充缺失信息并恢复流程", "生成并评审多套方案", "阅读报告和证据", "将完整报告交给下游 AI 实现网站"],
       failureRecovery: "任何阶段失败都保留当前状态、失败原因和可重试入口；审批被拒绝时回到对应任务，而不是重新丢失整个流程。",
     },
   ];
@@ -219,13 +223,45 @@ function components(type: ProductUISolutionType) {
     { name: "WorkflowStepper", responsibility: `呈现多 Agent 阶段、当前状态、证据入口和${emphasis}。`, variants: ["horizontal", "vertical"], states: ["pending", "running", "blocked", "completed", "needs_human"], accessibility: ["使用可读的状态文本", "当前阶段有 aria-current"] },
     { name: "CandidateComparison", responsibility: "并列展示交付、质量和产品/UI方案的目标、收益、代价和来源。", variants: ["table", "stacked"], states: ["loading", "ready", "empty", "error"], accessibility: ["表头与单元格关系明确", "方案选择不依赖颜色"] },
     { name: "EvidenceTable", responsibility: "展示知识库和 GitHub 参考证据的版本、路径、许可证、用途和验证状态。", variants: ["dense", "detail"], states: ["loading", "verified", "not_yet_verified", "license_review"], accessibility: ["支持键盘浏览", "长 URL 可复制且有文本标签"] },
-    { name: "PromptExportButton", responsibility: "导出完整 UI 规格和下游 AI 编程 Prompt，并明确目标设计与未验证项。", variants: ["markdown", "json", "prompt"], states: ["idle", "generating", "ready", "blocked"], accessibility: ["提供下载结果的状态反馈", "失败时保留可重试入口"] },
+    { name: "ReportExportActions", responsibility: "复制或导出完整 AI 可执行产品/UI实施报告，并明确目标设计与未验证项。", variants: ["markdown", "json", "copy"], states: ["idle", "generating", "ready", "blocked"], accessibility: ["提供下载结果的状态反馈", "失败时保留可重试入口"] },
   ];
+}
+
+function aiExecutionContract(solutionType: ProductUISolutionType): ProductUIAIExecutionContract {
+  const emphasis = solutionType === "experience_first" ? "任务连续性" : solutionType === "visual_first" ? "视觉识别度" : "工程可测试性";
+  return {
+    objective: `把本报告直接实现为可运行、可验收的网站或 UI 原型，重点保证${emphasis}，并让实现结果与页面、组件、证据和验收条目逐项对应。`,
+    outputRequirements: [
+      "先实现报告中列出的路由、页面区块和主要用户流程，再补齐组件变体与状态。",
+      "使用真实且与产品场景相关的界面文案和示例数据，不用 lorem ipsum 或与需求无关的占位内容。",
+      "交付可启动的项目代码，并保留报告中要求的响应式、键盘操作和错误恢复行为。",
+      "完成后输出真实启动命令、预览地址、截图路径、测试结果和未通过的验收项。",
+    ],
+    implementationOrder: [
+      "确认技术栈、入口路由和现有组件边界，记录无法满足的前置条件。",
+      "实现页面骨架、导航和主流程，确保桌面端与移动端均可进入核心任务。",
+      "实现设计 Token、组件变体、加载/空/错/成功状态和权限状态。",
+      "根据视觉验收标准运行网站，逐页记录结果并修复高影响问题。",
+    ],
+    contentRequirements: [
+      "页面标题、按钮、字段、错误提示和空状态必须服务于当前需求，不得只生成抽象演示文案。",
+      "GitHub/UI 参考只用于解释设计依据，复用代码前必须核对固定版本、路径和许可证。",
+    ],
+    forbiddenClaims: [
+      "没有真实运行证据时，不得声称网站已经生成、上线或通过视觉验收。",
+      "不得编造截图、预览地址、性能数字、召回率、测试结果或许可证审计结果。",
+    ],
+    verificationChecklist: [
+      "逐页检查路由、页面区块、主要操作和关键状态。",
+      "在桌面端和移动端检查布局、文字溢出、交互可达性和视觉层级。",
+      "把每一项未通过内容连同复现方式记录回传，不用笼统的‘已完成’替代。",
+    ],
+  };
 }
 
 export function createProductUISpec(input: ReportGenerationInput, solutionType: ProductUISolutionType, evidence: GitHubEvidence[] = input.githubEvidence ?? DEFAULT_GITHUB_UI_EVIDENCE): ProductUISpec {
   const spec = {
-    schemaVersion: 1 as const,
+     schemaVersion: 1 as const,
     solutionId: `product-ui-${solutionType}`,
     solutionType,
     productName: productName(input),
@@ -238,13 +274,14 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
     components: components(solutionType),
     responsiveRules: ["桌面端使用稳定的两栏或三栏布局，内容区设置最大宽度，避免长行影响阅读。", "平板端收起次要侧栏，证据和目录改为可展开区域。", "移动端将流程、候选方案和验收清单改为纵向顺序，主操作固定在可见区域。", "表格在窄屏转换为带字段标签的堆叠行，不允许横向滚动隐藏关键操作。", "页面和组件使用稳定的尺寸约束，加载、错误和长文本状态不得造成布局跳动。"],
     interactionStates: ["初始化时显示当前阶段和可用操作，不展示假进度。", "模型调用中显示预算和取消入口，完成后明确产物版本。", "需求不完整时进入澄清状态，保留原始输入和待回答问题。", "评审发现高风险问题时，提供定向修改和人工确认路径。", "导出被阻止时说明缺失证据或验证状态，不生成看似完整的文件。", "权限不足时隐藏不可执行操作并说明需要的权限。"],
-    implementationConstraints: ["报告内容必须区分事实、假设、目标设计、已验证项和未验证项。", "GitHub 参考必须记录仓库 URL、commit SHA、路径、许可证、复用策略和三项独立核验状态；固定 SHA 只保证引用快照可复现，不代表仓库、路径或许可证已审计。", "公开仓库只能作为参考，是否复用代码必须经过许可证和版本审计。", "下游 Prompt 不得编造页面截图、性能数字、召回率或视觉验收结果。", "每套方案必须独立生成唯一 solutionId，并保留自己的取舍和验收内容。", "实现时应优先复用项目现有组件、状态持久化、权限和可观测性边界。"],
+     implementationConstraints: ["报告内容必须区分事实、假设、目标设计、已验证项和未验证项。", "GitHub 参考必须记录仓库 URL、commit SHA、路径、许可证、复用策略和三项独立核验状态；固定 SHA 只保证引用快照可复现，不代表仓库、路径或许可证已审计。", "公开仓库只能作为参考，是否复用代码必须经过许可证和版本审计。", "AI 执行报告不得编造页面截图、性能数字、召回率或视觉验收结果。", "每套方案必须独立生成唯一 solutionId，并保留自己的取舍和验收内容。", "实现时应优先复用项目现有组件、状态持久化、权限和可观测性边界。"],
     visualAcceptanceCriteria: ["首屏能识别产品目标、当前阶段和主要操作，且不需要阅读长段说明。", "所有页面都有 loading、empty、error、success 和移动端状态的实现或明确占位。", "用户可以从报告内容追溯到需求、计划、评审 Finding 或带固定 SHA 的 GitHub 证据。", "组件交互有键盘路径、焦点可见性、错误描述和非颜色语义。", "运行生成的网站后，验收者可以按页面、流程、响应式和视觉层级逐项记录结果。", "没有真实截图或自动化检查结果时，界面不得宣称已经通过视觉验收。"],
-    deliveryBoundary: {
+     deliveryBoundary: {
       included: input.analysis.inScope.slice(0, 12).length > 0 ? input.analysis.inScope.slice(0, 12) : ["结构化产品/UI实施报告", "页面、流程和验收契约"],
       excluded: [...input.analysis.outOfScope.slice(0, 10), "下游网站的真实运行、截图和视觉验收结果"].slice(0, 20),
       handoff: "本规格是交给下游 AI 编程 Agent 的实施输入，不是已经上线的网站。下游完成实现后，必须回传真实启动命令、截图路径、测试结果和未通过的验收项。",
-    },
+     },
+     aiExecutionContract: aiExecutionContract(solutionType),
     traceability: traceability(input, solutionType, evidence),
     evidence,
     evidenceStatus: evidence.length > 0 && evidence.every(hasPinnedGitHubCommit) ? "sha_pinned" as const : "not_yet_verified" as const,
@@ -259,7 +296,7 @@ function reportForSolution(input: ReportGenerationInput, solutionType: ProductUI
   const report: DevelopmentReport = {
     ...base,
     title: `${base.title} · ${SOLUTION_LABELS[solutionType]}`,
-    executiveSummary: `${base.executiveSummary} 本版本增加一套可交给下游 AI 编程 Agent 的产品/UI实施规格；GitHub 参考的 commit SHA 用于固定可复现快照，仓库、路径和许可证核验状态独立记录；页面、视觉方向和验收标准仍属于目标设计，不代表下游网站已经生成或通过验收。`,
+     executiveSummary: `${base.executiveSummary} 本版本将产品/UI实施报告定义为可直接交给下游 AI 编程 Agent 执行的核心交付物；报告包含页面、视觉、组件、交互、响应式、证据和验收契约。GitHub 参考的 commit SHA 用于固定可复现快照，仓库、路径和许可证核验状态独立记录；页面、视觉方向和验收标准仍属于目标设计，不代表下游网站已经生成或通过验收。`,
     productUISpec: spec,
   };
   return DevelopmentReportSchema.parse(report);

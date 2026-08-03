@@ -36,6 +36,8 @@ export const ProductUIPageSchema = z.object({
   sections: z.array(z.string().min(2).max(200)).min(1).max(20),
   requiredStates: z.array(z.enum(["loading", "empty", "error", "success", "permission_denied", "mobile"])).min(1).max(10),
   components: z.array(z.string().min(2).max(160)).min(1).max(30),
+  // 页面级实施要求让下游 AI 不必猜测内容、布局和交互细节。
+  implementationInstructions: z.array(z.string().min(5).max(500)).min(1).max(12).optional(),
   acceptanceCriteria: z.array(z.string().min(5).max(500)).min(1).max(15),
 });
 
@@ -91,6 +93,15 @@ export const ProductUIDeliveryBoundarySchema = z.object({
   handoff: z.string().min(20).max(1_000),
 });
 
+export const ProductUIAIExecutionContractSchema = z.object({
+  objective: z.string().min(20).max(1_000),
+  outputRequirements: z.array(z.string().min(10).max(500)).min(3).max(20),
+  implementationOrder: z.array(z.string().min(5).max(500)).min(3).max(20),
+  contentRequirements: z.array(z.string().min(5).max(500)).min(2).max(20),
+  forbiddenClaims: z.array(z.string().min(5).max(500)).min(2).max(20),
+  verificationChecklist: z.array(z.string().min(5).max(500)).min(3).max(20),
+});
+
 export const ProductUISpecSchema = z.object({
   schemaVersion: z.literal(1),
   solutionId: z.string().min(1).max(120),
@@ -108,6 +119,8 @@ export const ProductUISpecSchema = z.object({
   implementationConstraints: z.array(z.string().min(5).max(500)).min(3).max(20),
   visualAcceptanceCriteria: z.array(z.string().min(5).max(500)).min(5).max(30),
   deliveryBoundary: ProductUIDeliveryBoundarySchema,
+  // 新报告会填写该契约；optional 保证历史报告仍可读取。
+  aiExecutionContract: ProductUIAIExecutionContractSchema.optional(),
   traceability: z.array(ProductUITraceabilitySchema).min(4).max(40),
   evidence: z.array(GitHubEvidenceSchema).min(1).max(30),
   evidenceStatus: z.enum(["curated_reference", "sha_pinned", "not_yet_verified"]),
@@ -204,6 +217,7 @@ export type ProductUISolutionType = z.infer<typeof ProductUISolutionTypeSchema>;
 export type ProductUIPage = z.infer<typeof ProductUIPageSchema>;
 export type ProductUIFlow = z.infer<typeof ProductUIFlowSchema>;
 export type ProductUITraceability = z.infer<typeof ProductUITraceabilitySchema>;
+export type ProductUIAIExecutionContract = z.infer<typeof ProductUIAIExecutionContractSchema>;
 export type ProductUISpec = z.infer<typeof ProductUISpecSchema>;
 export type ProductUIReportGroup = z.infer<typeof ProductUIReportGroupSchema>;
 export type ProductUIRuntimeEvidence = z.infer<typeof ProductUIRuntimeEvidenceSchema>;

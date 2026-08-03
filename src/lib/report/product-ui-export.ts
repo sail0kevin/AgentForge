@@ -49,7 +49,10 @@ export type ProductUIHandoffSolution = {
   };
   handoffContract: ProductUIHandoffContract;
   report: DevelopmentReport;
+  // 完整报告是主交付物，复制或下载它即可交给下游 AI 编程工具。
+  aiExecutionMarkdown: string;
   markdown: string;
+  /** @deprecated 兼容旧消费者；不再作为独立核心产物展示。 */
   downstreamPrompt: string;
 };
 
@@ -92,6 +95,39 @@ function traceabilityMarkdown(spec: ProductUISpec) {
   ].join("\n")).join("\n");
 }
 
+function executionContractMarkdown(spec: ProductUISpec) {
+  const contract = spec.aiExecutionContract;
+  if (!contract) {
+    return [
+      "目标：依据本报告实现可运行网站，并对页面、组件、响应式和验收标准逐项回传真实结果。",
+      "",
+      "执行顺序：",
+      bulletList(["先实现路由和页面骨架", "再实现组件、视觉 Token 和交互状态", "最后运行网站并逐项验收"]),
+      "",
+      "真实性约束：",
+      bulletList(["不得编造截图、预览地址、性能数字或测试结果", "没有运行证据时不得声称网站已经完成"]),
+    ].join("\n");
+  }
+  return [
+    `目标：${contract.objective}`,
+    "",
+    "交付要求：",
+    bulletList(contract.outputRequirements),
+    "",
+    "实施顺序：",
+    bulletList(contract.implementationOrder),
+    "",
+    "内容与证据要求：",
+    bulletList(contract.contentRequirements),
+    "",
+    "禁止声明：",
+    bulletList(contract.forbiddenClaims),
+    "",
+    "验证清单：",
+    bulletList(contract.verificationChecklist),
+  ].join("\n");
+}
+
 export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata: { generatedAt?: string } = {}) {
   const spec = report.productUISpec;
   if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
@@ -103,6 +139,7 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     `区块：${page.sections.join("、")}`,
     `组件：${page.components.join("、")}`,
     `状态：${page.requiredStates.join("、")}`,
+    page.implementationInstructions?.length ? "实施要求：\n" + bulletList(page.implementationInstructions) : "",
     "验收：",
     bulletList(page.acceptanceCriteria),
   ].join("\n")).join("\n\n");
@@ -135,6 +172,10 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "## 产品定位",
     "",
     spec.productPositioning,
+    "",
+    "## AI 执行契约",
+    "",
+    executionContractMarkdown(spec),
     "",
     "## 目标用户和场景",
     "",
@@ -209,10 +250,11 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "",
     "## 当前状态声明",
     "",
-    "- 已实现：AgentForge 可以生成并导出结构化产品/UI规格、页面清单、组件状态、响应式要求和下游 Prompt。",
+    "- 已实现：AgentForge 可以生成并导出结构化 AI 可执行产品/UI实施报告、页面清单、组件状态、响应式要求、证据和验收契约。",
     "- 已实现：每套规格保留 GitHub 仓库、版本字段、路径、许可证和复用策略。",
     "- 已实现：默认 GitHub/UI 参考使用完整 commit SHA，并分别记录仓库、路径和许可证核验状态。",
     `- 当前状态：${spec.evidenceStatus}；证据审计：${spec.evidenceAuditStatus}。固定 SHA 只保证引用快照可复现，不等于仓库、路径或许可证审计已经完成。`,
+    "- 兼容入口：下游 Prompt 仍可生成，但它只是完整报告的适配包装，不是独立于报告之外的第二份核心交付物。",
     "- 目标设计：页面、视觉风格、运行截图和最终网站效果需要由下游 AI 生成并经过实际运行验收。",
   ].join("\n");
 }
@@ -222,8 +264,8 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport) {
   if (!spec) throw new Error("PRODUCT_UI_SPEC_MISSING");
   const markdown = renderProductUISpecMarkdown(report);
   return [
-    "你是负责把产品/UI实施规格落地为可运行网站的 AI 编程 Agent。",
-    "请严格依据下面的规格实现页面，不要把目标设计描述成已经存在的功能，也不要编造截图、性能数字、召回率或测试结果。",
+    "你是负责把 AgentForge AI 可执行产品/UI实施报告落地为可运行网站的 AI 编程 Agent。",
+    "下面的完整报告就是实施输入；请直接依据报告实现，不要把目标设计描述成已经存在的功能，也不要编造截图、性能数字、召回率或测试结果。",
     "",
     "交付要求：",
     "1. 先实现页面路由、页面区块和主操作，再实现组件状态。",
@@ -307,6 +349,7 @@ export function buildProductUIHandoffBundle(
         runtimeAcceptance: buildRuntimeAcceptance(group.feedback, spec.solutionId),
         handoffContract: PRODUCT_UI_HANDOFF_CONTRACT,
         report,
+        aiExecutionMarkdown: renderProductUISpecMarkdown(report, metadata),
         markdown: renderProductUISpecMarkdown(report, metadata),
         downstreamPrompt: buildDownstreamAgentPrompt(report),
       };
