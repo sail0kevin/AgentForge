@@ -1,176 +1,106 @@
 # AgentForge
 
-> 面向“需求到产品/UI实施报告”的可恢复多智能体工作流平台。
->
-> 把需求澄清、多套产品/UI方案、交叉评审、人工裁决、下游 AI 编程 Prompt 和真实验收反馈组织成一条可暂停、可恢复、可审计的交付闭环。
+> 从零散产品需求到可执行 Product/UI 实施包的可恢复多智能体工作流。
+
+AgentForge 让 Planner、Delivery、Quality、Reviewer、Evaluator 和 Reporter 围绕结构化 Artifact 协作，把需求澄清、候选方案、交叉评审、人工裁决、实施报告和运行验收组织成一条可暂停、可恢复、可审计的交付链路。
 
 [![CI](https://github.com/sail0kevin/AgentForge/actions/workflows/ci.yml/badge.svg)](https://github.com/sail0kevin/AgentForge/actions/workflows/ci.yml)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![LangGraph](https://img.shields.io/badge/LangGraph-Workflow-5B5BD6)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-16A34A.svg)](LICENSE)
 
-![AgentForge 工作流完成页](docs/screenshots/workflow-completed.png)
+## 从报告到可运行产品
 
-AgentForge 是一个 **local-first Web MVP**，目标是把零散产品需求转成可交给下游 AI 编程 Agent 的多套完整产品/UI实施报告。它不是把多个聊天框放在一起，而是让不同 Agent 围绕结构化 Artifact 协作：Planner 先澄清需求，Delivery / Quality 生成独立候选，Reviewer 提交带证据的 Finding，Evaluator 在必要时进入人工裁决，Reporter 最终生成体验优先、视觉优先和工程优先三套报告；用户可以导出 Markdown、复制下游 Prompt，并在网站真实运行后回写验收结果。
+AgentForge 的核心交付物不是一段分析文字，也不是必须二次解释的通用 Prompt，而是包含产品定位、路由、视觉、组件、状态、响应式规则、实施顺序和验收矩阵的完整报告，以及可供下游 AI 编程工具读取的 `implementation-manifest` JSON。
 
-## 30 秒看懂这个项目
-
-| 招聘方关心什么 | 项目中的实际实现 |
-|---|---|
-| 核心难点 | LangGraph 状态图、可切换 SQLite/PostgreSQL Checkpoint、interrupt / resume、节点幂等 |
-| Agent 如何协作 | 结构化 PlanningArtifact、Candidate、Finding、ReportArtifact，而不是自然语言互相转发 |
-| 如何保证可追溯 | Markdown 标题路径与行号引用、来源清单、风险/未决项、Token/费用/工具审计 |
-| 如何验证 | 单元/E2E、RAG Golden Set、冻结消融协议与专用 PostgreSQL 集成测试入口 |
-| 当前状态 | 产品/UI报告生成、持久化、导出和验收反馈链路已实现；默认 GitHub/UI 参考目录已固定完整 commit SHA，但许可证复用审计、真实网站和真实模型质量仍需单独验证 |
-
-## 产品体验
-
-| 工作流闭环 | 版本化报告 | 新版统一工作台 |
+| 企业考勤工作台 | 数字艺术展览 | 数字聆听室 |
 |---|---|---|
-| ![完成的工作流](docs/screenshots/workflow-completed.png) | ![报告中心](docs/screenshots/report-demo.png) | ![新版工作台](docs/screenshots/workspace-redesign.png) |
-| 从规划到人工裁决与报告生成 | 动态目录、来源、风险与版本记录 | 持久需求任务、Agent 成员和统一导航 |
+| ![企业考勤工作台](<docs/screenshots/2026-08-03 - generated-attendance-desktop.png>) | ![数字艺术展览](<docs/screenshots/2026-08-04 - generated-atelier-desktop.png>) | ![数字聆听室](<docs/screenshots/2026-08-04 - generated-nocturne-desktop.png>) |
+| `/generated/attendance` | `/generated/atelier` | `/generated/nocturne` |
+| 数据概览、状态筛选、打卡反馈、移动端导航 | 作品浏览、展览布局、艺术图片资产展示 | 媒介筛选、播放收藏、详情弹层、移动端导航 |
 
-### 报告到真实页面的示范
+这三个页面依据 AgentForge 报告中的产品定位、视觉方向、路由、组件和交互要求，由开发或 AI 编程协作完成，用于验证报告能够指导不同形态的网站实现。它们是仓库内可运行的报告映射案例，不代表 AgentForge 已经能够自动编译、部署任意网站。
 
-当前工作区新增了一个由三种 Product/UI 报告方向（体验优先、视觉优先、工程优先）共同落地的企业团队考勤工作台示范页面。它不是分析报告截图，而是可运行的 Next.js 页面：
+## 30 秒看懂
 
-- 页面地址：`/generated/attendance`
-- 启动方式：`npm run dev` 后访问 `http://127.0.0.1:3010/generated/attendance`
-- 已实现交互：立即打卡、状态筛选、查看全部成员、移动端导航抽屉、Toast 状态反馈
-- 已实现产品结果：实时出勤概览、团队成员状态、周趋势、待处理事项、AI 团队洞察和报告导出入口
-- 数据边界：当前使用本地确定性演示数据，不代表真实企业考勤数据，也不代表真实模型质量
-
-公开截图：
-
-- `docs/screenshots/2026-08-03 - generated-attendance-desktop.png`
-- `docs/screenshots/2026-08-03 - generated-attendance-mobile.png`
-- `docs/screenshots/2026-08-03 - generated-attendance-checked-in.png`
+| 问题 | AgentForge 的回答 |
+|---|---|
+| 输入是什么 | 零散需求、补充信息、版本化项目文档和受控参考证据 |
+| Agent 如何协作 | 使用 `PlanningArtifact`、`Candidate`、`Finding`、`ReportArtifact` 等结构化对象交接，不依赖自然语言互相转发 |
+| 最终交付什么 | 三套体现不同取舍的 Product/UI 实施报告、单方案 `implementation-manifest`、Markdown 导出和验收记录 |
+| 如何避免错误继续传递 | Schema 校验、引用回查、预算约束、交叉评审、Evaluator 收敛和高影响冲突人工裁决 |
+| 如何处理中断 | LangGraph Checkpoint、`interrupt / resume`、节点幂等和持久化人工决策 |
+| 如何证明可用 | 自动化门禁、PostgreSQL 恢复与租约专项验证、RAG/消融评测工具链，以及三个可运行报告映射案例 |
 
 ## 核心工作流
-### 报告映射网站案例（2026-08-04）
-
-上述考勤工作台是首个报告映射案例。当前仓库还提供两个不同产品形态的可运行页面，用于验证 Product/UI 报告及其 `implementation-manifest` 能被下游实现消费：
-
-- `/generated/attendance`：企业团队考勤工作台，覆盖数据概览、状态筛选、成员展开、打卡反馈和移动端导航。
-- `/generated/atelier`：数字艺术展览，覆盖作品浏览、展览布局和仓库内艺术图片资产展示。
-- `/generated/nocturne`：数字聆听室，覆盖媒介筛选、播放/暂停、收藏、详情弹层和移动端导航。
-
-这些页面由开发或 AI 编程协作，依据报告中的路由、视觉、组件、状态与响应式要求完成；它们是可运行的报告映射落地案例，不是分析报告截图。实现包可从报告中心下载为 JSON，包含评审溯源、产品定位、视觉方向、路由蓝图、实施顺序、GitHub/UI 证据和验收矩阵。
-
-**已验证边界**：案例使用本地确定性演示数据，并已在本地构建与交互检查中使用。
-
-**目标设计 / 未完成边界**：AgentForge 尚不是能够把任意报告自动编译、部署并完成线上验收的通用网站生成器；真实业务数据、播放与收藏持久化、生产部署、真实用户验收和许可证复用审计仍需独立完成。
-
 
 ```mermaid
 flowchart LR
     A[用户需求] --> B[需求分析]
-    B --> C[Planner + 动态目录]
-    C --> D1[Delivery 候选]
-    C --> D2[Quality 候选]
-    D1 --> E[交叉评审]
-    D2 --> E
-    E --> F[Evaluator]
-    F -->|高影响冲突| G[人工裁决]
-    F -->|无需裁决| H[Reporter]
-    G -->|Checkpoint Resume| H
-    H --> I[三套产品/UI实施报告]
-     I --> J[下游 AI 编程 Agent]
-     J --> K[真实网站/UI运行验收]
-     K -->|反馈回写| I
+    B --> C{信息是否充分}
+    C -->|否| D[暂停并追问]
+    D -->|补充后恢复| B
+    C -->|是| E[Planner 生成计划]
+    E --> F1[Delivery 候选]
+    E --> F2[Quality 候选]
+    F1 --> G[Reviewer 交叉评审]
+    F2 --> G
+    G --> H{Evaluator}
+    H -->|高影响冲突| I[人工裁决]
+    I -->|Checkpoint Resume| J[Reporter]
+    H -->|通过或定向修改| J
+    J --> K[三套 Product/UI 报告]
+    K --> L[implementation-manifest]
+    L --> M[下游 AI 编程协作]
+    M --> N[运行证据与验收回写]
 ```
 
-### 可恢复执行
+## 关键设计与取舍
 
-七节点 LangGraph 工作流默认写入 SQLite Checkpoint，也可切换到 PostgreSQL；刷新、中断和人工等待后可从同一 thread 恢复，并通过节点幂等避免重复生成 Artifact。
+| 决策 | 为什么这样选 | 代价与边界 |
+|---|---|---|
+| LangGraph 图式编排 | 工作流包含追问、并行候选、循环修订和人工等待，图结构比线性链更适合表达状态流转 | 状态 Schema、Checkpoint 和调试复杂度更高 |
+| 结构化 Artifact 协作 | 让候选、Finding、引用和验收条件可校验、可持久化、可定向回传 | 需要维护更严格的数据契约和版本兼容 |
+| SQLite 默认，PostgreSQL 可切换 | SQLite 适合 local-first 演示；PostgreSQL Checkpointer 用于跨实例恢复和分布式租约场景 | 生产负载、备份恢复和远程环境仍需单独验收 |
+| 默认 TF-IDF，可选混合 RAG | 小型本地知识库先保证确定性；向量完整且模型一致时再通过 bge-m3 与 RRF 提升语义召回 | 人工 Golden Set 未完成前不宣称真实 Recall@5 提升 |
+| 置信度驱动人工介入 | 只在需求不足或高影响冲突时暂停，减少无意义审批 | 阈值仍需要真实使用数据持续校准 |
+| 报告与实施包分层 | Markdown 便于人审，JSON 便于下游 AI 编程工具和自动化流程消费 | 当前下游代码生成、部署和截图采集仍需外部执行 |
 
-### 结构化候选与交叉评审
+## 工程实现
 
-Delivery / Quality 分别生成独立 Candidate，Reviewer 输出带证据的 Finding，Evaluator 负责比较、有限修订和结果收敛。
+- **可恢复执行**：七节点 LangGraph 工作流支持刷新、中断、人工等待后从同一 thread 恢复，并通过节点幂等减少重复 Artifact。
+- **独立候选与 Reflection Loop**：Delivery 和 Quality 分别关注交付效率与工程质量，Reviewer 输出带证据 Finding，Evaluator 决定通过、定向修改或人工确认。
+- **证据优先 RAG**：Markdown 按标题路径和真实行号切块，检索结果携带 citation；报告生成前重新校验来源，证据不足时保留未决项。
+- **状态与审计**：Prisma 持久化工作流、节点、报告、人工决策和运行反馈，同时记录 Provider、Token、费用和工具调用。
+- **租户与凭证隔离**：工作流、报告、文档和 Run 按用户与 Session 隔离，API Key 由服务端加密并只返回掩码。
+- **报告验收闭环**：运行证据需包含启动命令、访问地址、截图和验收记录；证据不完整时不会把方案标记为 `accepted`。
 
-### 可审计与成本可见
+## 可复现证据
 
-受控只读工具有 Schema、计划授权、超时、次数、大小和调用审计约束；系统同时记录 Token、费用、Provider 和 ToolInvocation。
+以下数字均来自仓库已有记录，不把 dry-run、固定夹具或本地演示包装成生产结论。
 
-### 凭证与数据隔离
+| 验证项 | 已有结果 | 结论边界 |
+|---|---|---|
+| 完整质量门禁 | 2026-08-03：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E；`src/lib/**` 行 `91.55%`、分支 `86.85%`、函数 `89.35%` | 同时通过 TypeScript、ESLint、文档链接检查和生产构建 |
+| 报告链路回归 | 完整门禁后新增用例单独通过聚焦 `1/1` 与 Core E2E `26/26` | 使用隔离 SQLite 和预设运行证据，不等于真实网站验收 |
+| PostgreSQL Checkpoint | 在 WSL 专用临时 PostgreSQL 库完成 migration、跨实例 crash recovery、多进程租约与 Fencing Token 验收 | 尚未完成目标环境负载、备份恢复、Docker 和远程 CI 复验 |
+| RAG 工具链 | 确定性 fixture、仓库检索冒烟、混合检索回退和人工标注工作流已实现 | 人工 Golden Set 当前为 `not_ready`，不能宣称真实 Recall@5、MRR 或 NDCG |
+| 多 Agent 消融 | 冻结案例、变体、运行计划、预算预检和结果 ledger 已实现 | 真实 Provider 盲评尚未执行，没有“质量提升 X%”结论 |
+| 报告映射案例 | 三个 Next.js 页面可在本地运行并覆盖桌面端、移动端和核心交互 | 使用本地确定性演示数据，尚无真实用户和生产业务数据 |
 
-工作流、报告、文档、计划和 Run 按用户与 Session 隔离，API Key 在服务端加密并只返回掩码。
-
-### 证据优先
-
-Markdown 文档按 H1–H6 标题路径和真实行号切块，检索结果带 citation；报告生成前会重新校验来源。
+完整口径见 [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)。
 
 ## 技术栈
 
 | 层级 | 技术 |
 |---|---|
 | Web | Next.js 16、React 19、TypeScript 5、Tailwind CSS 4、Zustand |
-| Agent / Workflow | LangGraph、LangChain、结构化输出、SSE |
+| Agent | LangGraph、LangChain、结构化输出、SSE |
 | Model | Ollama、OpenAI、Anthropic、DeepSeek、OpenAI-compatible Provider |
-| Data | Prisma 7、SQLite 默认后端、PostgreSQL 应用 schema / migration、可切换 LangGraph Checkpointer |
-| Retrieval | 默认 TF-IDF；可选 bge-m3 Embedding + RRF 混合检索、文档分块、来源引用 |
-| Quality | Node Test Runner、Playwright、ESLint、TypeScript、Production Build |
-| Desktop | Electron 43 实验性入口与打包配置 |
-
-## 可复现的质量证据
-
-### 当前可信基线（2026-08-03）
-
-- 当前状态以 2026-08-03 工作区代码和本轮聚焦验证为准；历史页面中的 2026-07-19、2026-08-01、2026-08-02 结果仍仅代表各自日期的发布或门禁快照。
-- `WORKFLOW_CHECKPOINT_BACKEND=postgres` 已可启用 `PostgresSaver`，SQLite 仍是默认本地后端；2026-08-01 已在 WSL 随机专用临时 PostgreSQL 库完成三条 migration、跨实例 crash recovery 和多进程租约 / Fencing Token 验收，且测试资源已清理。Docker/CI 仍是待补充的独立环境证据；这不构成生产负载、队列、exactly-once 或多地域验收。
-- **已实现**：默认 TF-IDF 检索；设置 `RAG_EMBEDDINGS_ENABLED=true` 后，上传会在文档主事务成功后尝试持久化 bge-m3 向量，只有语料向量同模型、同维度且完整时才使用 RRF 混合检索，否则确定性回退到 TF-IDF。
-- **已验证**：12 条确定性 fixture 的 Golden Gate 覆盖 clean `Recall@1`、shared-noise `Recall@5` 与 `NDCG@10`，当前均为 1.0。它验证 fixture 的 TF-IDF 回归，不是 bge-m3 或生产知识库的召回提升结论。
-- **待实测**：本地 Ollama/bge-m3 实际调用、既有文档向量回填、多来源人工标注 Golden Set 以及 RRF 参数比较。
-- 已完成 24 条真实 LongCat-2.0 的单 Agent / 完整多 Agent 对比：单 Agent 覆盖率 99.3%，完整多 Agent 覆盖率 86.2%。这是关键词 checklist 的探索性结果，存在模型波动，不能用于声称任一方案的质量提升。
-- 2026-08-03 最新完整 `npm run quality:all` 已通过：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、51 份 Markdown 文档命名/本地链接校验和 Next.js Production Build；随后补跑 `npm run db:validate` 与 `npm run db:validate:postgres` 也通过。真实 Provider、目标环境数据库持久化集成测试和真实网站视觉验收仍未执行，不能混写为已完成。四臂消融实验的 480 条记录仍是无模型 preflight，实际外部支出为 `$0`，不是质量实验结论。授权模板生成器的 `pending` 文件也不是外部费用审批。
-
-最近一次 `npm run quality:all` 会串联以下门禁；数字以本文档收口后的最终复跑结果为准：
-
-```text
-Unit tests                211 / 211 (2026-08-03 full gate)
-Core Playwright E2E        25 / 25
-Session isolation E2E       1 / 1
-Coverage (src/lib/**)      91.55 / 86.85 / 89.35
-TypeScript / ESLint / Build / Docs passed
-```
-
-```bash
-npm run quality:all
-```
-
-### RAG 离线回归
-
-- `npm run quality:rag:baseline`：12 类固定检索意图，分别验证无噪声 `k=1` 与共享噪声 `k=5` 的 Recall、MRR、无关结果率和引用完整率。这是确定性夹具，只证明检索与引用指标实现。
-- `npm run quality:rag:repository`：读取 `README.md` 与当前开发状态文档，按标题路径和真实行号生成项目文档 Chunk，验证 6 个检索意图是否命中目标章节；任一未命中即以非零退出码阻断门禁。最终 Chunk 数和命中数见下方“最新验证结果”。
-
-这些结果不是通用检索准确率，也不是模型语义质量结论。2026-07-19 的发布快照当时仅覆盖 TF-IDF；当前工作区已有受控的 Embedding 与 RRF 运行时路径，可信边界见上方“当前可信基线”。
-
-### 真实模型盲评工具链
-
-已冻结 **12 个需求案例**（网站、管理后台、学习场景各 4 个）与 **5 种协作变体**，确定性生成 **12 × 5 = 60 个唯一运行任务**。工具链支持清单哈希、运行计划、真实输入预检、匿名评分包、私有解盲映射、每名评分者的独立模板和解盲汇总。
-
-`npm run quality:blind:dry-run` 会使用 `synthetic: true`、`modelCalled: false` 的合成数据贯通 60 项运行和 2 名合成评分者，只验证链路连通性。当前尚未完成 60 次真实模型运行，也没有至少 2 名独立评分者的真实评分，因此不得声称多 Agent 质量提升、幻觉下降或成本下降。
-
-### 最新验证结果
-
-2026-08-01 在当前工作区完整运行 `npm run quality:all`，最终退出码为 `0`：
-
-- 固定检索夹具：12 类意图；无噪声 `k=1` 与共享噪声 `k=5` 的 Recall、MRR、引用完整率均为 `1`；共享噪声无关结果率为 `0.5862068965517241`。
-- 仓库文档检索：2份真实项目文档生成 **31个Chunk**，6个检索意图 **6/6命中目标章节**。
-- 盲评工具链：12 个冻结案例、5 种变体、60 项运行计划；合成 dry-run 贯通 60 项运行和 2 名合成评分者，未调用模型。
-- 自动化验证：**193/193 Unit、24/24 Core E2E、1/1 Session Isolation E2E**；`src/lib/**` 覆盖率为行 `92.30%`、分支 `87.62%`、函数 `89.49%`；TypeScript、ESLint 与生产构建通过。核心与 Session E2E 使用并在结束后清理专用 `.next-e2e` 构建目录，避免 Playwright 的 `next dev` 产物污染后续类型检查。
-
-以上是当前工作区在 2026-08-03 的离线工程门禁结果，不是公开在线服务、真实模型盲评或多 Agent 质量收益结论。
-
-## 三分钟本地演示
-
-1. 启动项目并进入工作台；不配置 API Key 也可以选择确定性 Baseline 模式。
-2. 新建产品/UI实施需求，查看 Requirement Analysis、Execution Plan 和动态目录。
-3. 对比体验优先、视觉优先和工程优先三套产品/UI方案及交叉评审结果。
-4. 在高影响冲突处提交人工裁决，观察工作流从 Checkpoint 恢复。
-5. 打开报告中心，检查三套产品/UI实施报告、带固定 SHA 的 GitHub/UI参考证据、下游 Prompt，导出 Markdown；网站真实运行后可回写通过或需修改。
-
-完整步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
+| Data | Prisma 7、SQLite、PostgreSQL、LangGraph Checkpointer |
+| Retrieval | TF-IDF、bge-m3 Embedding、RRF 混合检索、引用回查 |
+| Quality | Node Test Runner、Playwright、TypeScript、ESLint、Production Build |
 
 ## 快速开始
 
@@ -180,43 +110,43 @@ npm run quality:all
 git clone https://github.com/sail0kevin/AgentForge.git
 cd AgentForge
 npm ci
-cp .env.example .env          # macOS、Linux、Git Bash
+cp .env.example .env
 npm run db:generate
 npm run db:migrate
 npm run dev
 ```
 
-Windows PowerShell可将环境文件复制命令替换为：
+Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默认访问 `http://localhost:3000`；不配置外部模型 API Key 也可以使用确定性 Baseline 模式体验主流程。
 
-```powershell
-Copy-Item .env.example .env
-```
+推荐演示顺序：
 
-访问 `http://localhost:3000`。模型 Provider、认证模式和数据库配置见 `.env.example` 与[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
+1. 新建需求，观察需求分析、补充问题和执行计划。
+2. 对比 Delivery / Quality 独立候选及交叉评审结果。
+3. 提交人工裁决，验证 Checkpoint 恢复。
+4. 在报告中心查看三套 Product/UI 报告并下载 `implementation-manifest`。
+5. 访问 `/generated/attendance`、`/generated/atelier` 和 `/generated/nocturne` 查看报告映射结果。
+
+详细步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
 
 ## 当前边界
 
-- Hybrid RAG 是 opt-in 路径，仍待本地 Ollama、既有文档向量回填和人工标注知识库实测；12 条满分 fixture 没有区分性，在扩大 Golden Set 前不应表述为“召回率提升 X%”。
-- 已有受控只读工具，但尚未完成统一的 Provider 原生 Tool Calling 接入。
-- SQLite 是默认 Checkpoint 后端；PostgreSQL Checkpointer 的跨实例恢复与租约 / Fencing 已在 WSL 专用临时库完成实测。Docker/CI 环境复验、生产负载、后台队列与 exactly-once 语义仍不在已验证范围内。
-- Markdown 导出可用，PDF / DOCX 导出尚未完成。
-- Electron 为实验性入口，尚未完成代码签名、安装后迁移和干净机器验收。
-- 真实模型盲评尚未完成；当前没有“质量提升 X%”“幻觉下降 X%”等结论。
+- 三个页面证明报告可以指导下游实现，不代表 AgentForge 已能自动生成、部署和验收任意网站。
+- 人工 RAG Golden Set、真实模型盲评、Provider 成本与延迟、生产并发和真实用户效果仍缺独立证据。
+- PostgreSQL Checkpointer 已完成专项本地验证，目标环境持久化、备份恢复和生产负载仍待验收。
+- Markdown 和 JSON 导出可用；PDF / DOCX 导出、统一 Provider 原生 Tool Calling 和 Electron 生产发布尚未完成。
+- GitHub/UI 参考已固定完整 commit SHA，但许可证复用审计仍需在实际使用前完成。
 
-## 文档
+## 核心文档
 
-- [文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
-- [当前运行架构](<./docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
 - [当前开发状态](<./docs/2026-08-01 - current-development-status - 当前开发状态.md>)
-- [质量评测说明](<./docs/quality - 质量评测/2026-08-01 - quality-evaluation-index - 质量评测说明.md>)
-- [当前项目报告](<./docs/reports - 对外发布报告/2026-07-19 - project-report - 当前项目报告.md>)
-- [本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)
-- [截图说明](./docs/screenshots/2026-07-19 - screenshot-index - 公开截图说明.md)
-- [安全策略](SECURITY.md)
+- [当前运行架构](<./docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
+- [Product/UI 实施包说明](<./docs/2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md>)
+- [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)
+- [完整文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
 
-## English summary
+## English Summary
 
-AgentForge is a local-first Web MVP for turning product requirements into evidence-aware product/UI implementation report sets. It combines requirement clarification, independent candidate generation, cross-review, human approval, checkpoint recovery, persisted report groups, downstream coding-agent prompts, Markdown export, and post-run acceptance feedback. The generated website is produced by a downstream AI coding agent; GitHub evidence verification, real-model quality evaluation, and production-grade deployment remain separate validation work.
+AgentForge is a local-first, recoverable multi-agent workflow that turns product requirements into reviewed Product/UI implementation reports and machine-readable implementation manifests. It combines requirement clarification, independent candidates, evidence-backed review, human approval, checkpoint recovery, persisted artifacts, downstream implementation handoff, and acceptance feedback. Three runnable Next.js cases demonstrate report-to-product mapping; automated website generation, real-model quality gains, and production deployment remain separate validation work.
 
 ## License
 
