@@ -1099,7 +1099,7 @@ select.field {
 .nocturne-room-body h3 { margin: 0 0 6px; color: var(--nocturne-ink); font-size: 20px; font-weight: 400; letter-spacing: -.03em; }
 .nocturne-room-body span { color: #a69e92; font-size: 11px; }
 .nocturne-save { display: grid; flex: 0 0 auto; width: 30px; height: 30px; place-items: center; border: 1px solid var(--nocturne-line); border-radius: 50%; background: transparent; color: #918a80; }
-.nocturne-save:hover, .nocturne-save.is-saved { border-color: #e7a38f; color: #e7a38f; }
+.nocturne-save:hover, .nocturne-save.is-saved { border-color: var(--nocturne-accent-soft); color: var(--nocturne-accent-soft); }
 .nocturne-room-note { min-height: 53px; margin: 19px 0 14px; color: #8e877d; font-size: 11px; line-height: 1.65; }
 .nocturne-open-link { display: inline-flex; align-items: center; gap: 8px; border: 0; border-bottom: 1px solid #777169; background: transparent; padding: 0 0 7px; color: #d9d0c3; font-size: 10px; letter-spacing: .13em; text-transform: uppercase; }
 .nocturne-open-link:hover { border-color: var(--nocturne-accent); color: var(--nocturne-accent); }
@@ -1111,7 +1111,7 @@ select.field {
 .nocturne-journal-footer { display: flex; align-items: center; justify-content: space-between; color: #867d72; font-size: 9px; letter-spacing: .12em; }
 .nocturne-journal-footer a { display: inline-flex; align-items: center; gap: 8px; color: #1a1b19; text-decoration: none; text-transform: uppercase; }
 .nocturne-journal-mark { display: flex; align-items: flex-end; justify-content: flex-end; gap: 12px; padding-bottom: 3px; color: #a76d5b; font-size: 50px; line-height: .2; }
-.nocturne-journal-mark span:nth-child(2) { color: #4c69d8; transform: translateY(-38px); }.nocturne-journal-mark span:nth-child(3) { color: #9db529; transform: translateY(-15px); }
+.nocturne-journal-mark span:nth-child(2) { color: #81766f; transform: translateY(-38px); }.nocturne-journal-mark span:nth-child(3) { color: #9e766b; transform: translateY(-15px); }
 .nocturne-about { display: grid; grid-template-columns: 1fr 1fr max-content; align-items: end; gap: 45px; padding: 120px 8vw; background: #171817; }
 .nocturne-about h2 { max-width: 500px; font-size: clamp(36px, 4vw, 62px); }
 .nocturne-about-button, .nocturne-detail-play { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 1px solid var(--nocturne-accent); background: transparent; padding: 12px 16px; color: var(--nocturne-accent); font-size: 10px; letter-spacing: .11em; text-transform: uppercase; }
