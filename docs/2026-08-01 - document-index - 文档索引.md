@@ -1,7 +1,7 @@
 # AgentForge 文档索引
 <!-- 文件名：2026-08-01 - document-index - 文档索引 -->
 
-更新时间：2026-08-02（Asia/Shanghai）
+更新时间：2026-08-04（Asia/Shanghai）
 
 本目录同时保存当前事实、正式设计、质量评测、公开说明、整改记录和历史材料。当前正式交付边界是 local-first Web MVP：用户需求经多 Agent 规划与评审后，可生成三套产品/UI实施报告（体验优先、视觉优先、工程优先），并完成报告组持久化、Markdown 导出、下游 AI 编程 Prompt 和真实验收反馈入口；网站本身仍由下游 AI 编程 Agent 生成，AgentForge 当前不宣称已自动生成真实网站。默认 GitHub/UI 参考已固定完整 commit SHA，但许可证复用审计、语义复核、真实模型盲评和 Electron 正式交付尚未完成。PostgreSQL Checkpointer、独立 migration 和分布式 lease/fencing 已实现，且已在 WSL 专用临时 PostgreSQL 环境完成迁移、跨实例恢复与租约/fencing 验收；Docker、远程 CI、目标环境备份恢复和生产负载仍待独立验证。
 
@@ -15,6 +15,14 @@
 上述时间线只记录已经执行的命令和结果。真实模型质量、人工 RAG Golden Set、目标环境 PostgreSQL 持久化、Docker/远程 CI、真实网站视觉验收和生产负载仍需独立证据。
 
 ## 推荐阅读顺序
+## 2026-08-04 补充更新
+
+- Product/UI 报告可导出单方案 `implementation-manifest` JSON，供下游 AI 编程工具或开发流程读取。
+- 仓库已有三个可运行的报告映射案例：企业团队考勤工作台、数字艺术展览和数字聆听室；它们用于验证报告要素能够被实现消费。
+- 案例不是“任意报告自动生成并部署网站”的证明。真实业务数据、生产部署、真实用户验收和许可证复用审计仍需独立完成。
+
+建议先阅读：[Product/UI 实施包说明](./2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md) 与 [数字聆听室案例说明](./2026-08-04 - generated-nocturne - AgentForge生成说明.md)。
+
 
 1. [当前开发状态](./2026-08-01 - current-development-status - 当前开发状态.md)：当前实现、已知限制和最近验证结果的主入口。
 2. [V2 证据基线](./2026-08-01 - v2-evidence-baseline - V2证据基线.md)：当前工作区无外部费用验证、P0 决策记录和待实测边界。

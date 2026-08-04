@@ -1,7 +1,7 @@
 # AgentForge 当前开发状态
 <!-- 文件名：2026-08-01 - current-development-status - 当前开发状态 -->
 
-更新时间：2026-08-03（Asia/Shanghai）
+更新时间：2026-08-04（Asia/Shanghai）
 
 ## 当前目标
 
@@ -25,6 +25,23 @@
 - **目标设计**：下游 AI 编程 Agent 根据 Prompt 生成真实网站/UI，再将截图、交互和响应式结果提交回来验收；AgentForge 当前不声称自己已经生成网站。
 - **未验证**：GitHub 参考目录已固定默认 SHA，但许可证复用审计、语义内容复核、真实 Provider 质量、真实视觉验收和生产 PostgreSQL 备份恢复仍需独立运行。
 ## 已完成
+## 报告映射网站案例（2026-08-04）
+
+### 已实现
+
+- 三个可运行的报告映射路由：`/generated/attendance`（企业团队考勤工作台）、`/generated/atelier`（数字艺术展览）和 `/generated/nocturne`（数字聆听室）。
+- 下游实现可依据 Product/UI 报告与 `implementation-manifest` 中的路由蓝图、视觉方向、组件、状态和响应式要求落地不同产品形态。
+- 报告中心可下载单个方案的实施包 JSON；实施包包含评审溯源、交付边界、GitHub/UI 证据和验收矩阵。
+
+### 已验证
+
+- 三个案例均为仓库内可运行的 Next.js 页面；案例实现已纳入本地构建与交互检查记录。
+
+### 目标设计 / 未完成边界
+
+- 三个页面是人工或 AI 编程协作下的报告映射实现，不是从任意实施包自动编译网站的通用生成器。
+- 案例中的业务数据、播放、收藏、生产部署和真实用户验收尚未生产化；真实模型盲评、人工 RAG Golden Set、真实 Provider 成本与延迟、目标环境 PostgreSQL 持久化、Docker、远程 CI 与生产负载仍需独立证据。
+
 
 - 多 Agent 顺序执行和前序输出传递
 - 单 Agent 失败后继续后续 Agent
