@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { ProductUIRuntimeEvidenceSchema } from "@/lib/report/contracts";
 import { buildDownstreamAgentPrompt, renderProductUISpecMarkdown } from "@/lib/report/product-ui-export";
 import { mapProductUIReportGroup, updateProductUIReportFeedback } from "@/lib/report/product-ui-group-service";
+import { buildProductUIImplementationManifest } from "@/lib/report/product-ui-implementation-manifest";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         /** 兼容旧客户端；新客户端应直接使用 aiExecutionReport。 */
         aiExecutionMarkdown: aiExecutionReport,
         prompt: legacyPrompt,
+        implementationManifest: report.productUISpec
+          ? buildProductUIImplementationManifest(group, report, { generatedAt: group.createdAt })
+          : null,
       };
     }),
     prompts: group.reports.map((report) => ({ solutionId: report.productUISpec?.solutionId, prompt: buildDownstreamAgentPrompt(report) })),

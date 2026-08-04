@@ -6,6 +6,7 @@ import {
   renderProductUISpecMarkdown,
 } from "@/lib/report/product-ui-export";
 import { mapProductUIReportGroup } from "@/lib/report/product-ui-group-service";
+import { renderProductUIImplementationManifestJson } from "@/lib/report/product-ui-implementation-manifest";
 
 export const runtime = "nodejs";
 
@@ -19,11 +20,25 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const searchParams = new URL(request.url).searchParams;
   const solutionId = searchParams.get("solutionId");
   const format = searchParams.get("format")?.toLowerCase() ?? "markdown";
-  if (format !== "markdown" && format !== "json") {
-    return Response.json({ error: { code: "PRODUCT_UI_EXPORT_FORMAT_UNSUPPORTED", message: "Supported formats are markdown and json." } }, { status: 400 });
+  if (format !== "markdown" && format !== "json" && format !== "implementation-manifest") {
+    return Response.json({ error: { code: "PRODUCT_UI_EXPORT_FORMAT_UNSUPPORTED", message: "Supported formats are markdown, json and implementation-manifest." } }, { status: 400 });
   }
   const selected = solutionId ? group.reports.find((report) => report.productUISpec?.solutionId === solutionId) : null;
   if (solutionId && !selected) return Response.json({ error: { code: "PRODUCT_UI_SOLUTION_NOT_FOUND", message: "Product/UI solution not found." } }, { status: 404 });
+  if (format === "implementation-manifest") {
+    if (!solutionId || !selected) {
+      return Response.json({ error: { code: "PRODUCT_UI_IMPLEMENTATION_MANIFEST_REQUIRES_SOLUTION", message: "solutionId is required for an implementation manifest." } }, { status: 400 });
+    }
+    // ???????????????? AI ???????????????
+    const manifest = renderProductUIImplementationManifestJson(group, selected, { generatedAt: group.createdAt });
+    return new Response(manifest, {
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="agentforge-product-ui-${group.groupId}-${solutionId}-implementation.json"`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
   if (format === "json") {
     const json = renderProductUIHandoffJson(group, { generatedAt: group.createdAt, selectedSolutionId: solutionId });
     const suffix = solutionId ? `-${solutionId}` : "-all-solutions";

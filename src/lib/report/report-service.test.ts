@@ -13,6 +13,7 @@ import {
   renderProductUISpecMarkdown,
 } from "./product-ui-export";
 import { createProductUIReportGroup } from "./product-ui-report";
+import { buildProductUIImplementationManifest, renderProductUIImplementationManifestJson } from "./product-ui-implementation-manifest";
 import { deriveProductUIReportGroupStatus } from "./product-ui-group-service";
 import { ProductUIReportGroupSchema } from "./contracts";
 import { createBaselineDevelopmentReport, validateDevelopmentReport, type ReportGenerationInput } from "./report-service";
@@ -380,4 +381,53 @@ test("GitHub evidence provenance is required for product/UI references", async (
     usedByClaimIds: [report.sections[0].claims[0].id],
   });
   assert.ok(validateDevelopmentReport(report, input).issues.includes("REPORT_SOURCE_INVALID:" + report.sections[0].claims[0].id));
+});
+
+
+test("product/UI implementation manifest keeps one solution executable and evidence-bound", async () => {
+  const group = createProductUIReportGroup(await fixture("Build an editorial music archive with listening rooms, collections, responsive playback controls and verifiable delivery."));
+  const report = group.reports[0];
+  const spec = report.productUISpec;
+  assert.ok(spec);
+
+  const pending = buildProductUIImplementationManifest(group, report, { generatedAt: "2026-08-04T00:00:00.000Z" });
+  assert.equal(pending.provenance.reportGroupId, group.groupId);
+  assert.equal(pending.provenance.solutionId, spec.solutionId);
+  assert.equal(pending.routes.length, spec.pages.length);
+  assert.deepEqual(pending.visualDirection, spec.designDirection);
+  assert.deepEqual(pending.acceptance.matrix, spec.acceptanceMatrix ?? []);
+  assert.equal(pending.acceptance.runtime.status, "pending");
+  assert.equal(pending.acceptance.runtime.hasCompleteAcceptanceEvidence, false);
+  assert.ok(pending.statusDeclaration.implemented.length > 0);
+  assert.ok(pending.statusDeclaration.targetDesign.length > 0);
+
+  const acceptanceResults = (spec.acceptanceMatrix ?? []).map((item) => ({
+    acceptanceId: item.id,
+    status: "passed" as const,
+    note: `已检查 ${item.id}`,
+    evidencePaths: [`artifacts/${item.id}.png`],
+  }));
+  const accepted = ProductUIReportGroupSchema.parse({
+    ...group,
+    feedback: [{
+      solutionId: spec.solutionId,
+      outcome: "pass",
+      note: "已完成真实运行验收。",
+      checkedAt: "2026-08-04T00:00:00.000Z",
+      runtimeEvidence: {
+        launchCommand: "npm run dev",
+        previewUrl: "http://localhost:3000",
+        screenshotPaths: ["artifacts/home-desktop.png"],
+        verificationNotes: ["已检查桌面和移动端。"],
+        acceptanceResults,
+      },
+    }],
+  });
+  const passed = buildProductUIImplementationManifest(accepted, report, { generatedAt: "2026-08-04T00:00:00.000Z" });
+  assert.equal(passed.acceptance.runtime.status, "pass");
+  assert.equal(passed.acceptance.runtime.hasCompleteAcceptanceEvidence, true);
+
+  const json = JSON.parse(renderProductUIImplementationManifestJson(accepted, report, { generatedAt: "2026-08-04T00:00:00.000Z" })) as typeof passed;
+  assert.equal(json.manifestType, "agentforge_product_ui_implementation");
+  assert.equal(json.routes[0]?.route, passed.routes[0]?.route);
 });
