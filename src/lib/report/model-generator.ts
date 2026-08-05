@@ -37,7 +37,7 @@ export async function createReportModelContext(input: { userId: string; reporter
   const apiKey = decryptStoredApiKey(storedCredential);
   if (reporter.provider !== "ollama" && !apiKey) throw new Error("CREDENTIAL_NOT_CONFIGURED");
   const agent: AgentConfig = { ...mapAgent(reporter), maxTokens: Math.max(reporter.maxTokens, 8_000) };
-  const usage = { agent, inputTokens: 0, outputTokens: 0, costUsd: 0, costCny: 0, attempts: 0 };
+  const usage = { agent, inputTokens: 0, outputTokens: 0, tokenSource: "estimated" as "provider" | "estimated", costUsd: 0, costCny: 0, attempts: 0 };
 
   async function generate(source: ReportGenerationInput) {
     if (findSensitiveReportContent(source).length > 0) throw new Error("REPORT_SOURCE_SENSITIVE");
@@ -63,6 +63,7 @@ export async function createReportModelContext(input: { userId: string; reporter
         const cost = calculateCost(agent.model, result.inputTokens, result.outputTokens);
         usage.inputTokens += result.inputTokens;
         usage.outputTokens += result.outputTokens;
+        if (result.tokenSource === "provider") usage.tokenSource = "provider";
         usage.costUsd = Number((usage.costUsd + cost.costUsd).toFixed(8));
         usage.costCny = Number((usage.costCny + cost.costCny).toFixed(8));
         usage.attempts += 1;

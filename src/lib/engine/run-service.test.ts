@@ -60,8 +60,8 @@ test("统一服务产生版本化事件、唯一完成和前序 Agent 上下文"
     signal: new AbortController().signal, persistence: h.persistence,
     eventSink: (event) => { h.events.push(parseRunServiceEvent(event)); },
     agents: [
-      { agent: agent("a"), invoke: async () => ({ content: "analysis", inputTokens: 1, outputTokens: 1 }) },
-      { agent: agent("b"), invoke: async ({ priorAssistantMessages }) => { secondPrior = priorAssistantMessages[0]?.content ?? ""; return { content: "report", inputTokens: 1, outputTokens: 1 }; } },
+      { agent: agent("a"), invoke: async () => ({ content: "analysis", inputTokens: 1, outputTokens: 1, tokenSource: "estimated" as const }) },
+      { agent: agent("b"), invoke: async ({ priorAssistantMessages }) => { secondPrior = priorAssistantMessages[0]?.content ?? ""; return { content: "report", inputTokens: 1, outputTokens: 1, tokenSource: "estimated" as const }; } },
     ],
   });
   assert.equal(secondPrior, "analysis");
@@ -79,7 +79,7 @@ test("前序 Agent 失败后继续，但最终状态保持 warning", async () =>
     signal: new AbortController().signal, persistence: h.persistence, eventSink: (event) => { h.events.push(event); },
     agents: [
       { agent: agent("a"), invoke: async () => { throw new Error("fetch failed"); } },
-      { agent: agent("b"), invoke: async () => ({ content: "recovered", inputTokens: 1, outputTokens: 1 }) },
+      { agent: agent("b"), invoke: async () => ({ content: "recovered", inputTokens: 1, outputTokens: 1, tokenSource: "estimated" as const }) },
     ],
   });
   assert.equal(result.budgetStatus, "warning");
@@ -94,7 +94,7 @@ test("Provider 超时停止后续 Agent并只完成一次", async () => {
     signal: new AbortController().signal, persistence: h.persistence, eventSink: (event) => { h.events.push(event); },
     agents: [
       { agent: agent("a"), invoke: async () => { throw new Error("PROVIDER_TIMEOUT"); } },
-      { agent: agent("b"), invoke: async () => { secondCalled = true; return { content: "wrong", inputTokens: 1, outputTokens: 1 }; } },
+      { agent: agent("b"), invoke: async () => { secondCalled = true; return { content: "wrong", inputTokens: 1, outputTokens: 1, tokenSource: "estimated" as const }; } },
     ],
   });
   assert.equal(secondCalled, false);
@@ -108,7 +108,7 @@ test("开始时预算已经耗尽，不调用 Agent", async () => {
   const result = await runService({
     runId: "run-4", startedAt: "2026-07-15T09:00:00.000Z", input: "需求", initialTotalSpent: 1, budgetLimit: 1,
     signal: new AbortController().signal, persistence: h.persistence, eventSink: (event) => { h.events.push(event); },
-    agents: [{ agent: agent("a"), invoke: async () => { called = true; return { content: "wrong", inputTokens: 1, outputTokens: 1 }; } }],
+    agents: [{ agent: agent("a"), invoke: async () => { called = true; return { content: "wrong", inputTokens: 1, outputTokens: 1, tokenSource: "estimated" as const }; } }],
   });
   assert.equal(called, false);
   assert.equal(result.budgetStatus, "exhausted");
@@ -121,7 +121,7 @@ test("tracing records measured token and cost values and closes spans", async ()
   await runService({
     runId: "run-trace", startedAt: "2026-07-15T09:00:00.000Z", input: "trace", initialTotalSpent: 0, budgetLimit: 10,
     signal: new AbortController().signal, persistence: h.persistence, eventSink: () => undefined, traceProvider: trace.provider,
-    agents: [{ agent: agent("a"), invoke: async () => ({ content: "done", inputTokens: 100, outputTokens: 50 }) }],
+    agents: [{ agent: agent("a"), invoke: async () => ({ content: "done", inputTokens: 100, outputTokens: 50, tokenSource: "estimated" as const }) }],
   });
   const agentSpan = trace.spans.find((span) => span.name === "agentforge.workspace.agent");
   const runSpan = trace.spans.find((span) => span.name === "agentforge.workspace.run");
@@ -153,7 +153,7 @@ test("tracing executes nested run work in the provider span context when support
   await runService({
     runId: "run-trace-context", startedAt: "2026-07-15T09:00:00.000Z", input: "trace", initialTotalSpent: 0, budgetLimit: 10,
     signal: new AbortController().signal, persistence: h.persistence, eventSink: () => undefined, traceProvider: trace.provider,
-    agents: [{ agent: agent("a"), invoke: async () => ({ content: "done", inputTokens: 1, outputTokens: 1 }) }],
+    agents: [{ agent: agent("a"), invoke: async () => ({ content: "done", inputTokens: 1, outputTokens: 1, tokenSource: "estimated" as const }) }],
   });
   assert.deepEqual(trace.entered, ["context-entered", "context-entered"]);
 });

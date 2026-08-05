@@ -55,9 +55,9 @@ test("token usage aggregation across runs", () => {
   const r = computeLatencyAndCost({
     nodes: [{ nodeKey: "a", startedAt: now, finishedAt: later(100) }],
     tokenUsages: [
-      { runId: "r1", inputTokens: 100, outputTokens: 50, costUsd: 0.001, costCny: 0.01 },
-      { runId: "r1", inputTokens: 200, outputTokens: 100, costUsd: 0.002, costCny: 0.02 },
-      { runId: "r2", inputTokens: 50, outputTokens: 25, costUsd: 0.0005, costCny: 0.005 },
+      { runId: "r1", inputTokens: 100, outputTokens: 50, tokenSource: "provider", costUsd: 0.001, costCny: 0.01 },
+      { runId: "r1", inputTokens: 200, outputTokens: 100, tokenSource: "provider", costUsd: 0.002, costCny: 0.02 },
+      { runId: "r2", inputTokens: 50, outputTokens: 25, tokenSource: "estimated", costUsd: 0.0005, costCny: 0.005 },
     ],
   }, "real-model");
   assert.equal(r.data.tokenUsage.sampleSize, 2);
@@ -69,7 +69,7 @@ test("null runId token rows are skipped", () => {
   const r = computeLatencyAndCost({
     nodes: [{ nodeKey: "a", startedAt: now, finishedAt: later(100) }],
     tokenUsages: [
-      { runId: null, inputTokens: 999, outputTokens: 999, costUsd: 9.9, costCny: 99 },
+      { runId: null, inputTokens: 999, outputTokens: 999, tokenSource: "estimated", costUsd: 9.9, costCny: 99 },
     ],
   }, "real-model");
   assert.equal(r.data.tokenUsage.sampleSize, 0);

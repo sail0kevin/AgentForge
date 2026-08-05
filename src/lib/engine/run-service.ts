@@ -24,7 +24,7 @@ export type RunServiceResult = {
 
 export type RunServicePersistence = {
   saveUserMessage: (message: WorkspaceMessage) => Promise<void>;
-  saveAssistantResult: (input: { message: WorkspaceMessage; agent: AgentConfig; inputTokens: number; outputTokens: number; costUsd: number; costCny: number }) => Promise<void>;
+  saveAssistantResult: (input: { message: WorkspaceMessage; agent: AgentConfig; inputTokens: number; outputTokens: number; tokenSource: "provider" | "estimated"; costUsd: number; costCny: number }) => Promise<void>;
   saveFailedMessage: (message: WorkspaceMessage) => Promise<void>;
   updateProgress: (totalSpent: number, budgetStatus: WorkspaceStatus) => Promise<void>;
   completeRun: (result: Omit<RunServiceResult, "finishedAt">) => Promise<string>;
@@ -148,7 +148,7 @@ async function runServiceImpl(input: RunServiceInput, runSpan: import("@/lib/obs
       content: result.content, createdAt: new Date().toISOString(), inputTokens: result.inputTokens,
       outputTokens: result.outputTokens, costUsd: cost.costUsd,
     };
-    await input.persistence.saveAssistantResult({ message, agent: runner.agent, inputTokens: result.inputTokens, outputTokens: result.outputTokens, costUsd: cost.costUsd, costCny: cost.costCny });
+    await input.persistence.saveAssistantResult({ message, agent: runner.agent, inputTokens: result.inputTokens, outputTokens: result.outputTokens, tokenSource: result.tokenSource, costUsd: cost.costUsd, costCny: cost.costCny });
     await input.persistence.updateProgress(totalSpent, budgetStatus);
     priorAssistantMessages.push({ agentName: runner.agent.name, content: message.content });
     await emit({ type: "agent_completed", agent: runner.agent, message, totalSpent, budgetStatus });

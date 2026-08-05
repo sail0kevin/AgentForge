@@ -67,6 +67,8 @@ export type LLMResult = {
   content: string;
   inputTokens: number;
   outputTokens: number;
+  /** token 数来源：provider 返回还是本地估算。决定该数字能否用于成本结算。 */
+  tokenSource: "provider" | "estimated";
 };
 
 export type RunEvent =

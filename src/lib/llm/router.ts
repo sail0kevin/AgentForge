@@ -160,10 +160,13 @@ async function callOpenAICompatible(agent: AgentConfig, messages: LLMMessage[], 
   }, { signal });
   const content = response.choices[0]?.message?.content || "";
 
+  const hasUsage = !!response.usage && typeof response.usage.prompt_tokens === "number" && typeof response.usage.completion_tokens === "number";
+
   return {
     content,
-    inputTokens: response.usage?.prompt_tokens ?? estimateTokens(messages.map((message) => message.content).join("\n")),
-    outputTokens: response.usage?.completion_tokens ?? estimateTokens(content),
+    inputTokens: hasUsage ? response.usage!.prompt_tokens : estimateTokens(messages.map((message) => message.content).join("\n")),
+    outputTokens: hasUsage ? response.usage!.completion_tokens : estimateTokens(content),
+    tokenSource: hasUsage ? "provider" : "estimated",
   };
 }
 
@@ -207,6 +210,7 @@ async function callAnthropic(agent: AgentConfig, messages: LLMMessage[], apiKey:
     content,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
+    tokenSource: "provider",
   };
 }
 
@@ -257,10 +261,13 @@ async function callOllama(agent: AgentConfig, messages: LLMMessage[], configured
   };
   const content = data.message?.content || "";
 
+  const hasCounts = typeof data.prompt_eval_count === "number" && typeof data.eval_count === "number";
+
   return {
     content,
-    inputTokens: data.prompt_eval_count ?? estimateTokens(messages.map((message) => message.content).join("\n")),
-    outputTokens: data.eval_count ?? estimateTokens(content),
+    inputTokens: hasCounts ? data.prompt_eval_count! : estimateTokens(messages.map((message) => message.content).join("\n")),
+    outputTokens: hasCounts ? data.eval_count! : estimateTokens(content),
+    tokenSource: hasCounts ? "provider" : "estimated",
   };
 }
 
@@ -304,6 +311,7 @@ async function simulateLLM(agent: AgentConfig, messages: LLMMessage[], signal: A
     content,
     inputTokens: estimateTokens(messages.map((message) => message.content).join("\n")),
     outputTokens: estimateTokens(content),
+    tokenSource: "estimated",
   };
 }
 

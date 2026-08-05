@@ -40,6 +40,7 @@ export const LLMResultSchema = z.object({
   content: z.string(),
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
+  tokenSource: z.enum(["provider", "estimated"]),
 });
 
 // 图完成后对外暴露的安全结果不包含凭证、Provider 原始响应或内部图对象。

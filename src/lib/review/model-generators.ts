@@ -13,7 +13,7 @@ import type { ReviewGenerators } from "./review-service";
 
 type RoleIds = { candidateAgentIds: [string, string]; reviewerAgentId: string; evaluatorAgentId: string };
 type AgentRecord = NonNullable<Awaited<ReturnType<typeof loadAgent>>>;
-type Usage = { agent: AgentConfig; inputTokens: number; outputTokens: number; costUsd: number; costCny: number; stages: string[] };
+type Usage = { agent: AgentConfig; inputTokens: number; outputTokens: number; tokenSource: "provider" | "estimated"; costUsd: number; costCny: number; stages: string[] };
 
 async function loadAgent(userId: string, id: string) {
   return prisma.agent.findFirst({
@@ -67,9 +67,10 @@ export async function createReviewModelContext(input: { userId: string; roles: R
           reservationActive = false;
           reservedTokens += result.inputTokens + result.outputTokens;
           reservedCost += cost.costUsd;
-          const current = usage.get(record.id) ?? { agent, inputTokens: 0, outputTokens: 0, costUsd: 0, costCny: 0, stages: [] };
+          const current = usage.get(record.id) ?? { agent, inputTokens: 0, outputTokens: 0, tokenSource: "estimated" as const, costUsd: 0, costCny: 0, stages: [] };
           current.inputTokens += result.inputTokens;
           current.outputTokens += result.outputTokens;
+          if (result.tokenSource === "provider") current.tokenSource = "provider";
           current.costUsd = Number((current.costUsd + cost.costUsd).toFixed(8));
           current.costCny = Number((current.costCny + cost.costCny).toFixed(8));
           current.stages.push(stage);

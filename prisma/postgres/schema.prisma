@@ -436,6 +436,8 @@ model TokenUsage {
   model        String
   inputTokens  Int
   outputTokens Int
+  /** token 数来源：provider 返回还是本地估算。决定该数字能否用于成本结算。 */
+  tokenSource  String   @default("estimated")
   costUsd      Float
   costCny      Float
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

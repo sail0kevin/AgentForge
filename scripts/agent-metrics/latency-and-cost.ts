@@ -11,6 +11,7 @@ export interface TokenUsageRow {
   runId: string | null;
   inputTokens: number;
   outputTokens: number;
+  tokenSource: string;
   costUsd: number;
   costCny: number;
 }
@@ -35,6 +36,8 @@ export interface LatencyCostData {
     averageInputTokensPerRun: number | null;
     averageOutputTokensPerRun: number | null;
     averageCostUsdPerRun: number | null;
+    providerTokenRuns: number;
+    estimatedTokenRuns: number;
   };
 }
 
@@ -80,6 +83,8 @@ export function computeLatencyAndCost(input: LatencyInput, dataSource: DataSourc
   }
 
   const byRunId = new Map<string, { inputTokens: number; outputTokens: number; costUsd: number; costCny: number }>();
+  let providerTokenRuns = 0;
+  let estimatedTokenRuns = 0;
   for (const usage of tokenUsages) {
     if (!usage.runId) continue;
     const bucket = byRunId.get(usage.runId) ?? { inputTokens: 0, outputTokens: 0, costUsd: 0, costCny: 0 };
@@ -88,6 +93,8 @@ export function computeLatencyAndCost(input: LatencyInput, dataSource: DataSourc
     bucket.costUsd += usage.costUsd;
     bucket.costCny += usage.costCny;
     byRunId.set(usage.runId, bucket);
+    if (usage.tokenSource === "provider") providerTokenRuns += 1;
+    else estimatedTokenRuns += 1;
   }
 
   const runTotals = Array.from(byRunId.values());
@@ -108,6 +115,8 @@ export function computeLatencyAndCost(input: LatencyInput, dataSource: DataSourc
         averageInputTokensPerRun: totalRuns === 0 ? null : runTotals.reduce((sum, r) => sum + r.inputTokens, 0) / totalRuns,
         averageOutputTokensPerRun: totalRuns === 0 ? null : runTotals.reduce((sum, r) => sum + r.outputTokens, 0) / totalRuns,
         averageCostUsdPerRun: totalRuns === 0 ? null : runTotals.reduce((sum, r) => sum + r.costUsd, 0) / totalRuns,
+        providerTokenRuns,
+        estimatedTokenRuns,
       },
     },
     limitation: nodes.length === 0 ? "No completed WorkflowNode rows found; run the workflow before trusting this output." : bottleneckReason ?? undefined,
@@ -123,7 +132,7 @@ async function main() {
     }),
     prisma.tokenUsage.findMany({
       where: { runId: { not: null } },
-      select: { runId: true, inputTokens: true, outputTokens: true, costUsd: true, costCny: true },
+      select: { runId: true, inputTokens: true, outputTokens: true, tokenSource: true, costUsd: true, costCny: true },
     }),
   ]);
   const result = computeLatencyAndCost({ nodes, tokenUsages }, dataSource);

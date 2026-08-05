@@ -33,6 +33,7 @@ const result: LLMResult = {
   content: "这是结构化开发方案。",
   inputTokens: 12,
   outputTokens: 8,
+  tokenSource: "estimated",
 };
 
 test("单 Agent 图按检索后调用模型，并传递上下文和前序 Agent 归因", async () => {

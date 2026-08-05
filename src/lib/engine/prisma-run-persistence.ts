@@ -41,10 +41,10 @@ export async function createPrismaRunHandle(input: { workspaceId: string; userId
     saveUserMessage: async (message) => {
       await prisma.message.create({ data: { id: message.id, workspaceId: input.workspaceId, runId, role: message.role, content: message.content, createdAt: new Date(message.createdAt) } });
     },
-    saveAssistantResult: async ({ message, agent, inputTokens, outputTokens, costUsd, costCny }) => {
+    saveAssistantResult: async ({ message, agent, inputTokens, outputTokens, tokenSource, costUsd, costCny }) => {
       await prisma.$transaction(async (tx) => {
         await tx.message.create({ data: { id: message.id, workspaceId: input.workspaceId, runId, role: message.role, agentId: message.agentId, content: message.content, createdAt: new Date(message.createdAt) } });
-        await tx.tokenUsage.create({ data: { workspaceId: input.workspaceId, runId, messageId: message.id, agentId: agent.id, provider: agent.provider, model: agent.model, inputTokens, outputTokens, costUsd, costCny } });
+        await tx.tokenUsage.create({ data: { workspaceId: input.workspaceId, runId, messageId: message.id, agentId: agent.id, provider: agent.provider, model: agent.model, inputTokens, outputTokens, tokenSource, costUsd, costCny } });
       });
     },
     saveFailedMessage: async (message) => {
