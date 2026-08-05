@@ -197,32 +197,11 @@ select.field {
   background: transparent;
 }
 
-.theme-root::before,
-.theme-root::after {
-  position: fixed;
-  z-index: -1;
-  width: 28rem;
-  height: 28rem;
-  border-radius: 999px;
-  content: "";
-  filter: blur(70px);
-  opacity: 0.18;
-  pointer-events: none;
-}
 
-.theme-root::before {
-  top: -12rem;
-  left: 16%;
-  background: #7c83ff;
-  animation: drift 18s ease-in-out infinite alternate;
-}
 
-.theme-root::after {
-  right: -12rem;
-  bottom: -14rem;
-  background: #26cbb2;
-  animation: drift 22s ease-in-out infinite alternate-reverse;
-}
+
+
+
 
 .app-sider {
   position: relative;
@@ -1017,7 +996,7 @@ select.field {
 }
 
 /* ATELIER: 由 AgentForge 产品/UI 报告驱动的数字艺术展览案例。 */
-.atelier-app { --atelier-ink: #121212; --atelier-paper: #f4f0e7; --atelier-red: #e1472f; --atelier-blue: #1746d1; --atelier-green: #c7ef27; min-height: 100vh; overflow: hidden; background: var(--atelier-paper); color: var(--atelier-ink); font-family: Arial, Helvetica, sans-serif; }
+.atelier-app { --atelier-ink: #121212; --atelier-paper: #f4f0e7; --atelier-red: #c75d4a; --atelier-blue: #3a5a8e; --atelier-green: #a8c44b; min-height: 100vh; overflow: hidden; background: var(--atelier-paper); color: var(--atelier-ink); font-family: Arial, Helvetica, sans-serif; }
 .atelier-app * { box-sizing: border-box; }
 .atelier-app button, .atelier-app a { font: inherit; }
 .atelier-app button { cursor: pointer; }
@@ -1035,10 +1014,10 @@ select.field {
 @media (max-width: 780px) { .atelier-header { min-height: 62px; padding: 0 17px; }.atelier-wordmark { font-size: 19px; }.atelier-nav { display: none; position: absolute; top: 61px; right: 0; left: 0; gap: 0; margin: 0; background: var(--atelier-ink); padding: 12px 17px 20px; }.atelier-nav.is-open { display: grid; }.atelier-nav a { padding: 12px 0; font-size: 15px; }.atelier-menu { display: grid; }.atelier-sound span { display: none; }.atelier-hero { min-height: 680px; padding: 22px 17px; }.atelier-hero-image { background-position: 57% center; }.atelier-hero-meta { top: 87px; right: 17px; left: 17px; }.atelier-hero-copy { padding-bottom: 42px; }.atelier-hero h1 { margin: 15px 0 28px; font-size: 61px; line-height: 0.87; }.atelier-hero-foot { display: block; }.atelier-hero-foot a { margin-top: 14px; }.atelier-hero-index { right: 17px; bottom: 18px; }.atelier-section { padding: 70px 17px; }.atelier-intro { grid-template-columns: 1fr; gap: 31px; }.atelier-section-marker { min-width: 0; }.atelier-intro h2, .atelier-chapters h2, .atelier-visit h2 { margin: 18px 0; font-size: 45px; }.atelier-lede { font-size: 18px; }.atelier-intro-note { display: block; }.atelier-intro-note strong { display: block; margin: 5px 0 17px; }.atelier-section-heading { display: grid; gap: 27px; margin-bottom: 35px; }.atelier-section-heading p { width: auto; font-size: 16px; }.atelier-work-grid { grid-template-columns: 1fr; gap: 36px; }.atelier-work-card:nth-child(2) { margin-top: 0; }.atelier-work-image { aspect-ratio: 0.94; }.atelier-work-arrow { opacity: 1; }.atelier-chapter-layout { grid-template-columns: 1fr; gap: 43px; margin-top: 42px; }.atelier-chapter-copy { font-size: 18px; }.atelier-chapter-controls { margin-top: 31px; }.atelier-visit { display: block; padding: 0; }.atelier-visit-copy { padding: 70px 17px; }.atelier-visit-art { min-height: 420px; }.atelier-footer { grid-template-columns: 1fr; gap: 25px; padding: 28px 17px; }.atelier-footer-map { gap: 15px; }.atelier-work-modal { grid-template-columns: 1fr; max-height: calc(100vh - 40px); overflow-y: auto; }.atelier-modal-image { min-height: 310px; }.atelier-modal-copy { padding: 28px 22px 31px; }.atelier-modal-copy > p:not(.atelier-kicker) { margin-top: 22px; }.atelier-modal-close { top: 10px; right: 10px; } }
 
 /* NOCTURNE: 视觉优先报告驱动的数字聆听室示例。 */
-.nocturne-app { --nocturne-ink: #ebe8e1; --nocturne-muted: #a7a39b; --nocturne-paper: #121311; --nocturne-panel: #1a1b19; --nocturne-line: rgba(235,232,225,.15); --nocturne-accent: #a84f43; --nocturne-accent-soft: #c9a79c; min-height: 100vh; overflow: hidden; background: var(--nocturne-paper); color: var(--nocturne-ink); font-family: Arial, Helvetica, sans-serif; }
+.nocturne-app { --nocturne-ink: #ebe8e1; --nocturne-muted: #a7a39b; --nocturne-paper: #121311; --nocturne-panel: #1a1b19; --nocturne-line: rgba(235,232,225,.15); --nocturne-accent: #9c6b5e; --nocturne-accent-soft: #b8a098; min-height: 100vh; overflow: hidden; background: var(--nocturne-paper); color: var(--nocturne-ink); font-family: Arial, Helvetica, sans-serif; }
 .nocturne-header { display: flex; position: relative; z-index: 10; align-items: center; justify-content: space-between; min-height: 75px; border-bottom: 1px solid var(--nocturne-line); padding: 0 5vw; }
 .nocturne-logo { color: var(--nocturne-ink); font-size: 15px; font-weight: 800; letter-spacing: .19em; text-decoration: none; }
-.nocturne-logo span { color: var(--nocturne-accent); }
+.nocturne-logo span { color: var(--nocturne-accent); opacity: 0.8; }
 .nocturne-nav { display: flex; gap: 34px; margin-left: 110px; }
 .nocturne-nav a, .nocturne-header-actions button { color: var(--nocturne-muted); font-size: 11px; letter-spacing: .1em; text-decoration: none; text-transform: uppercase; }
 .nocturne-nav a:hover { color: var(--nocturne-ink); }
@@ -1127,5 +1106,5 @@ select.field {
 .showcase-app { min-height: 100vh; background: #f0eee8; color: #191a18; font-family: Arial, "Microsoft YaHei", sans-serif; }
 .showcase-header { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(25,26,24,.2); padding: 22px 5vw; color: #76736b; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }.showcase-mark { color: #191a18; font-weight: 800; }
 .showcase-intro { display: grid; grid-template-columns: 1fr minmax(280px, .55fr); gap: 50px; padding: 105px 10vw 80px; }.showcase-intro h1 { grid-row: span 2; margin: 19px 0 0; font-size: clamp(55px, 8vw, 126px); font-weight: 400; letter-spacing: -.07em; line-height: .86; }.showcase-intro h1 i { color: #9e6959; font-family: Georgia, serif; font-weight: 400; }.showcase-intro > p:last-child { align-self: end; max-width: 370px; margin: 0 0 9px; color: #77736b; font-size: 14px; line-height: 1.75; }.showcase-kicker { margin: 0; color: #b55e49; font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
-.showcase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 0 5vw 100px; }.showcase-card { display: flex; min-height: 440px; flex-direction: column; justify-content: space-between; border-top: 3px solid #b55e49; padding: 20px 22px 25px; color: #191a18; text-decoration: none; transition: transform 220ms ease, box-shadow 220ms ease; }.showcase-card:hover { transform: translateY(-7px); box-shadow: 0 20px 42px rgba(42,39,29,.14); }.showcase-card--sage { border-color: #8eae9e; background: #dce6dd; }.showcase-card--coral { border-color: #e05c47; background: #edc6b9; }.showcase-card--lime { border-color: #9bb728; background: #d9e9b4; }.showcase-card-top, .showcase-card-body strong { display: flex; align-items: center; justify-content: space-between; }.showcase-card-top { color: rgba(25,26,24,.55); font-size: 10px; letter-spacing: .12em; }.showcase-card-body > span { color: rgba(25,26,24,.58); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }.showcase-card-body h2 { margin: 15px 0 6px; font-size: 47px; font-weight: 400; letter-spacing: -.07em; }.showcase-card-body h3 { margin: 0; font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }.showcase-card-body p { max-width: 260px; min-height: 72px; margin: 31px 0 24px; color: rgba(25,26,24,.68); font-size: 12px; line-height: 1.65; }.showcase-card-body strong { justify-content: flex-start; gap: 8px; border-bottom: 1px solid rgba(25,26,24,.45); width: max-content; padding-bottom: 7px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }.showcase-footer { display: flex; justify-content: space-between; border-top: 1px solid rgba(25,26,24,.2); padding: 23px 5vw; color: #77736b; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.showcase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 0 5vw 100px; }.showcase-card { display: flex; min-height: 440px; flex-direction: column; justify-content: space-between; border-top: 3px solid #b55e49; padding: 20px 22px 25px; color: #191a18; text-decoration: none; transition: transform 220ms ease, box-shadow 220ms ease; }.showcase-card:hover { transform: translateY(-7px); box-shadow: 0 20px 42px rgba(42,39,29,.14); }.showcase-card--sage { border-color: #8a9b8e; background: #d4ddd6; }.showcase-card--coral { border-color: #c77a6a; background: #e0c8bf; }.showcase-card--lime { border-color: #8a9e4a; background: #cdd9b8; }.showcase-card-top, .showcase-card-body strong { display: flex; align-items: center; justify-content: space-between; }.showcase-card-top { color: rgba(25,26,24,.55); font-size: 10px; letter-spacing: .12em; }.showcase-card-body > span { color: rgba(25,26,24,.58); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }.showcase-card-body h2 { margin: 15px 0 6px; font-size: 47px; font-weight: 400; letter-spacing: -.07em; }.showcase-card-body h3 { margin: 0; font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }.showcase-card-body p { max-width: 260px; min-height: 72px; margin: 31px 0 24px; color: rgba(25,26,24,.68); font-size: 12px; line-height: 1.65; }.showcase-card-body strong { justify-content: flex-start; gap: 8px; border-bottom: 1px solid rgba(25,26,24,.45); width: max-content; padding-bottom: 7px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }.showcase-footer { display: flex; justify-content: space-between; border-top: 1px solid rgba(25,26,24,.2); padding: 23px 5vw; color: #77736b; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 @media (max-width: 760px) { .showcase-header { gap: 10px; padding: 18px 19px; font-size: 8px; }.showcase-header span:nth-child(2) { display: none; }.showcase-intro { display: block; padding: 72px 20px 58px; }.showcase-intro h1 { margin: 18px 0 28px; font-size: 63px; }.showcase-intro > p:last-child { font-size: 13px; }.showcase-grid { grid-template-columns: 1fr; gap: 18px; padding: 0 20px 70px; }.showcase-card { min-height: 390px; }.showcase-footer { display: grid; gap: 12px; padding: 22px 20px; line-height: 1.5; } }
