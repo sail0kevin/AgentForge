@@ -51,6 +51,17 @@ jobs:
       - name: Unit-test coverage gate (src/lib >= 80%)
         run: npm run test:coverage
 
+      # 故障注入恢复门禁：3 类故障（Provider 超时 / 节点异常 / 进程重启）各跑 30 次确定性重放，
+      # 任一试验未恢复到 completed 或上游节点被重复执行即 exitCode 1。使用 stub 依赖，零 API Key。
+      - name: Fault-injection recovery gate
+        run: npm run quality:fault-recovery
+
+      # 指标层有效性验证：跑 agent-metrics 并检查每个指标脚本是否成功执行。
+      # 注意：零样本不红 CI（只是没有数据，不是代码错误），但脚本执行失败会红。
+      # --data-source=unknown 确保即使有历史数据也不会错误地声明 full validity。
+      - name: Agent metrics validity check
+        run: npm run quality:agent-metrics -- --data-source unknown
+
       # 核心工作流和会话隔离涉及 API、数据库迁移与浏览器交互，不能只依赖单元测试。
       - name: Core end-to-end tests
         run: npm run test:e2e:core
