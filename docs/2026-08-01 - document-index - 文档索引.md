@@ -20,6 +20,7 @@
 - Product/UI 报告可导出单方案 `implementation-manifest` JSON，供下游 AI 编程工具或开发流程读取。
 - 仓库已有三个可运行的报告映射案例：企业团队考勤工作台、数字艺术展览和数字聆听室；它们用于验证报告要素能够被实现消费。
 - 案例不是“任意报告自动生成并部署网站”的证明。真实业务数据、生产部署、真实用户验收和许可证复用审计仍需独立完成。
+- 新增 Product/UI 实施评测指南与实验包导出：它固定 Baseline/AgentForge 两条下游输入、管理员解盲映射和匿名评分材料；真实模型双分支输出与独立盲评仍待执行，不能据此宣称视觉质量提升。
 
 建议先阅读：[Product/UI 实施包说明](./2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md) 与 [数字聆听室案例说明](./2026-08-04 - generated-nocturne - AgentForge生成说明.md)。
 
@@ -41,6 +42,7 @@
 15. [发布检查清单](./reports - 对外发布报告/旧 - publishing-checklist - 发布检查清单.md)：提交与GitHub发布前的安全、文档和质量门禁。
 16. [截图说明](./screenshots/2026-07-19 - screenshot-index - 公开截图说明.md)：README公开截图的内容和安全边界。
 17. [历史归档](./archive - 历史归档资料/2026-07-15 - archive-index - 历史归档说明.md)：已被新版本取代但需保留的材料。
+18. [Product/UI 实施评测指南](./2026-08-04 - product-ui-implementation-evaluation - ProductUI实施评测指南.md)：双分支输入、运行验收、匿名盲评与结果边界。
 
 ## 日常阅读五份
 

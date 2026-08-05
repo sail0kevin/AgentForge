@@ -8,6 +8,7 @@ import {
   type ProductUIAIExecutionContract,
   type ProductUIAcceptanceMatrixItem,
   type ProductUIComponent,
+  type ProductUIDesignDecision,
   type ProductUIFlow,
   type ProductUIPage,
   type ProductUISolutionType,
@@ -15,7 +16,7 @@ import {
   type ProductUITraceability,
   type ReportSourceReference,
 } from "./contracts";
-import { DEFAULT_GITHUB_UI_EVIDENCE, deriveGitHubEvidenceAuditStatus, hasPinnedGitHubCommit, isGitHubEvidenceFullyVerified } from "./github-ui-evidence";
+import { DEFAULT_GITHUB_UI_EVIDENCE, deriveGitHubEvidenceAuditStatus, githubEvidenceAsSource, hasPinnedGitHubCommit, isGitHubEvidenceFullyVerified } from "./github-ui-evidence";
 import { createBaselineDevelopmentReport, type ReportGenerationInput } from "./report-service";
 
 const SOLUTION_TYPES: ProductUISolutionType[] = ["experience_first", "visual_first", "engineering_first"];
@@ -48,7 +49,7 @@ function selectedCandidate(input: ReportGenerationInput, solutionType: ProductUI
     ?? input.reviewWorkflow.candidates[0];
 }
 
-function traceability(input: ReportGenerationInput, solutionType: ProductUISolutionType, evidence: GitHubEvidence[]) {
+function traceability(input: ReportGenerationInput, solutionType: ProductUISolutionType, evidence: GitHubEvidence[], designDecisionItems: ProductUIDesignDecision[]) {
   const requirementSource = source("requirement", input.planningArtifactId, "原始需求与结构化需求分析");
   const candidate = selectedCandidate(input, solutionType);
   const candidateFinding = candidate
@@ -117,9 +118,122 @@ function traceability(input: ReportGenerationInput, solutionType: ProductUISolut
     status: "target_design",
     sourceRefs: [requirementSource, source("evaluation", input.reviewWorkflow.id, "Evaluator 评审结论")],
   });
-  return items.slice(0, 40);
+  items.push(...designDecisionItems.map((decision) => ({
+    id: `design-decision-${decision.id}`,
+    area: "design_decision" as const,
+    statement: `设计决策：${decision.principle}。影响页面：${decision.appliesTo.pageIds.join("、")}；组件：${decision.appliesTo.componentNames.join("、")}；验收项：${decision.appliesTo.acceptanceIds.join("、")}。`,
+    status: decision.status,
+    sourceRefs: decision.sourceRefs,
+  })));  return items.slice(0, 40);
 }
 
+// 将真实来源的洞察显式绑定到报告中的页面、组件和验收项，避免下游 Agent 只能从自然语言猜测设计依据的作用范围。
+function designDecisions(
+  input: ReportGenerationInput,
+  evidence: GitHubEvidence[],
+  pages: ProductUIPage[],
+  componentList: ProductUIComponent[],
+  acceptanceItems: ProductUIAcceptanceMatrixItem[],
+): ProductUIDesignDecision[] {
+  const availablePageIds = pages.map((page) => page.id);
+  const availableComponentNames = componentList.map((component) => component.name);
+  const availableAcceptanceIds = acceptanceItems.map((item) => item.id);
+  const existing = (requested: string[], available: string[]) => {
+    const selected = requested.filter((item) => available.includes(item));
+    return selected.length > 0 ? selected : available.slice(0, 1);
+  };
+  const acceptanceFor = (pageIds: string[], componentNames: string[], preferred: string[]) => {
+    const selected = [
+      ...preferred.filter((id) => availableAcceptanceIds.includes(id)),
+      ...acceptanceItems
+        .filter((item) => (item.targetType === "page" && pageIds.includes(item.targetId)) || (item.targetType === "component" && componentNames.includes(item.targetId)))
+        .map((item) => item.id),
+    ];
+    const uniqueIds = [...new Set(selected)].slice(0, 20);
+    return uniqueIds.length > 0 ? uniqueIds : availableAcceptanceIds.slice(0, 1);
+  };
+  const templates: Record<GitHubEvidence["evidenceType"], { id: string; principle: string; rationale: string; pageIds: string[]; componentNames: string[]; acceptanceIds: string[] }> = {
+    component_library: {
+      id: "composable-component-boundaries",
+      principle: "以可组合组件边界承载报告中的方案对比、证据展示和导出操作。",
+      rationale: "组件库参考用于约束组件职责与组合方式；实现时应按当前产品任务重组，不复制来源仓库的整页界面。",
+      pageIds: ["workspace", "results"],
+      componentNames: ["CandidateComparison", "EvidenceTable", "ReportExportActions"],
+      acceptanceIds: ["export-report-completeness"],
+    },
+    accessibility_primitive: {
+      id: "accessible-interaction-primitives",
+      principle: "审批、菜单、表单和导出交互应具备可键盘操作、焦点管理和语义反馈。",
+      rationale: "无障碍交互原语参考用于约束复杂交互的键盘路径与语义行为，不能仅以颜色或视觉状态表达结果。",
+      pageIds: ["home", "workspace", "results", "settings"],
+      componentNames: ["RequirementEditor", "WorkflowStepper", "CandidateComparison", "EvidenceTable", "ReportExportActions"],
+      acceptanceIds: ["accessibility-keyboard-and-semantics"],
+    },
+    design_system: {
+      id: "data-dense-design-system",
+      principle: "采用稳定的信息层级、表格与表单反馈模式承载结构化报告和运行配置。",
+      rationale: "设计系统参考用于组织数据密集型页面、表单校验和状态反馈，不代表最终网站必须使用来源项目的视觉风格。",
+      pageIds: ["home", "workspace", "results", "settings"],
+      componentNames: ["RequirementEditor", "CandidateComparison", "EvidenceTable", "ReportExportActions"],
+      acceptanceIds: ["responsive-global-layout"],
+    },
+    application_architecture: {
+      id: "traceable-workflow-architecture",
+      principle: "将工作流阶段、证据、导出和运行验收保留为可追溯的独立界面边界。",
+      rationale: "应用架构参考用于规划可维护的状态、信息和导出边界；实际技术栈与实现方式仍需由下游项目验证。",
+      pageIds: ["workspace", "results", "settings"],
+      componentNames: ["WorkflowStepper", "EvidenceTable", "ReportExportActions"],
+      acceptanceIds: ["export-report-completeness", "runtime-evidence-return"],
+    },
+    example_implementation: {
+      id: "evidence-bounded-example-implementation",
+      principle: "示例实现只用于验证布局和交互思路，页面必须依据当前报告重新实现并接受逐项验收。",
+      rationale: "示例项目可帮助下游理解可运行界面的组织方式，但不能替代本项目的真实运行、截图和视觉验收证据。",
+      pageIds: ["home", "workspace", "results", "settings"],
+      componentNames: ["RequirementEditor", "WorkflowStepper", "CandidateComparison", "EvidenceTable", "ReportExportActions"],
+      acceptanceIds: ["github-ui-evidence-boundary", "export-report-completeness", "runtime-evidence-return"],
+    },
+  };
+  const decisions = Object.entries(templates).flatMap(([evidenceType, template]) => {
+    const sourceRefs = evidence
+      .filter((item) => item.evidenceType === evidenceType)
+      .map(githubEvidenceAsSource)
+      .slice(0, 8);
+    if (sourceRefs.length === 0) return [];
+    const pageIds = existing(template.pageIds, availablePageIds);
+    const componentNames = existing(template.componentNames, availableComponentNames);
+    return [{
+      id: template.id,
+      principle: template.principle,
+      rationale: `${template.rationale} 参考来源：${sourceRefs.map((item) => item.label).join("、")}。`,
+      appliesTo: {
+        pageIds,
+        componentNames,
+        acceptanceIds: acceptanceFor(pageIds, componentNames, template.acceptanceIds),
+      },
+      status: "target_design" as const,
+      sourceRefs,
+    }];
+  });
+  const knowledgeRefs = input.knowledgeEvidence.map((item) => item.source).slice(0, 6);
+  if (knowledgeRefs.length > 0) {
+    const pageIds = existing(["workspace", "results"], availablePageIds);
+    const componentNames = existing(["EvidenceTable", "ReportExportActions"], availableComponentNames);
+    decisions.unshift({
+      id: "knowledge-evidence-boundary",
+      principle: "知识库内容应作为可追溯设计依据展示，并与最终运行结果和来源审计状态明确区分。",
+      rationale: "知识库证据可以支持设计和实施判断，但不等同于下游网站已经实现、运行或通过视觉验收。",
+      appliesTo: {
+        pageIds,
+        componentNames,
+        acceptanceIds: acceptanceFor(pageIds, componentNames, ["github-ui-evidence-boundary", "export-report-completeness"]),
+      },
+      status: "target_design",
+      sourceRefs: knowledgeRefs,
+    });
+  }
+  return decisions.slice(0, 8);
+}
 function pageBlueprint(pageId: string, type: ProductUISolutionType) {
   const emphasis = type === "experience_first" ? "任务连续性" : type === "visual_first" ? "首屏层级" : "工程可测试性";
   const blueprints: Record<string, { layout: string; aboveFold: string[]; contentRules: string[]; interactionRules: string[] }> = {
@@ -399,6 +513,8 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
     "表格在窄屏转换为带字段标签的堆叠行，不允许横向滚动隐藏关键操作。",
     "页面和组件使用稳定的尺寸约束，加载、错误和长文本状态不得造成布局跳动。",
   ];
+  const acceptanceItems = acceptanceMatrix(pages, userFlows, componentList, responsiveRules, evidence);
+  const designDecisionItems = designDecisions(input, evidence, pages, componentList, acceptanceItems);
   const spec = {
      schemaVersion: 1 as const,
     solutionId: `product-ui-${solutionType}`,
@@ -420,9 +536,10 @@ export function createProductUISpec(input: ReportGenerationInput, solutionType: 
       excluded: [...input.analysis.outOfScope.slice(0, 10), "下游网站的真实运行、截图和视觉验收结果"].slice(0, 20),
       handoff: "本规格是交给下游 AI 编程 Agent 的实施输入，不是已经上线的网站。下游完成实现后，必须回传真实启动命令、截图路径、测试结果和未通过的验收项。",
      },
-      acceptanceMatrix: acceptanceMatrix(pages, userFlows, componentList, responsiveRules, evidence),
+      acceptanceMatrix: acceptanceItems,
      aiExecutionContract: aiExecutionContract(solutionType),
-    traceability: traceability(input, solutionType, evidence),
+    designDecisions: designDecisionItems,
+    traceability: traceability(input, solutionType, evidence, designDecisionItems),
     evidence,
     evidenceStatus: evidence.length > 0 && evidence.every(hasPinnedGitHubCommit) ? "sha_pinned" as const : "not_yet_verified" as const,
     evidenceAuditStatus: deriveGitHubEvidenceAuditStatus(evidence),

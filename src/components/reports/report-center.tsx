@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, FileJson, FileText, GitBranch, Loader2, RefreshCw, Scale, ShieldAlert, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Download, FileJson, FileText, FileUp, GitBranch, Loader2, RefreshCw, Scale, ShieldAlert, Sparkles } from "lucide-react";
 
 type Evidence = { id: string; repositoryName: string; repositoryUrl: string; commitOrTag: string; path: string; license: string; evidenceStatus?: string; reusePolicy: string; insight: string; repositoryVerification: "not_checked" | "verified"; pathVerification: "not_checked" | "verified"; licenseVerification: "not_checked" | "verified" };
 type ProductUISpec = {
@@ -29,12 +29,42 @@ type ProductUISpec = {
   evidenceAuditStatus: "not_checked" | "partially_verified" | "fully_verified";
 };
 type ProductUIReport = { id: string; title: string; executiveSummary: string; productUISpec?: ProductUISpec };
+type ImplementationRunEvidence = {
+  schemaVersion: 1;
+  runId: string;
+  caseId: string;
+  variant: "baseline_direct_prompt" | "agentforge_manifest";
+  reportGroupId: string;
+  solutionId: string;
+  reportSha256: string | null;
+  manifestSha256: string | null;
+  promptSha256: string;
+  downstreamModel: { provider: string; model: string; promptVersion: string; parameters: Record<string, unknown>; adapterVersion: string };
+  executionEvidence: {
+    provider: string;
+    model: string;
+    promptVersion: string;
+    parametersSha256: string;
+    adapterVersion: string;
+    seedSha256: string;
+    generatorSummaryPath: string;
+  };
+  sourceRevision: string | null;
+  startedAt: string;
+  completedAt: string;
+  exitStatus: "completed" | "failed" | "timeout" | "cancelled";
+  generatorOutputPaths: string[];
+  previewOutputPaths: string[];
+  orchestratorOutputPaths: string[];
+  playwrightOutputPaths: string[];
+};
 type RuntimeEvidence = {
   launchCommand: string;
   previewUrl: string;
   screenshotPaths: string[];
   verificationNotes: string[];
   acceptanceResults: Array<{ acceptanceId: string; status: "passed" | "failed" | "not_verified"; note: string; evidencePaths: string[] }>;
+  implementationRun?: ImplementationRunEvidence;
 };
 type AcceptanceResultDraft = {
   acceptanceId: string;
@@ -71,6 +101,105 @@ function evidenceLines(value: string) {
   return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseImportedRuntimeEvidence(raw: unknown): RuntimeEvidence {
+  if (!isRecord(raw)) throw new Error("运行证据 JSON 必须是对象。");
+  const requiredString = (value: unknown, field: string) => {
+    if (typeof value !== "string" || !value.trim()) throw new Error(`运行证据中的 ${field} 不能为空。`);
+    return value.trim();
+  };
+  const sha256 = (value: unknown, field: string) => {
+    const normalized = requiredString(value, field);
+    if (!/^[a-f0-9]{64}$/.test(normalized)) throw new Error(`运行证据中的 ${field} 必须是 SHA-256 哈希。`);
+    return normalized;
+  };
+  const strings = (value: unknown, field: string, minimum = 0) => {
+    if (!Array.isArray(value) || value.length < minimum || value.some((item) => typeof item !== "string" || !item.trim())) {
+      throw new Error(`运行证据中的 ${field} 格式无效。`);
+    }
+    return value.map((item) => item.trim());
+  };
+  if (typeof raw.launchCommand !== "string" || !raw.launchCommand.trim() || typeof raw.previewUrl !== "string" || !raw.previewUrl.trim()) {
+    throw new Error("运行证据缺少启动命令或访问地址。");
+  }
+  if (!Array.isArray(raw.acceptanceResults)) throw new Error("运行证据中的 acceptanceResults 格式无效。");
+  const parsedAcceptanceResults = raw.acceptanceResults.map((item) => {
+    if (!isRecord(item)
+      || typeof item.acceptanceId !== "string"
+      || !["passed", "failed", "not_verified"].includes(String(item.status))
+      || typeof item.note !== "string"
+      || !item.note.trim()) {
+      throw new Error("运行证据中存在格式无效的验收结果。");
+    }
+    return {
+      acceptanceId: item.acceptanceId.trim(),
+      status: item.status as AcceptanceResultDraft["status"],
+      note: item.note.trim(),
+      evidencePaths: strings(item.evidencePaths, `${item.acceptanceId} evidencePaths`),
+    };
+  });
+  const acceptanceIds = new Set(parsedAcceptanceResults.map((item) => item.acceptanceId));
+  if (acceptanceIds.size !== parsedAcceptanceResults.length) throw new Error("运行证据中不能重复同一个验收 ID。");
+
+  const run = raw.implementationRun;
+  if (!isRecord(run) || run.schemaVersion !== 1 || !isRecord(run.downstreamModel) || !isRecord(run.downstreamModel.parameters)
+    || !isRecord(run.executionEvidence) || (run.variant !== "baseline_direct_prompt" && run.variant !== "agentforge_manifest")
+    || (run.reportSha256 !== null && typeof run.reportSha256 !== "string")
+    || (run.manifestSha256 !== null && typeof run.manifestSha256 !== "string")
+    || (run.sourceRevision !== null && typeof run.sourceRevision !== "string")
+    || !["completed", "failed", "timeout", "cancelled"].includes(String(run.exitStatus))) {
+    throw new Error("运行证据缺少有效 implementationRun 元数据。");
+  }
+  const reportSha256 = run.reportSha256 === null ? null : sha256(run.reportSha256, "implementationRun.reportSha256");
+  const manifestSha256 = run.manifestSha256 === null ? null : sha256(run.manifestSha256, "implementationRun.manifestSha256");
+  const executionEvidence = {
+    provider: requiredString(run.executionEvidence.provider, "implementationRun.executionEvidence.provider"),
+    model: requiredString(run.executionEvidence.model, "implementationRun.executionEvidence.model"),
+    promptVersion: requiredString(run.executionEvidence.promptVersion, "implementationRun.executionEvidence.promptVersion"),
+    parametersSha256: sha256(run.executionEvidence.parametersSha256, "implementationRun.executionEvidence.parametersSha256"),
+    adapterVersion: requiredString(run.executionEvidence.adapterVersion, "implementationRun.executionEvidence.adapterVersion"),
+    seedSha256: sha256(run.executionEvidence.seedSha256, "implementationRun.executionEvidence.seedSha256"),
+    generatorSummaryPath: requiredString(run.executionEvidence.generatorSummaryPath, "implementationRun.executionEvidence.generatorSummaryPath"),
+  };
+
+  return {
+    launchCommand: raw.launchCommand.trim(),
+    previewUrl: raw.previewUrl.trim(),
+    screenshotPaths: strings(raw.screenshotPaths, "screenshotPaths", 1),
+    verificationNotes: strings(raw.verificationNotes, "verificationNotes", 1),
+    acceptanceResults: parsedAcceptanceResults,
+    implementationRun: {
+      schemaVersion: 1,
+      runId: requiredString(run.runId, "implementationRun.runId"),
+      caseId: requiredString(run.caseId, "implementationRun.caseId"),
+      variant: run.variant,
+      reportGroupId: requiredString(run.reportGroupId, "implementationRun.reportGroupId"),
+      solutionId: requiredString(run.solutionId, "implementationRun.solutionId"),
+      reportSha256,
+      manifestSha256,
+      promptSha256: sha256(run.promptSha256, "implementationRun.promptSha256"),
+      downstreamModel: {
+        provider: requiredString(run.downstreamModel.provider, "implementationRun.downstreamModel.provider"),
+        model: requiredString(run.downstreamModel.model, "implementationRun.downstreamModel.model"),
+        promptVersion: requiredString(run.downstreamModel.promptVersion, "implementationRun.downstreamModel.promptVersion"),
+        parameters: run.downstreamModel.parameters,
+        adapterVersion: requiredString(run.downstreamModel.adapterVersion, "implementationRun.downstreamModel.adapterVersion"),
+      },
+      executionEvidence,
+      sourceRevision: run.sourceRevision === null ? null : requiredString(run.sourceRevision, "implementationRun.sourceRevision"),
+      startedAt: requiredString(run.startedAt, "implementationRun.startedAt"),
+      completedAt: requiredString(run.completedAt, "implementationRun.completedAt"),
+      exitStatus: run.exitStatus as ImplementationRunEvidence["exitStatus"],
+      generatorOutputPaths: strings(run.generatorOutputPaths, "implementationRun.generatorOutputPaths"),
+      previewOutputPaths: strings(run.previewOutputPaths, "implementationRun.previewOutputPaths"),
+      orchestratorOutputPaths: strings(run.orchestratorOutputPaths, "implementationRun.orchestratorOutputPaths"),
+      playwrightOutputPaths: strings(run.playwrightOutputPaths, "implementationRun.playwrightOutputPaths"),
+    },
+  };
+}
 function List({ items, empty = "暂无" }: { items: string[]; empty?: string }) {
   if (items.length === 0) return <p className="text-sm text-slate-500">{empty}</p>;
   return <ul className="space-y-2">{items.map((item) => <li key={item} className="flex gap-2 text-sm leading-6 text-slate-700"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />{item}</li>)}</ul>;
@@ -126,6 +255,19 @@ export function ReportCenter() {
   // 默认“未验证”，避免界面在没有真实检查时暗示任何验收项已经通过。
   const [acceptanceResultDrafts, setAcceptanceResultDrafts] = useState<AcceptanceResultDraft[]>([]);
   const [savingFeedback, setSavingFeedback] = useState(false);
+  const [experimentStudyId, setExperimentStudyId] = useState("");
+  const [experimentCaseId, setExperimentCaseId] = useState("");
+  const [experimentProvider, setExperimentProvider] = useState("openai");
+  const [experimentModel, setExperimentModel] = useState("");
+  const [experimentPromptVersion, setExperimentPromptVersion] = useState("ui-implementation-v1");
+  // 导出实验包前记录真实使用的生成适配器版本，便于后续复现同一执行条件。
+  const [experimentAdapterVersion, setExperimentAdapterVersion] = useState("agentforge-implementation-adapter-v1");
+  const [experimentMinimumCaseCount, setExperimentMinimumCaseCount] = useState("6");
+  const [experimentMinimumRaterCount, setExperimentMinimumRaterCount] = useState("2");
+  const [exportingExperiment, setExportingExperiment] = useState(false);
+  const experimentInputKeyRef = useRef<string | null>(null);
+  const runtimeEvidenceInputRef = useRef<HTMLInputElement>(null);
+  const [importedImplementationRun, setImportedImplementationRun] = useState<ImplementationRunEvidence | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -186,14 +328,40 @@ export function ReportCenter() {
     && (feedbackOutcome === "pass" ? acceptancePassReady : acceptanceRevisionReady)
   );
 
+  const selectedExperimentGroupId = selectedGroup?.id ?? null;
+  const selectedExperimentGroupKey = selectedGroup?.groupId ?? null;
+  const selectedExperimentSolutionId = selectedSpec?.solutionId ?? null;
+
+  useEffect(() => {
+    // 切换方案时重置实验元数据，确保下载包与当前报告方案一一对应。
+    const timer = window.setTimeout(() => {
+      if (!selectedExperimentGroupId || !selectedExperimentGroupKey || !selectedExperimentSolutionId) return;
+      const inputKey = `${selectedExperimentGroupId}:${selectedExperimentSolutionId}`;
+      if (experimentInputKeyRef.current === inputKey) return;
+      experimentInputKeyRef.current = inputKey;
+      setExperimentStudyId(`product-ui-${selectedExperimentGroupKey}`);
+      setExperimentCaseId(`case-${selectedExperimentGroupKey}-${selectedExperimentSolutionId}`);
+      setExperimentProvider("openai");
+      setExperimentModel("");
+      setExperimentPromptVersion("ui-implementation-v1");
+      setExperimentAdapterVersion("agentforge-implementation-adapter-v1");
+      setExperimentMinimumCaseCount("6");
+      setExperimentMinimumRaterCount("2");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [selectedExperimentGroupId, selectedExperimentGroupKey, selectedExperimentSolutionId]);
+
   useEffect(() => {
     // 切换方案或保存反馈后异步同步草稿，避免 Effect 内同步 setState 触发级联渲染。
     const timer = window.setTimeout(() => {
       if (!selectedSpec) {
         setAcceptanceResultDrafts([]);
+        setImportedImplementationRun(null);
         return;
       }
-      const previousResults = selectedGroup?.feedback.find((item) => item.solutionId === selectedSpec.solutionId)?.runtimeEvidence?.acceptanceResults ?? [];
+      const previousRuntimeEvidence = selectedGroup?.feedback.find((item) => item.solutionId === selectedSpec.solutionId)?.runtimeEvidence ?? null;
+      const previousResults = previousRuntimeEvidence?.acceptanceResults ?? [];
+      setImportedImplementationRun(previousRuntimeEvidence?.implementationRun ?? null);
       const resultById = new Map(previousResults.map((item) => [item.acceptanceId, item]));
       setAcceptanceResultDrafts((selectedSpec.acceptanceMatrix ?? []).map((item) => {
         const previous = resultById.get(item.id);
@@ -243,8 +411,46 @@ export function ReportCenter() {
     setAcceptanceResultDrafts((current) => current.map((draft) => draft.acceptanceId === acceptanceId ? { ...draft, ...patch } : draft));
   }
 
-  async function saveFeedback() {
-    const acceptanceResults = acceptanceResultDrafts
+  async function importRuntimeEvidenceFile(file: File | null) {
+    if (!file || !selectedGroup || !selectedSpec) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("运行证据 JSON 不能超过 5MB。");
+      return;
+    }
+    setError(null);
+    try {
+      const imported = parseImportedRuntimeEvidence(JSON.parse(await file.text()));
+      const run = imported.implementationRun;
+      if (!run) throw new Error("运行证据缺少 implementationRun 元数据。");
+      // 当前报告的验收只能接收 AgentForge 实施清单分支，基线分支留在实验对照材料中，避免混淆来源。
+      if (run.variant !== "agentforge_manifest") throw new Error("当前报告验收只接收 agentforge_manifest 分支的运行证据。");
+      if (run.reportGroupId !== selectedGroup.groupId) throw new Error("运行证据所属报告组与当前报告不一致。");
+      if (run.solutionId !== selectedSpec.solutionId) throw new Error("运行证据所属方案与当前方案不一致。");
+      setLaunchCommand(imported.launchCommand);
+      setPreviewUrl(imported.previewUrl);
+      setScreenshotPathsText(imported.screenshotPaths.join("\n"));
+      setVerificationNotesText(imported.verificationNotes.join("\n"));
+      const resultsById = new Map(imported.acceptanceResults.map((item) => [item.acceptanceId, item]));
+      setAcceptanceResultDrafts((selectedSpec.acceptanceMatrix ?? []).map((item) => {
+        const result = resultsById.get(item.id);
+        return {
+          acceptanceId: item.id,
+          status: result?.status ?? "not_verified",
+          note: result?.note ?? "",
+          evidencePathsText: result?.evidencePaths.join("\n") ?? "",
+        };
+      }));
+      setImportedImplementationRun(run);
+      // 导入真实运行数据不代表人工已经批准该方案，需由操作者显式选择“通过”。
+      setFeedbackOutcome("needs_revision");
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "运行证据导入失败。");
+    } finally {
+      if (runtimeEvidenceInputRef.current) runtimeEvidenceInputRef.current.value = "";
+    }
+  }
+
+  async function saveFeedback() {    const acceptanceResults = acceptanceResultDrafts
       .filter((draft) => draft.status !== "not_verified" || draft.note.trim() || draft.evidencePathsText.trim())
       .map((draft) => ({
         acceptanceId: draft.acceptanceId,
@@ -258,6 +464,7 @@ export function ReportCenter() {
       screenshotPaths: evidenceLines(screenshotPathsText),
       verificationNotes: evidenceLines(verificationNotesText),
       acceptanceResults,
+      implementationRun: importedImplementationRun ?? undefined,
     };
     // 已填写的逐项结果必须具备可读结论；通过项还必须附带可复核的证据路径。
     const invalidAcceptanceResult = acceptanceResults.some((result) => result.note.length < 3 || (result.status === "passed" && result.evidencePaths.length === 0));
@@ -288,6 +495,50 @@ export function ReportCenter() {
     await navigator.clipboard.writeText(visibleAiExecutionReport);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function downloadExperimentPackage() {
+    const minimumCaseCount = Number(experimentMinimumCaseCount);
+    const minimumRaterCount = Number(experimentMinimumRaterCount);
+    if (!selectedGroup || !selectedSpec || !experimentStudyId.trim() || !experimentCaseId.trim() || !experimentProvider.trim() || !experimentModel.trim() || !experimentPromptVersion.trim() || !experimentAdapterVersion.trim() || !Number.isInteger(minimumCaseCount) || minimumCaseCount < 1 || !Number.isInteger(minimumRaterCount) || minimumRaterCount < 1) {
+      setError("请填写完整的实验编号、下游模型与最小样本/评分人数。");
+      return;
+    }
+    setExportingExperiment(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/reports/product-ui/${selectedGroup.id}/experiment-package`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          solutionId: selectedSpec.solutionId,
+          studyId: experimentStudyId.trim(),
+          caseId: experimentCaseId.trim(),
+          downstreamModel: { provider: experimentProvider.trim(), model: experimentModel.trim(), promptVersion: experimentPromptVersion.trim(), adapterVersion: experimentAdapterVersion.trim(), parameters: {} },
+          minimumCaseCount,
+          minimumRaterCount,
+          humanReviewRubricVersion: "product-ui-blind-rubric-v1",
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+        throw new Error(data?.error?.message ?? "对照实验包导出失败。");
+      }
+      const contentDisposition = response.headers.get("Content-Disposition") ?? "";
+      const filename = contentDisposition.match(/filename="?([^";]+)"?/)?.[1] ?? "agentforge-product-ui-experiment.json";
+      const downloadUrl = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "对照实验包导出失败。");
+    } finally {
+      setExportingExperiment(false);
+    }
   }
 
   // 兼容旧版 ReportArtifact：没有产品/UI 报告组时，仍然展示历史报告。
@@ -377,10 +628,33 @@ export function ReportCenter() {
           <aside className="space-y-5">
             {selectedGroup && selectedSpec && <>
                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center gap-2"><Clipboard className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">AI 执行报告</h2></div><p className="mt-2 text-xs leading-5 text-slate-500">当前完整报告就是交给 Claude、Codex、Cursor 等 AI 编程工具的实施输入，包含页面、视觉、交互、响应式、证据和验收标准。</p><button type="button" onClick={() => void copyReport()} disabled={!visibleAiExecutionReport} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50" title="复制完整 AI 执行报告">{copied && visibleAiExecutionReport ? <ClipboardCheck className="h-4 w-4 text-emerald-600" /> : <Clipboard className="h-4 w-4" />}{copied && visibleAiExecutionReport ? "已复制完整报告" : "复制完整 AI 执行报告"}</button><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/api/reports/product-ui/${selectedGroup.id}/export?solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><Download className="h-4 w-4" />下载 Markdown 报告</a><a className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50" href={`/api/reports/product-ui/${selectedGroup.id}/export?format=implementation-manifest&solutionId=${encodeURIComponent(selectedSpec.solutionId)}`}><FileJson className="h-4 w-4" />下载实现包 JSON</a><p className="mt-2 text-[11px] leading-4 text-slate-500">实施包供下游 AI 或自动化读取，描述单一方案的页面、视觉、约束与验收；不代表网站已经生成。</p><div className="mt-3 rounded-lg border border-slate-200 bg-slate-950 p-3"><p className="mb-2 text-[11px] font-semibold text-slate-200">Markdown 预览</p><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-slate-100" aria-label="AI 执行报告 Markdown">{visibleAiExecutionReport || "正在加载或尚未生成完整报告。"}</pre></div></section>
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2"><FileJson className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">对照实验包</h2></div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">冻结“直接需求”与“AgentForge 实施清单”两条输入，连同验收 ID、哈希和匿名盲评材料导出。下载仅准备实验，不生成网站，也不代表质量已验证。</p>
+                <div className="mt-3 grid gap-2">
+                  <label className="text-xs font-semibold text-slate-600">研究编号<input value={experimentStudyId} onChange={(event) => setExperimentStudyId(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" /></label>
+                  <label className="text-xs font-semibold text-slate-600">Case 编号<input value={experimentCaseId} onChange={(event) => setExperimentCaseId(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" /></label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-xs font-semibold text-slate-600">下游 Provider<input value={experimentProvider} onChange={(event) => setExperimentProvider(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" placeholder="openai" /></label>
+                    <label className="text-xs font-semibold text-slate-600">下游模型<input value={experimentModel} onChange={(event) => setExperimentModel(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" placeholder="实际模型版本" /></label>
+                  </div>
+                  <label className="text-xs font-semibold text-slate-600">Prompt 版本<input value={experimentPromptVersion} onChange={(event) => setExperimentPromptVersion(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" /></label>
+                   <label className="text-xs font-semibold text-slate-600">生成适配器版本<input value={experimentAdapterVersion} onChange={(event) => setExperimentAdapterVersion(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" placeholder="实际运行器适配器版本" /></label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-xs font-semibold text-slate-600">最少 Case<input type="number" min="1" value={experimentMinimumCaseCount} onChange={(event) => setExperimentMinimumCaseCount(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" /></label>
+                    <label className="text-xs font-semibold text-slate-600">最少评分者<input type="number" min="1" value={experimentMinimumRaterCount} onChange={(event) => setExperimentMinimumRaterCount(event.target.value)} className="mt-1 h-9 w-full rounded-lg border border-slate-300 px-2 text-xs outline-none focus:border-indigo-500" /></label>
+                  </div>
+                </div>
+                <button type="button" onClick={() => void downloadExperimentPackage()} disabled={exportingExperiment} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{exportingExperiment ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileJson className="h-4 w-4" />}{exportingExperiment ? "正在打包…" : "下载双分支实验包"}</button>
+              </section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 className="font-bold">方案取舍</h2><div className="mt-3 space-y-3">{selectedGroup.comparison.map((item) => <div key={item.solutionId} className={`rounded-lg p-3 ${item.solutionId === selectedSpec.solutionId ? "bg-indigo-50" : "bg-slate-50"}`}><p className="text-sm font-semibold">{solutionLabels[selectedGroup.reports.find((report) => report.productUISpec?.solutionId === item.solutionId)?.productUISpec?.solutionType ?? ""] ?? item.solutionId}</p><p className="mt-2 text-xs leading-5 text-emerald-800">优势：{item.strengths.join("；")}</p><p className="mt-1 text-xs leading-5 text-amber-800">取舍：{item.tradeoffs.join("；")}</p></div>)}</div></section>
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-indigo-600" /><h2 className="font-bold">生成后验收</h2></div>
                 <p className="mt-2 text-xs leading-5 text-slate-500">网站实际运行后，记录真实启动信息和验收证据。没有运行证据时不能标记通过。</p>
+                <input ref={runtimeEvidenceInputRef} type="file" accept="application/json,.json" aria-label="导入运行证据 JSON" className="sr-only" onChange={(event) => void importRuntimeEvidenceFile(event.target.files?.[0] ?? null)} />
+                <button type="button" onClick={() => runtimeEvidenceInputRef.current?.click()} className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FileUp className="h-4 w-4" />导入运行证据 JSON</button>
+                <p className="mt-2 text-[11px] leading-4 text-slate-500">仅接收运行器生成且匹配当前报告与方案的 AgentForge 分支证据；导入只回填数据，不会自动保存或标记通过。</p>
+                {importedImplementationRun && <p className="mt-2 rounded-lg border border-sky-200 bg-sky-50 p-2 text-[11px] leading-5 text-sky-800" aria-live="polite">已导入运行记录：{importedImplementationRun.runId} · {importedImplementationRun.downstreamModel.provider}/{importedImplementationRun.downstreamModel.model} · {importedImplementationRun.exitStatus}</p>}
                 {acceptanceMatrix.length > 0 ? (
                   <fieldset className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <legend className="px-1 text-xs font-bold text-slate-700">逐项稳定验收（{acceptanceMatrix.length} 项）</legend>

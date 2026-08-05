@@ -1,0 +1,36 @@
+{
+  "packageDir": "./artifacts/product-ui-experiments/replace-study/replace-case",
+  "outputDir": "./artifacts/product-ui-implementation-runs/replace-study",
+  "run": {
+    "runId": "replace-case-agentforge-manifest-20260805-001",
+    "variant": "agentforge_manifest",
+    "sourceRevision": null
+  },
+  "generator": {
+    "command": "npx.cmd",
+    "args": [
+      "tsx",
+      "scripts/product-ui-implementation-claude-generator.ts",
+      "--config",
+      "examples/product-ui-implementation-experiment/claude-generator.config.example.json"
+    ],
+    "cwd": ".",
+    "timeoutMs": 900000
+  },
+  "preview": {
+    "command": "node",
+    "args": ["server.mjs"],
+    "cwd": ".",
+    "timeoutMs": 120000,
+    "previewUrl": "http://127.0.0.1:4173",
+    "readyTimeoutMs": 60000,
+    "pollIntervalMs": 500
+  },
+  "evaluator": {
+    "headless": true,
+    "navigationTimeoutMs": 30000,
+    "settleMs": 250,
+    "desktopViewport": { "width": 1440, "height": 1000 },
+    "mobileViewport": { "width": 390, "height": 844 }
+  }
+}

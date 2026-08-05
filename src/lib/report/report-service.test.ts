@@ -14,8 +14,8 @@ import {
 } from "./product-ui-export";
 import { createProductUIReportGroup } from "./product-ui-report";
 import { buildProductUIImplementationManifest, renderProductUIImplementationManifestJson } from "./product-ui-implementation-manifest";
-import { deriveProductUIReportGroupStatus } from "./product-ui-group-service";
-import { ProductUIReportGroupSchema } from "./contracts";
+import { deriveProductUIReportGroupStatus, validateProductUIImplementationRunBinding } from "./product-ui-group-service";
+import { ProductUIReportGroupSchema, type ProductUIRuntimeEvidence } from "./contracts";
 import { createBaselineDevelopmentReport, validateDevelopmentReport, type ReportGenerationInput } from "./report-service";
 
 async function fixture(requirement: string): Promise<ReportGenerationInput> {
@@ -141,6 +141,23 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.area === "requirement")));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.status === "target_design")));
   assert.ok(group.reports.every((report) => report.productUISpec?.traceability.filter((item) => item.area === "github").every((item) => item.status === "verified")));
+  assert.ok(group.reports.every((report) => {
+    const spec = report.productUISpec;
+    if (!spec?.designDecisions?.length) return false;
+    const pageIds = new Set(spec.pages.map((page) => page.id));
+    const componentNames = new Set(spec.components.map((component) => component.name));
+    const acceptanceIds = new Set((spec.acceptanceMatrix ?? []).map((item) => item.id));
+    const githubEvidenceIds = new Set(spec.evidence.map((item) => item.id));
+    return spec.designDecisions.every((decision) => (
+      decision.status === "target_design"
+      && decision.sourceRefs.length > 0
+      && decision.appliesTo.pageIds.every((id) => pageIds.has(id))
+      && decision.appliesTo.componentNames.every((name) => componentNames.has(name))
+      && decision.appliesTo.acceptanceIds.every((id) => acceptanceIds.has(id))
+      && decision.sourceRefs.every((reference) => reference.sourceType !== "github_evidence" || githubEvidenceIds.has(reference.refId))
+    ));
+  }));
+  assert.ok(group.reports.every((report) => report.productUISpec?.traceability.some((item) => item.area === "design_decision" && item.status === "target_design")));
 
   const report = group.reports[0];
   const markdown = renderProductUISpecMarkdown(report, { generatedAt: "2026-08-02T00:00:00.000Z" });
@@ -154,6 +171,9 @@ test("product/UI report group generates three distinct downstream-ready target d
   assert.match(markdown, /固定 SHA 只保证引用快照可复现/);
   assert.match(markdown, /仓库核验：verified/);
   assert.match(markdown, /交付边界与来源映射/);
+  assert.match(markdown, /设计决策与证据映射/);
+  assert.match(markdown, /composable-component-boundaries/);
+  assert.match(prompt, /按每条决策关联的页面、组件和验收 ID 实施/);
   assert.match(markdown, /需求目标：/);
   assert.match(prompt, /loading/);
   assert.match(prompt, /截图/);
@@ -273,7 +293,7 @@ test("product/UI JSON handoff keeps complete specs, prompts and runtime acceptan
   assert.equal(bundle.solutions[0].runtimeAcceptance.hasRuntimeEvidence, true);
   assert.equal(bundle.solutions[1].runtimeAcceptance.status, "pending");
   assert.ok(bundle.handoffContract.requiredArtifacts.some((item) => item.includes("启动命令")));
-  assert.ok(bundle.solutions[0].downstreamPrompt.includes("只能填写真实值"));
+  assert.ok(bundle.solutions[0].downstreamPrompt.includes("只能填写真实证据"));
 
   const json = JSON.parse(renderProductUIHandoffJson(withFeedback, { generatedAt: "2026-08-02T00:00:00.000Z" })) as typeof bundle;
   assert.equal(json.groupId, group.groupId);
@@ -336,7 +356,7 @@ test("product/UI report is the primary executable handoff and exposes evidence b
   }
 
   assert.ok(prompt.includes("AI 执行契约"));
-  assert.ok(prompt.includes("只能填写真实值"));
+  assert.ok(prompt.includes("只能填写真实证据"));
   assert.ok(prompt.includes("launchCommand"));
   assert.ok(prompt.includes("verificationNotes"));
   assert.ok(prompt.includes("page-home-structure"));
@@ -395,6 +415,8 @@ test("product/UI implementation manifest keeps one solution executable and evide
   assert.equal(pending.provenance.solutionId, spec.solutionId);
   assert.equal(pending.routes.length, spec.pages.length);
   assert.deepEqual(pending.visualDirection, spec.designDirection);
+  assert.deepEqual(pending.provenance.designDecisions, spec.designDecisions ?? []);
+  assert.ok(pending.provenance.designDecisions.every((decision) => decision.sourceRefs.length > 0));
   assert.deepEqual(pending.acceptance.matrix, spec.acceptanceMatrix ?? []);
   assert.equal(pending.acceptance.runtime.status, "pending");
   assert.equal(pending.acceptance.runtime.hasCompleteAcceptanceEvidence, false);
@@ -430,4 +452,68 @@ test("product/UI implementation manifest keeps one solution executable and evide
   const json = JSON.parse(renderProductUIImplementationManifestJson(accepted, report, { generatedAt: "2026-08-04T00:00:00.000Z" })) as typeof passed;
   assert.equal(json.manifestType, "agentforge_product_ui_implementation");
   assert.equal(json.routes[0]?.route, passed.routes[0]?.route);
+
+  const legacySpec = { ...spec };
+  delete legacySpec.designDecisions;
+  const legacyGroup = ProductUIReportGroupSchema.parse({
+    ...group,
+    reports: group.reports.map((item, index) => index === 0 ? { ...item, productUISpec: legacySpec } : item),
+  });
+  const legacyReport = legacyGroup.reports[0];
+  assert.ok(legacyReport);
+  assert.match(renderProductUISpecMarkdown(legacyReport), /历史规格未包含结构化设计决策与证据映射/);
+  assert.deepEqual(buildProductUIImplementationManifest(legacyGroup, legacyReport).provenance.designDecisions, []);
+});
+
+test("implementation run evidence is bound to the report group, solution, and AgentForge branch", () => {
+  const runtimeEvidence: ProductUIRuntimeEvidence = {
+    launchCommand: "npm run dev",
+    previewUrl: "http://127.0.0.1:3000",
+    screenshotPaths: ["artifacts/home.png"],
+    verificationNotes: ["The browser probe completed against the preview."],
+    acceptanceResults: [],
+    implementationRun: {
+      schemaVersion: 1,
+      runId: "run-attendance-agentforge",
+      caseId: "case-attendance",
+      variant: "agentforge_manifest",
+      reportGroupId: "group-attendance",
+      solutionId: "solution-attendance",
+      reportSha256: "a".repeat(64),
+      manifestSha256: "b".repeat(64),
+       promptSha256: "c".repeat(64),
+       downstreamModel: { provider: "test", adapterVersion: "test-adapter-v1", model: "test-model", promptVersion: "prompt-v1", parameters: {} },
+       executionEvidence: {
+         provider: "test",
+         model: "test-model",
+         promptVersion: "prompt-v1",
+         parametersSha256: "d".repeat(64),
+         adapterVersion: "test-adapter-v1",
+         seedSha256: "e".repeat(64),
+         generatorSummaryPath: "artifacts/claude-generator-summary.json",
+       },
+       sourceRevision: null,
+      startedAt: "2026-08-04T00:00:00.000Z",
+      completedAt: "2026-08-04T00:00:02.000Z",
+      exitStatus: "completed",
+      generatorOutputPaths: [],
+      previewOutputPaths: [],
+      orchestratorOutputPaths: [],
+      playwrightOutputPaths: ["artifacts/playwright.json"],
+    },
+  };
+
+  assert.doesNotThrow(() => validateProductUIImplementationRunBinding(runtimeEvidence, "group-attendance", "solution-attendance"));
+  assert.throws(() => validateProductUIImplementationRunBinding({
+    ...runtimeEvidence,
+    implementationRun: { ...runtimeEvidence.implementationRun!, variant: "baseline_direct_prompt" },
+  }, "group-attendance", "solution-attendance"), /PRODUCT_UI_IMPLEMENTATION_RUN_VARIANT_INVALID/);
+  assert.throws(() => validateProductUIImplementationRunBinding({
+    ...runtimeEvidence,
+    implementationRun: { ...runtimeEvidence.implementationRun!, reportGroupId: "another-group" },
+  }, "group-attendance", "solution-attendance"), /PRODUCT_UI_IMPLEMENTATION_RUN_GROUP_MISMATCH/);
+  assert.throws(() => validateProductUIImplementationRunBinding({
+    ...runtimeEvidence,
+    implementationRun: { ...runtimeEvidence.implementationRun!, solutionId: "another-solution" },
+  }, "group-attendance", "solution-attendance"), /PRODUCT_UI_IMPLEMENTATION_RUN_SOLUTION_MISMATCH/);
 });

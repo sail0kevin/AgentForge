@@ -31,7 +31,7 @@ AgentForge 的核心交付物不是一段分析文字，也不是必须二次解
 | 最终交付什么 | 三套体现不同取舍的 Product/UI 实施报告、单方案 `implementation-manifest`、Markdown 导出和验收记录 |
 | 如何避免错误继续传递 | Schema 校验、引用回查、预算约束、交叉评审、Evaluator 收敛和高影响冲突人工裁决 |
 | 如何处理中断 | LangGraph Checkpoint、`interrupt / resume`、节点幂等和持久化人工决策 |
-| 如何证明可用 | 自动化门禁、PostgreSQL 恢复与租约专项验证、RAG/消融评测工具链，以及三个可运行报告映射案例 |
+| 如何验证报告能指导实现 | `implementation-manifest`、Baseline/AgentForge 双分支实验包、Playwright 验收、匿名盲评工具，以及三个可运行报告映射案例 |
 
 ## 核心工作流
 
@@ -126,7 +126,7 @@ Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默
 4. 在报告中心查看三套 Product/UI 报告并下载 `implementation-manifest`。
 5. 访问 `/generated/attendance`、`/generated/atelier` 和 `/generated/nocturne` 查看报告映射结果。
 
-详细步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。
+详细步骤见[本地演示指南](<./docs/2026-07-19 - local-demo-guide - 本地演示指南.md>)。真实下游 AI 对照实验的配置模板见[`examples/product-ui-implementation-experiment`](<./examples/product-ui-implementation-experiment/README.md>)，完整口径见[Product/UI 实施评测指南](<./docs/2026-08-04 - product-ui-implementation-evaluation - ProductUI实施评测指南.md>)。
 
 ## 当前边界
 
@@ -141,6 +141,8 @@ Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默
 - [当前开发状态](<./docs/2026-08-01 - current-development-status - 当前开发状态.md>)
 - [当前运行架构](<./docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
 - [Product/UI 实施包说明](<./docs/2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md>)
+- [Product/UI 实施评测指南](<./docs/2026-08-04 - product-ui-implementation-evaluation - ProductUI实施评测指南.md>)
+- [下游实施对照实验模板](<./examples/product-ui-implementation-experiment/README.md>)
 - [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)
 - [完整文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
 

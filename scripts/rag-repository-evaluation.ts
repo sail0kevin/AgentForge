@@ -10,10 +10,10 @@ const corpusFiles = [
 
 const cases = [
   { id: "workflow-recovery", query: "中断 刷新 人工 等待 幂等 Checkpoint", heading: "可恢复执行" },
-  { id: "audit-cost", query: "系统 记录 Token 费用 Provider ToolInvocation", heading: "可审计与成本可见" },
-  { id: "data-isolation", query: "API Key 服务端 加密 用户 Session 隔离", heading: "凭证与数据隔离" },
-  { id: "candidate-review", query: "Delivery Quality 独立 Candidate Reviewer Finding 交叉评审", heading: "结构化候选与交叉评审" },
-  { id: "quality-gate", query: "Unit Core Playwright E2E Session isolation TypeScript ESLint Build", heading: "可复现的质量证据" },
+  { id: "audit-cost", query: "系统 记录 Token 费用 Provider ToolInvocation", heading: "工程实现" },
+  { id: "data-isolation", query: "API Key 服务端 加密 用户 Session 隔离", heading: "工程实现" },
+  { id: "candidate-review", query: "Delivery Quality 独立 Candidate Reviewer Finding 交叉评审", heading: "核心工作流" },
+  { id: "quality-gate", query: "Unit Core Playwright E2E Session isolation TypeScript ESLint Build", heading: "可复现证据" },
   { id: "known-limitations", query: "真实模型盲评 尚未完成 质量结论", heading: "当前边界" },
 ] as const;
 

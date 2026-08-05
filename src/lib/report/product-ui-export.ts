@@ -118,6 +118,19 @@ function acceptanceMatrixMarkdown(spec: ProductUISpec) {
   ].join("\n")).join("\n\n");
 }
 
+function designDecisionsMarkdown(spec: ProductUISpec) {
+  if (!spec.designDecisions?.length) return "- 历史规格未包含结构化设计决策与证据映射。";
+  return spec.designDecisions.map((decision) => [
+    `### ${decision.id}`,
+    `设计原则：${decision.principle}`,
+    `采用理由：${decision.rationale}`,
+    `影响页面：${decision.appliesTo.pageIds.join("、")}`,
+    `影响组件：${decision.appliesTo.componentNames.join("、")}`,
+    `关联验收项：${decision.appliesTo.acceptanceIds.join("、")}`,
+    `来源：${decision.sourceRefs.map((reference) => `${reference.sourceType}:${reference.refId}`).join("、")}`,
+    `状态：${decision.status}`,
+  ].join("\n")).join("\n\n");
+}
 function executionContractMarkdown(spec: ProductUISpec) {
   const contract = spec.aiExecutionContract;
   if (!contract) {
@@ -190,6 +203,7 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     `失败恢复：${flow.failureRecovery}`,
   ].join("\n")).join("\n\n");
   const acceptanceMatrix = acceptanceMatrixMarkdown(spec);
+  const designDecisions = designDecisionsMarkdown(spec);
   const tokens = spec.designDirection.tokens;
   return [
     `# ${spec.productName} · ${spec.designDirection.name}`,
@@ -268,6 +282,10 @@ export function renderProductUISpecMarkdown(report: DevelopmentReport, metadata:
     "",
     acceptanceMatrix,
     "",
+    "## 设计决策与证据映射",
+    "",
+    designDecisions,
+    "",
     "## 交付边界与来源映射",
     "",
     "### 本方案包含",
@@ -312,10 +330,11 @@ export function buildDownstreamAgentPrompt(report: DevelopmentReport, aiExecutio
     "4. 运行网站后输出实际使用的启动命令、页面截图路径和未通过的验收项。",
     "5. 不得把 GitHub 参考仓库整页复制到产品中；复用前检查许可证和固定版本。",
     "6. 固定 SHA 只保证引用快照可复现；只有仓库、路径和许可证核验均为 verified 时，才能把来源审计标记为 fully_verified。",
-    "7. 先阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
-    "8. 完成后必须按验收矩阵稳定 ID 回传真实交付证据；acceptanceResults 必须逐项填写状态、结论和实际证据路径，未通过项必须包含复现方式。",
+    "7. 先阅读“设计决策与证据映射”，按每条决策关联的页面、组件和验收 ID 实施；GitHub/知识库来源只是设计依据，绝不是已经完成或通过验收的网站结果。",
+    "8. 再阅读“交付边界与来源映射”：status=implemented 表示 AgentForge 已有能力，status=target_design 表示你要实现的目标，status=verified 只表示来源已被结构化记录，status=unverified 必须在真实运行或版本审计后才能改变。",
+    "9. 完成后必须按验收矩阵稳定 ID 回传真实交付证据；acceptanceResults 必须逐项填写状态、结论和实际证据路径，未通过项必须包含复现方式。",
     "",
-    "回传交付证据（只能填写真实值，不得使用臆造结果）：",
+    "回传交付证据（只能填写真实证据，不得使用臆造结果）：",
     "```json",
     JSON.stringify({
       launchCommand: "<实际启动命令>",

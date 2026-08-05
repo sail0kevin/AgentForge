@@ -20,6 +20,8 @@ export type ProductUIImplementationManifest = {
     reportTitle: string;
     evidenceStatus: ProductUISpec["evidenceStatus"];
     evidenceAuditStatus: ProductUISpec["evidenceAuditStatus"];
+    // 让下游实现方能按证据影响范围执行，而不是仅从自然语言中猜测设计取舍。
+    designDecisions: NonNullable<ProductUISpec["designDecisions"]>;
     traceability: ProductUISpec["traceability"];
   };
   product: {
@@ -133,6 +135,7 @@ export function buildProductUIImplementationManifest(
       reportTitle: report.title,
       evidenceStatus: spec.evidenceStatus,
       evidenceAuditStatus: spec.evidenceAuditStatus,
+      designDecisions: spec.designDecisions ?? [],
       traceability: spec.traceability,
     },
     product: {

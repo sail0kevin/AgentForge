@@ -21,8 +21,8 @@
 - **已实现**：生成后验收要求结构化保存实际启动命令、访问地址、截图路径和测试/验收记录；缺少任一运行证据时，即使填写“通过”，报告组也只能保持 `in_review`。旧的自由文本反馈仍可读取，但不会推进到 `accepted`。
 - **目标设计 / 未验证**：启动命令、访问地址、截图和验收记录必须来自下游真实运行环境；当前仓库只负责保存、展示和判定证据是否齐全，不宣称网站视觉、响应式或交互结果已经通过。
 - **已验证**：报告生成契约测试覆盖三套方案、唯一方案标识、完整 SHA 的 GitHub/UI 参考证据，以及混合未固定证据仍保持 `not_yet_verified` 的边界；2026-08-03 完整 `quality:all` 已通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、TypeScript、ESLint、51 份 Markdown 文档命名/本地链接校验和生产构建，随后 SQLite/PostgreSQL schema 校验也通过。
-- **已验证**：在该完整门禁之后新增的产品/UI报告 E2E 已通过聚焦 `1/1` 与核心套件 `26/26`，浏览器覆盖唯一 JSON 下载链接、完整报告加载、验收表单的必填约束和证据回显；接口覆盖单方案 JSON handoff、三方案运行证据回写和 `generated` → `in_review` → `accepted` 状态收敛。该测试使用隔离 SQLite 与预设运行证据夹具，不构成真实下游网站、视觉或用户验收。真实 Provider、目标环境数据库持久化和网站视觉验收仍需独立证据。
-- **目标设计**：下游 AI 编程 Agent 根据 Prompt 生成真实网站/UI，再将截图、交互和响应式结果提交回来验收；AgentForge 当前不声称自己已经生成网站。
+- **已验证**：在该完整门禁之后新增的产品/UI报告 E2E 已通过聚焦 `1/1` 与核心套件 `26/26`，浏览器覆盖唯一 JSON 下载链接、完整报告加载、验收表单的必填约束和证据回显；接口与报告中心真实下载覆盖单方案 JSON handoff、冻结双分支实验包、三方案运行证据回写和 `generated` → `in_review` → `accepted` 状态收敛。该测试使用隔离 SQLite 与预设运行证据夹具，不构成真实下游网站、视觉或用户验收。真实 Provider、目标环境数据库持久化和网站视觉验收仍需独立证据。
+- **目标设计 / 待实测**：将用户实际选择的下游 AI CLI 接入编排器，对至少 6 个真实需求分别执行 Baseline 和 AgentForge 分支，再将源码、截图、交互和响应式结果与独立盲评一并交回验收；当前仓库未配置真实模型，也不声称已经生成或比较过真实下游网站。
 - **未验证**：GitHub 参考目录已固定默认 SHA，但许可证复用审计、语义内容复核、真实 Provider 质量、真实视觉验收和生产 PostgreSQL 备份恢复仍需独立运行。
 ## 已完成
 ## 报告映射网站案例（2026-08-04）
@@ -43,6 +43,18 @@
 - 案例中的业务数据、播放、收藏、生产部署和真实用户验收尚未生产化；真实模型盲评、人工 RAG Golden Set、真实 Provider 成本与延迟、目标环境 PostgreSQL 持久化、Docker、远程 CI 与生产负载仍需独立证据。
 
 
+## Product/UI 报告到网站的对照实验闭环（2026-08-04）
+
+- **已实现**：`npm run quality:product-ui:experiment-package` 可为每个冻结 Case 导出两条不可混用的下游实施输入：只含原始需求的 Baseline 直接 Prompt，以及携带冻结 `implementation-manifest` 的 AgentForge Prompt；同时分别输出管理员解盲映射和不含分支身份的盲评包。
+- **已实现**：报告中心已提供“对照实验包”入口；用户为当前方案填入真实下游模型、Prompt 版本、Case/评分者门槛后，可直接下载同一协议的冻结材料。下载操作不会调用下游模型、不会生成网站，也不会把实验门槛误写成质量结果。
+- **已实现**：运行记录、浏览器验收、输入 SHA/模型/Case 配对检查和成对盲评比较器可将两个分支的实际源码、截图、Playwright 证据和评分 Artifact 纳入同一协议；缺失、身份泄漏或输入不一致会拒绝质量比较。
+- **已实现**：`npm run quality:product-ui:orchestrate -- --config <本地编排配置.json>` 可按用户明确配置执行下游生成器和预览命令，在预览地址可访问后调用 Runner；它保存生成/预览 stdout、stderr、`orchestration-summary.json` 和运行证据，并以环境变量向分支传递冻结输入。Baseline 会被主动隔离，不会获得 AgentForge Report/Manifest 路径；该命令不内置模型供应商、API 密钥或质量结论。
+- **已实现**：报告中心可导入 Runner 生成的 `runtime-evidence.json`，仅接受与当前报告组和方案匹配的 `agentforge_manifest` 分支；导入只回填启动命令、预览地址、截图、探针与验收草稿，并强制保持 `needs_revision`，不会自动保存或自动通过。服务端同时拒绝 Baseline 分支、错误报告组或错误方案的运行证据。
+- **已实现**：新增 Claude Code 受控生成器与 `quality:product-ui:claude-generator` 命令。生成器会校验冻结 Prompt SHA、强制配置目录与编排器 `generated-project` 一致、清除下游可见的实验包/报告路径；可选 `seedDir` 会被复制到本次独立项目目录，并输出 `seed-snapshot.json` 的递归文件哈希和数量。Baseline 与 AgentForge 必须复用同一份 seed，重复使用同一生成目录或输入泄漏都会拒绝运行。
+- **已验证**：实验包构建和实际写盘导出均有自动测试，后者在临时目录检查 operator/admin/reviewer 三类产物隔离、Baseline 不携带 Manifest、评分材料不包含实际 Variant；测试产物会自动清理。
+- **已验证**：编排器回归覆盖 Baseline 环境不暴露 Report/Manifest、生成失败不启动预览或验收、生成器与预览共享同一次 `generated-project`、成功路径将日志位置写入浏览器运行证据，以及真实本地 Node 子进程超时后终止并保留日志。Claude 生成器回归覆盖受控 seed 复制与哈希快照、目录不一致拒绝和重复输出目录拒绝。该验证使用模拟下游依赖，不构成真实模型调用或视觉质量证据。
+- **已验证**：`npm run typecheck` 与 `npm run test:e2e:core` 于 2026-08-04 通过；核心 E2E 共 `26/26`，浏览器实际导入合法运行证据、保持“需修改”状态并保存，随后由 API 验证相同 `implementationRun.runId` 已持久化；Baseline、错误报告组和错误方案证据均被服务端拒绝。该回归使用隔离 SQLite 与夹具，只证明链路和约束，不构成真实下游网站或视觉质量结论。
+- **待实测**：必须由同一真实下游模型、固定参数和独立评分者完成至少 6 个双分支 Case，才能报告描述性分差或判断 AgentForge 报告是否带来质量收益。
 - 多 Agent 顺序执行和前序输出传递
 - 单 Agent 失败后继续后续 Agent
 - 运行终态统一聚合：预算耗尽优先，任一 Agent 失败不会被后续成功覆盖
@@ -121,7 +133,7 @@ npm run quality:all
 
 ## 2026-08-03 最新完整门禁补充
 
-- `npm run quality:all` 于 2026-08-03 完整运行退出码为 `0`：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、`src/lib/**` 覆盖率行 `91.55%` / 分支 `86.85%` / 函数 `89.35%`、TypeScript、ESLint、51 份 Markdown 文档命名/本地链接校验和 Next.js Production Build 均通过。该完整门禁早于本轮新增的产品/UI报告 E2E；新增用例已单独通过聚焦 `1/1`、核心 E2E `26/26` 与 TypeScript，尚未重新执行整套 `quality:all`。
+- 历史完整门禁（2026-08-03）曾通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、覆盖率、TypeScript、ESLint、51 份 Markdown 文档校验和生产构建。补齐产品/UI实验包导出 E2E 后，2026-08-04 已重新执行 `npm run quality:all` 并成功退出；其中 Core E2E 为 `26/26`、Session E2E 为 `1/1`，同时覆盖密钥卫生、RAG 回归、盲评工具链演练、单测/覆盖率、文档校验和生产构建。
 - Session 隔离 E2E 已适配当前首页默认进入“交付台”的流程，并验证进入“Agent 配置与调试”、能力库访问和登出后返回“登录 AgentForge”。
 - 仓库文档检索仍是固定 6-case 冒烟验证；真实 Provider 消融实验、人工 RAG Golden Set、目标环境 PostgreSQL/Docker/远程 CI、生产负载和下游网站视觉验收仍未完成。
 
@@ -186,7 +198,7 @@ npm run quality:all
 
 - 本机 `npm run quality:all` 已成功退出，未调用 Provider、未产生外部费用。
 - 历史完整门禁（2026-08-01）：单元测试 `193/193`；`src/lib/**` 覆盖率：行 `92.30%`、分支 `87.62%`、函数 `89.49%`。历史聚焦验证（2026-08-02）：`208/208` Unit、`db:validate`、`db:validate:postgres`、TypeScript、ESLint 和生产构建通过；当时未把结果写成完整 E2E 或 `quality:all`。
-- 最近一次完整门禁（2026-08-03）：本机 `npm run quality:all` 全部通过；单元测试与覆盖率门禁、核心 E2E `25/25`、Session 隔离 E2E `1/1`、TypeScript、ESLint、51 份 Markdown 的命名/本地链接校验和 Next.js 生产构建均成功退出。本轮随后新增的产品/UI报告 E2E 单独通过核心套件 `26/26`，覆盖单方案 JSON handoff、三方案运行证据回写和报告组状态从 `generated` 经 `in_review` 收敛至 `accepted`。该用例使用隔离 SQLite 与预设证据夹具，证明的是产品链路回归，不代表已经生成或验收真实下游网站。
+- 最近一次完整门禁（2026-08-04）：本机 `npm run quality:all` 已在加入下游实施编排器后成功退出；230 个单元测试与覆盖率门禁、核心 E2E `26/26`、Session 隔离 E2E `1/1`、TypeScript、ESLint、55 份 Markdown 的命名/本地链接校验和 Next.js 生产构建均通过。产品/UI用例覆盖单方案 JSON handoff、双分支实验包导出、三方案运行证据回写和报告组状态从 `generated` 经 `in_review` 收敛至 `accepted`；编排器单元回归覆盖分支输入隔离、失败短路、日志溯源和真实子进程超时终止。该门禁不调用下游模型，证明的是产品链路回归，不代表已经生成或验收真实下游网站。
 
 ### 2026-08-02 P0-1 最新无费用证据
 

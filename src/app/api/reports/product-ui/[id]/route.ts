@@ -56,7 +56,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (code === "PRODUCT_UI_GROUP_NOT_FOUND") return Response.json({ error: { code, message: "Product/UI report group not found." } }, { status: 404 });
     if (code === "PRODUCT_UI_SOLUTION_NOT_FOUND") return Response.json({ error: { code, message: "Product/UI solution not found." } }, { status: 404 });
     if (code === "PRODUCT_UI_ACCEPTANCE_RESULT_INVALID") return Response.json({ error: { code, message: "验收结果包含当前方案验收矩阵中不存在的 ID。" } }, { status: 400 });
-    return Response.json({ error: { code: "PRODUCT_UI_FEEDBACK_FAILED", message: "Feedback could not be saved." } }, { status: 422 });
+    if (code === "PRODUCT_UI_IMPLEMENTATION_RUN_VARIANT_INVALID") return Response.json({ error: { code, message: "运行证据必须来自 AgentForge 实施报告分支，不能使用基线分支结果。" } }, { status: 400 });
+    if (code === "PRODUCT_UI_IMPLEMENTATION_RUN_GROUP_MISMATCH") return Response.json({ error: { code, message: "运行证据所属报告组与当前报告不一致。" } }, { status: 400 });
+    if (code === "PRODUCT_UI_IMPLEMENTATION_RUN_SOLUTION_MISMATCH") return Response.json({ error: { code, message: "运行证据所属方案与当前方案不一致。" } }, { status: 400 });    return Response.json({ error: { code: "PRODUCT_UI_FEEDBACK_FAILED", message: "Feedback could not be saved." } }, { status: 422 });
   }
 }
 

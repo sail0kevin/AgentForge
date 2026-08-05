@@ -11,6 +11,18 @@ import {
 import { getProductUIAcceptanceProgress } from "./product-ui-acceptance";
 
 export type ProductUIReportGroupFeedback = ProductUIReportFeedback;
+// 运行器证据必须与当前报告组、方案和 AgentForge 分支绑定，防止客户端误挂或伪造其他实验结果。
+export function validateProductUIImplementationRunBinding(
+  runtimeEvidence: ProductUIRuntimeEvidence,
+  groupId: string,
+  solutionId: string,
+) {
+  const run = runtimeEvidence.implementationRun;
+  if (!run) return;
+  if (run.variant !== "agentforge_manifest") throw new Error("PRODUCT_UI_IMPLEMENTATION_RUN_VARIANT_INVALID");
+  if (run.reportGroupId !== groupId) throw new Error("PRODUCT_UI_IMPLEMENTATION_RUN_GROUP_MISMATCH");
+  if (run.solutionId !== solutionId) throw new Error("PRODUCT_UI_IMPLEMENTATION_RUN_SOLUTION_MISMATCH");
+}
 
 // 反馈状态只反映已经记录的真实验收结果，不把目标设计误写成网站已通过。
 export function deriveProductUIReportGroupStatus(
@@ -127,6 +139,7 @@ export async function updateProductUIReportFeedback(input: {
   });
   const solutionIds = group.reports.map((report) => report.productUISpec?.solutionId).filter((solutionId): solutionId is string => Boolean(solutionId));
   if (!solutionIds.includes(input.solutionId)) throw new Error("PRODUCT_UI_SOLUTION_NOT_FOUND");
+  validateProductUIImplementationRunBinding(runtimeEvidence, group.groupId, input.solutionId);
   const requiredAcceptanceIdsBySolution = Object.fromEntries(group.reports.flatMap((report) => {
     const solutionId = report.productUISpec?.solutionId;
     return solutionId ? [[solutionId, report.productUISpec?.acceptanceMatrix?.map((item) => item.id) ?? []]] : [];

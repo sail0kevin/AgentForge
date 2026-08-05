@@ -817,6 +817,111 @@ test("产品/UI 报告可导出单方案 JSON 交付包，并以逐项运行证�
   const selectedSolutionId = solutionIds[0]!;
   const initialAcceptanceId = acceptanceMatrixBySolution.get(selectedSolutionId)?.[0]?.id;
   expect(initialAcceptanceId).toBeTruthy();
+
+  // 仅验证冻结双分支输入和盲评材料；该 E2E 夹具不生成网站，也不产生质量结论。
+  const experimentPackageResponse = await request.post(
+    `/api/reports/product-ui/${createdGroup.group.id}/experiment-package`,
+    {
+      data: {
+        solutionId: selectedSolutionId,
+        studyId: `e2e-product-ui-${unique()}`,
+        caseId: `case-${unique()}`,
+        downstreamModel: {
+          provider: "controlled-e2e",
+          model: "controlled-e2e-model",
+          promptVersion: "ui-implementation-v1",
+          adapterVersion: "controlled-e2e-adapter-v1",
+          parameters: {},
+        },
+        minimumCaseCount: 6,
+        minimumRaterCount: 2,
+        humanReviewRubricVersion: "product-ui-blind-rubric-v1",
+      },
+    },
+  );
+  expect(experimentPackageResponse.status()).toBe(200);
+  expect(experimentPackageResponse.headers()["content-type"]).toContain("application/json");
+  expect(experimentPackageResponse.headers()["content-disposition"]).toContain("attachment;");
+  const experimentPackage = await experimentPackageResponse.json() as {
+    packageType: string;
+    evaluationCase: { variants: Array<{ variant: string }> };
+    reviewer: { candidates: unknown[]; submissionTemplates: unknown[] };
+  };
+  expect(experimentPackage.packageType).toBe("agentforge_product_ui_implementation_experiment");
+  expect(experimentPackage.evaluationCase.variants.map((item) => item.variant).sort()).toEqual([
+    "agentforge_manifest",
+    "baseline_direct_prompt",
+  ]);
+  expect(experimentPackage.reviewer.candidates).toHaveLength(2);
+  expect(experimentPackage.reviewer.submissionTemplates).toHaveLength(2);
+  const reviewerPackageJson = JSON.stringify(experimentPackage.reviewer);
+  expect(reviewerPackageJson).not.toContain("agentforge_manifest");
+  expect(reviewerPackageJson).not.toContain("baseline_direct_prompt");
+
+  // 通过报告中心真实点击下载，覆盖浏览器端 fetch、Blob 和文件名处理；仍不生成网站或质量结论。
+  await page.getByLabel("下游模型").fill("controlled-e2e-model");
+  const [experimentPackageDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "下载双分支实验包" }).click(),
+  ]);
+  expect(experimentPackageDownload.suggestedFilename()).toMatch(/^agentforge-product-ui-experiment-.+\.json$/);
+  // 导入运行器 JSON 只能回填真实运行信息；它必须保留人工复核状态，不能自动把方案标为通过。
+  const importedRuntimeEvidence = {
+    launchCommand: "npm run preview",
+    previewUrl: "http://127.0.0.1:3110/imported-preview",
+    screenshotPaths: ["e2e-artifacts/imported-home.png"],
+    verificationNotes: ["Imported E2E runtime fixture; no visual-quality claim is made."],
+    acceptanceResults: (acceptanceMatrixBySolution.get(selectedSolutionId) ?? []).map((item) => ({
+      acceptanceId: item.id,
+      status: "not_verified",
+      note: `Imported fixture leaves ${item.id} pending human verification.`,
+      evidencePaths: [],
+    })),
+    implementationRun: {
+      schemaVersion: 1,
+      runId: `e2e-import-${unique()}`,
+      caseId: `case-import-${unique()}`,
+      variant: "agentforge_manifest",
+      reportGroupId: createdGroup.group.groupId,
+      solutionId: selectedSolutionId,
+      reportSha256: "a".repeat(64),
+      manifestSha256: "b".repeat(64),
+      promptSha256: "c".repeat(64),
+      downstreamModel: {
+        provider: "controlled-e2e",
+        model: "controlled-e2e-model",
+        promptVersion: "ui-implementation-v1",
+        parameters: {},
+        adapterVersion: "controlled-e2e-adapter-v1",
+      },
+      executionEvidence: {
+        provider: "controlled-e2e",
+        model: "controlled-e2e-model",
+        promptVersion: "ui-implementation-v1",
+        parametersSha256: "d".repeat(64),
+        adapterVersion: "controlled-e2e-adapter-v1",
+        seedSha256: "e".repeat(64),
+        generatorSummaryPath: "e2e-artifacts/imported-generator-summary.json",
+      },
+      generatorOutputPaths: ["e2e-artifacts/imported-generator-summary.json"],
+      previewOutputPaths: ["e2e-artifacts/imported-preview.log"],
+      orchestratorOutputPaths: ["e2e-artifacts/imported-orchestrator-summary.json"],
+      sourceRevision: "e2e-fixture",
+      startedAt: "2026-08-04T00:00:00.000Z",
+      completedAt: "2026-08-04T00:00:02.000Z",
+      exitStatus: "completed",
+      playwrightOutputPaths: ["e2e-artifacts/imported-playwright.json"],
+    },
+  };
+  await page.getByLabel("导入运行证据 JSON").setInputFiles({
+    name: "runtime-evidence.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(importedRuntimeEvidence)),
+  });
+  await expect(page.getByText(`已导入运行记录：${importedRuntimeEvidence.implementationRun.runId}`, { exact: false })).toBeVisible();
+  await expect(page.getByLabel("实际启动命令")).toHaveValue("npm run preview");
+  await expect(page.getByRole("button", { name: "需修改" })).toHaveClass(/border-red-500/);
+  await expect(saveButton).toBeEnabled();
   await page.getByRole("button", { name: "需修改" }).click();
   await page.getByLabel(`${initialAcceptanceId!} 状态`).selectOption("not_verified");
   await page.getByLabel(`${initialAcceptanceId!} 验收结论`).fill("下游网站尚未提供该项真实验收证据。 ");
@@ -826,8 +931,21 @@ test("产品/UI 报告可导出单方案 JSON 交付包，并以逐项运行证�
   // UI 保存的只是 E2E 夹具中的未验证结论，明确应收敛为“需修改”，不是网站已验收。
   const afterRevision = await request.get(`/api/reports/product-ui/${createdGroup.group.id}`);
   expect(afterRevision.status()).toBe(200);
-  const revisedPayload = await afterRevision.json() as { group: { status: string } };
+  const revisedPayload = await afterRevision.json() as {
+    group: {
+      status: string;
+      feedback: Array<{
+        solutionId: string;
+        runtimeEvidence: { implementationRun?: { runId: string } } | null;
+      }>;
+    };
+  };
   expect(revisedPayload.group.status).toBe("needs_revision");
+  expect(
+    revisedPayload.group.feedback
+      .find((item) => item.solutionId === selectedSolutionId)
+      ?.runtimeEvidence?.implementationRun?.runId,
+  ).toBe(importedRuntimeEvidence.implementationRun.runId);
 
   const detail = await request.get(`/api/reports/product-ui/${createdGroup.group.id}`);
   expect(detail.status()).toBe(200);
@@ -868,6 +986,35 @@ test("产品/UI 报告可导出单方案 JSON 交付包，并以逐项运行证�
   expect(revisionPayload.solutions[0]?.aiExecutionReport.length).toBeGreaterThan(1_000);
   expect(revisionPayload.solutions[0]?.report.productUISpec.traceability.length).toBeGreaterThan(0);
 
+  // 服务器必须拒绝错误分支或错绑定运行记录，不能只依赖浏览器端校验。
+  const invalidRunFeedback = {
+    solutionId: selectedSolutionId,
+    outcome: "needs_revision" as const,
+    note: "E2E validates server-side implementation-run binding.",
+    runtimeEvidence: importedRuntimeEvidence,
+  };
+  const baselineRunResponse = await request.patch(`/api/reports/product-ui/${createdGroup.group.id}`, {
+    data: {
+      ...invalidRunFeedback,
+      runtimeEvidence: {
+        ...importedRuntimeEvidence,
+        implementationRun: { ...importedRuntimeEvidence.implementationRun, variant: "baseline_direct_prompt" },
+      },
+    },
+  });
+  expect(baselineRunResponse.status()).toBe(400);
+  expect((await baselineRunResponse.json() as { error: { code: string } }).error.code).toBe("PRODUCT_UI_IMPLEMENTATION_RUN_VARIANT_INVALID");
+  const mismatchedRunResponse = await request.patch(`/api/reports/product-ui/${createdGroup.group.id}`, {
+    data: {
+      ...invalidRunFeedback,
+      runtimeEvidence: {
+        ...importedRuntimeEvidence,
+        implementationRun: { ...importedRuntimeEvidence.implementationRun, reportGroupId: "another-report-group" },
+      },
+    },
+  });
+  expect(mismatchedRunResponse.status()).toBe(400);
+  expect((await mismatchedRunResponse.json() as { error: { code: string } }).error.code).toBe("PRODUCT_UI_IMPLEMENTATION_RUN_GROUP_MISMATCH");
   // 仅验证契约持久化与状态收敛：以下路径是 E2E 夹具，不代表真实下游网站已完成验收。
   for (const solutionId of solutionIds) {
     const acceptanceResults = (acceptanceMatrixBySolution.get(solutionId) ?? []).map((item) => ({

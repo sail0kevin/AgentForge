@@ -1,0 +1,6 @@
+:root { font-family: Arial, sans-serif; color: #172033; background: #f6f8fb; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+main { width: min(100% - 40px, 960px); margin: 80px auto; }
+h1 { margin: 0 0 12px; }
+p { margin: 0; color: #526070; }

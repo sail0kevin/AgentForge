@@ -1,0 +1,9 @@
+{
+  "name": "agentforge-product-ui-implementation-seed",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "preview": "node server.mjs"
+  }
+}

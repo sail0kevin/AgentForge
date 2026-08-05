@@ -1,0 +1,20 @@
+{
+  "seedDir": "./examples/product-ui-implementation-seed",
+  "claudeCommand": "claude",
+  "execution": {
+    "provider": "replace-with-case-provider",
+    "model": "replace-with-case-model",
+    "promptVersion": "replace-with-case-prompt-version",
+    "parameters": {},
+    "adapterVersion": "replace-with-case-adapter-version"
+  },
+  "permissionMode": "acceptEdits",
+  "allowedTools": [
+    "Read",
+    "Glob",
+    "Grep",
+    "Edit",
+    "Write",
+    "Bash"
+  ]
+}
