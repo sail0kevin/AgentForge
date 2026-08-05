@@ -86,7 +86,7 @@ flowchart LR
 | 报告链路回归 | 完整门禁后新增用例单独通过聚焦 `1/1` 与 Core E2E `26/26` | 使用隔离 SQLite 和预设运行证据，不等于真实网站验收 |
 | PostgreSQL Checkpoint | 在 WSL 专用临时 PostgreSQL 库完成 migration、跨实例 crash recovery、多进程租约与 Fencing Token 验收 | 尚未完成目标环境负载、备份恢复、Docker 和远程 CI 复验 |
 | RAG 工具链 | 确定性 fixture、仓库检索冒烟、混合检索回退和人工标注工作流已实现 | 人工 Golden Set 当前为 `not_ready`，不能宣称真实 Recall@5、MRR 或 NDCG |
-| 多 Agent 消融 | 冻结案例、变体、运行计划、预算预检和结果 ledger 已实现 | 真实 Provider 盲评尚未执行，没有“质量提升 X%”结论 |
+| 多 Agent 消融 | 冻结案例、变体、运行计划、预算预检和结果 ledger 已实现 | 21/288 已运行（$1.00/$211.59），进程健康，预计 ~30h 完成 |
 | 报告映射案例 | 三个 Next.js 页面可在本地运行并覆盖桌面端、移动端和核心交互 | 使用本地确定性演示数据，尚无真实用户和生产业务数据 |
 
 完整口径见 [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)。
@@ -145,6 +145,7 @@ Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默
 - [下游实施对照实验模板](<./examples/product-ui-implementation-experiment/README.md>)
 - [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)
 - [完整文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
+- [证据链、评估方法与项目价值说明](<./docs/2026-08-06 - evidence-chain-and-evaluation-methodology - 证据链与评估方法.md>)
 
 ## English Summary
 
