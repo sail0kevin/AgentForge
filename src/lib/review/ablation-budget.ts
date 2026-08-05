@@ -19,7 +19,9 @@ export const ABLATION_ARM_MAXIMUM_CALLS = {
   // Planner 在补充假设后会重新执行一次可重试的结构化分析；两轮都可能各用两次尝试。
   // 因此 C/D 的最坏路径要额外预留两次调用，不能只按一次分析重试计算。
   single_candidate_with_review: 21,
-  full_multi_agent: 23,
+  // full_multi_agent: 23 → 27。修订后增加 Reviewer 二次评审（每轮修订后多 1 次 review + 1 次 retry），
+  // 两轮修订共增加 4 次调用。
+  full_multi_agent: 27,
 } as const;
 
 /**

@@ -103,14 +103,14 @@ test("ablation run preflight reports the frozen-plan protocol reserve instead of
       "--manifest", manifestPath,
       "--ledger", ledgerPath,
       "--raw-output-root", rawOutputRoot,
-      "--max-cost-usd-per-run", "1.0902",
-      "--max-total-cost-usd", "54.984",
+      "--max-cost-usd-per-run", "1.2798",
+      "--max-total-cost-usd", "92.1456",
     ], {
       cwd: process.cwd(),
       env: { ...process.env, LONGCAT_API_KEY: undefined, LONGCAT_BASE_URL: undefined, LONGCAT_MODEL: undefined },
     });
     assert.match(result.stdout, /"status": "preflight_only"/);
-    assert.match(result.stdout, /"requiredProtocolReserveUsd": 54\.984/);
+    assert.match(result.stdout, /"requiredProtocolReserveUsd": 58\.776/);
     assert.doesNotMatch(result.stdout, /maximumExternalCostUsd/);
     assert.match(result.stdout, /No model environment variables were read/);
   } finally {
@@ -151,8 +151,8 @@ test("authorization preflight validates the frozen study without loading Provide
         outputUsdPerMillion: 2.95,
         inputTreatment: "uncached",
       },
-      maxCostUsdPerRun: 1.1,
-      maxTotalCostUsd: 55,
+      maxCostUsdPerRun: 1.3,
+      maxTotalCostUsd: 93,
       rawOutputRoot,
       ledgerPath,
     };
@@ -214,8 +214,8 @@ test("authorization preflight rejects insufficient approved budget before Provid
         caseManifestSha256: plan.caseManifestSha256, runPlanSha256: hashAblationJson(plan),
         maxEstimatedInputTokensPerCall: 16_000, maxOutputTokensPerCall: 12_000,
         pricingSnapshot: { sourceUrl: "https://longcat.chat/platform/docs/pricing/long-cat-2.0", retrievedAt: "2026-08-01T00:00:00+08:00", inputUsdPerMillion: 0.75, outputUsdPerMillion: 2.95, inputTreatment: "uncached" },
-        // 单条额度满足最高成本臂，只让总额门禁负责拒绝这份授权。
-        maxCostUsdPerRun: 1.1, maxTotalCostUsd: 1,
+        // 单条额度满足最高成本臂（1.2798），只让总额门禁负责拒绝这份授权。
+        maxCostUsdPerRun: 1.3, maxTotalCostUsd: 1,
         rawOutputRoot: path.join(directory, "raw"), ledgerPath: path.join(directory, "result-ledger.json"),
       }), "utf8"),
     ]);

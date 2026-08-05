@@ -30,8 +30,8 @@ test("授权模板绑定冻结计划和最低协议储备，但保持 pending", 
   assert.equal(template.approvedBy, "<待负责人填写>");
   assert.equal(template.caseManifestSha256.length, 64);
   assert.equal(template.runPlanSha256.length, 64);
-  assert.equal(template.maxTotalCostUsd, 54.984);
-  assert.equal(template.maxCostUsdPerRun, 1.0902);
+  assert.equal(template.maxTotalCostUsd, 58.776);
+  assert.equal(template.maxCostUsdPerRun, 1.2798);
 });
 
 test("授权模板拒绝无效 token 上限和温度", () => {
@@ -63,6 +63,6 @@ test("24 案例五轮冻结计划的模板预算覆盖全部 480 条运行", () 
     temperature: 0.3,
   });
 
-  assert.equal(template.maxCostUsdPerRun, 1.0902);
-  assert.equal(template.maxTotalCostUsd, 329.904);
+  assert.equal(template.maxCostUsdPerRun, 1.2798);
+  assert.equal(template.maxTotalCostUsd, 352.656);
 });

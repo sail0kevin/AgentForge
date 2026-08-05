@@ -79,6 +79,33 @@ test("revision loop stops after the configured maximum round", async () => {
   assert.equal(evaluations, 2);
 });
 
+test("revision only receives supported findings and re-runs reviewer after revision", async () => {
+  const revisionBudget = ReviewBudgetSchema.parse({ maxCandidates: 1, maxReviewRounds: 2 });
+  const baseline = await runReviewWorkflow({ analysis, plan, budget: revisionBudget });
+  let reviseFindings: string[] = [];
+  let reviewAfterRevisionCalls = 0;
+  const candidateId = baseline.candidates[0]?.id ?? "x";
+  await runReviewWorkflow({ analysis, plan, budget: revisionBudget, generators: {
+    candidate: async ({ orientation }) => ({ ...baseline.candidates.find((candidate) => candidate.orientation === orientation)!, decisions: baseline.candidates[0].decisions.map((d) => ({ ...d, evidenceRefs: ["plan_task:t1"] })) }),
+    review: async (input) => {
+      if (input.candidates[0]?.summary.includes("已修订")) reviewAfterRevisionCalls += 1;
+      return { schemaVersion: 1, findings: [{ id: "f1", candidateId, category: "test", severity: "medium", failureScenario: "测试场景描述长度足够。", suggestion: "测试建议长度足够。", evidenceRefs: ["plan_task:t1"], relatedCandidateIds: [] }] };
+    },
+    evaluate: async (input) => {
+      const supportedIds = input.review.findings.length > 0 ? ["f1"] : [];
+      return { schemaVersion: 1, decision: "needs_revision" as const, selectedCandidateId: candidateId, candidateEvaluations: [{ candidateId, scores: [{ dimensionId: "rubric-1", score: 3, rationale: "test rationale", evidenceRefs: [] }, { dimensionId: "rubric-2", score: 3, rationale: "test rationale two", evidenceRefs: [] }], weightedScore: 3 }], supportedFindingIds: supportedIds, ignoredFindingIds: [], unresolvedConflicts: [], reasons: ["需要修订的原因长度足够。"], nextAction: "修订候选方案。" };
+    },
+    revise: async ({ findings, candidate }) => {
+      reviseFindings = findings.map((f) => f.id);
+      return { ...candidate, summary: `${candidate.summary} 已修订` };
+    },
+  } });
+  // 修订只接收 supportedFindingIds（f1），不接收全部 finding
+  assert.deepEqual(reviseFindings, ["f1"]);
+  // 修订后 Reviewer 被再次调用
+  assert.ok(reviewAfterRevisionCalls >= 1, "Reviewer should run after revision");
+});
+
 test("reviewer failure is explicit partial output and never fabricated as full success", async () => {
   const result = await runReviewWorkflow({ analysis, plan, budget, generators: {
     review: async () => { throw new Error("review provider unavailable"); },

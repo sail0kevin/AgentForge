@@ -24,12 +24,12 @@ test("ablation budget reserves both frozen input and output limits for every max
   const full = budget.arms.find((arm) => arm.variant === "full_multi_agent");
   assert.deepEqual(full, {
     variant: "full_multi_agent",
-    maximumCalls: 23,
+    maximumCalls: 27,
     runCount: 20,
-    maxEstimatedInputTokensPerRun: 368_000,
-    maxOutputTokensPerRun: 276_000,
-    reserveUsd: 1.0902,
+    maxEstimatedInputTokensPerRun: 432_000,
+    maxOutputTokensPerRun: 324_000,
+    reserveUsd: 1.2798,
   });
-  assert.equal(budget.minimumPerRunUsd, 1.0902);
-  assert.equal(budget.minimumTotalUsd, 54.984);
+  assert.equal(budget.minimumPerRunUsd, 1.2798);
+  assert.equal(budget.minimumTotalUsd, 58.776);
 });

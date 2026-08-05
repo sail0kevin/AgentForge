@@ -191,9 +191,19 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
     currentRound += 1;
     try {
       const original = candidates[0];
-      const revised = CandidateSolutionSchema.parse(await input.generators.revise({ candidate: original, findings: review.findings.filter((finding) => finding.candidateId === original.id), round: currentRound }));
+      // 修订只接收 supportedFindingIds（通过证据校验的 finding），不接收全部 finding。
+      const supportedFindings = review.findings.filter((finding) => finding.candidateId === original.id && evaluation.supportedFindingIds.includes(finding.id));
+      const revised = CandidateSolutionSchema.parse(await input.generators.revise({ candidate: original, findings: supportedFindings, round: currentRound }));
       if (revised.id !== original.id || revised.orientation !== original.orientation) throw new Error("REVISION_IDENTITY_CHANGED");
       candidates[0] = revised;
+      // 修订后重新执行 Reviewer → Evaluator，防止修订引入新问题而未被再次检查。
+      try {
+        review = ReviewResultSchema.parse(await (input.generators.review?.({ analysis: input.analysis, plan: input.plan, candidates }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings))));
+        validateReviewReferences(review, candidates);
+      } catch {
+        failures.push({ stage: `revision:${currentRound}:review`, code: "REVIEW_AFTER_REVISION_FAILED" });
+        review = { schemaVersion: 1, findings: [] };
+      }
       evaluation = EvaluationResultSchema.parse(await (input.generators.evaluate?.({ analysis: input.analysis, plan: input.plan, candidates, review, rubric }) ?? Promise.resolve(evaluateBaseline(candidates, review, rubric))));
       validateEvaluationReferences(evaluation, candidates, review, rubric);
       evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review, failures);

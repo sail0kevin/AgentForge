@@ -187,7 +187,7 @@ P3 与 P4 各自带外部依赖，塞入同一 24 小时会使整体变为"部�
 | `longcat-client.ts` 丢弃 usage 数据，需修 | 文件仅 66 行且正确：`:54-60` 累加 provider 返回 token 并计成本，`:42-45` reserve-before、`:60` commit-after 双重预算门禁。原判断基于一次损坏的读取输出 |
 | 可用已登录 Claude CLI 绕过消融实验预算 | 消融走 LongCat HTTP API，与 Claude CLI 是两条独立付费通道，无法绕过 |
 | `ToolInvocation.replayed` 待 migration + code fix | 已完成：双库 schema（`prisma/schema.prisma:388`、`prisma/postgres/schema.prisma:391`）、`tool-service.ts:33-34` 标记、`tool-reliability.ts:32` 计算 replayHitRate、`e2e/core.spec.ts:561` 有断言 |
-| CI/CD 质量门控待建 | 已有 14 道门禁，缺口仅在 fault-recovery 与 agent-metrics 未纳入 |
+| CI/CD 质量门控 | ✅ 已纳入 CI（fault-recovery + agent-metrics 两个 step 已在 `.github/workflows/ci.yml` 中通过验证） |
 | 将 fault-recovery trials 从 10 提到 50 可增强证据 | 该测试为确定性重放（故障恒在首次调用注入），50 次是同一断言重复 50 遍，仅排除 threadId 相关状态泄漏，不提供统计功效。脚本自身 `limitation` 已注明 "not chaotic random-timing crash testing" |
 
 ---

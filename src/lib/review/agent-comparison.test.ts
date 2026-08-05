@@ -228,7 +228,6 @@ test("ablation maximum-call reserve covers clarification, structured retries, an
 
   assert.equal(result.status, "ready");
   assert.equal(result.assumptionRetryUsed, true);
-  assert.equal(calls.length, 23);
   assert.equal(calls.length, ABLATION_ARM_MAXIMUM_CALLS.full_multi_agent);
 });
 

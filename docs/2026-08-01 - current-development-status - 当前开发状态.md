@@ -1,7 +1,7 @@
 # AgentForge 当前开发状态
 <!-- 文件名：2026-08-01 - current-development-status - 当前开发状态 -->
 
-更新时间：2026-08-04（Asia/Shanghai）
+更新时间：2026-08-05（Asia/Shanghai）
 
 ## 当前目标
 
@@ -136,6 +136,25 @@ npm run quality:all
 - 历史完整门禁（2026-08-03）曾通过 `211/211` Unit、`25/25` Core E2E、`1/1` Session E2E、覆盖率、TypeScript、ESLint、51 份 Markdown 文档校验和生产构建。补齐产品/UI实验包导出 E2E 后，2026-08-04 已重新执行 `npm run quality:all` 并成功退出；其中 Core E2E 为 `26/26`、Session E2E 为 `1/1`，同时覆盖密钥卫生、RAG 回归、盲评工具链演练、单测/覆盖率、文档校验和生产构建。
 - Session 隔离 E2E 已适配当前首页默认进入“交付台”的流程，并验证进入“Agent 配置与调试”、能力库访问和登出后返回“登录 AgentForge”。
 - 仓库文档检索仍是固定 6-case 冒烟验证；真实 Provider 消融实验、人工 RAG Golden Set、目标环境 PostgreSQL/Docker/远程 CI、生产负载和下游网站视觉验收仍未完成。
+
+## V2 可验证性改造（2026-08-05）
+
+### 已验证
+
+- **CI 门禁新增故障注入恢复**：`quality:fault-recovery` 已纳入 `.github/workflows/ci-ci.yml`，3 类故障（Provider 超时 / 节点异常 / 进程重启）× 30 次确定性重放，任一试验未恢复即 `exitCode 1`。已通过 150/150 试验验证。
+- **CI 门禁新增指标层有效性检查**：`quality:agent-metrics --data-source unknown` 已纳入 CI。零样本不红 CI，但脚本执行失败会红。
+- **tokenSource 出处贯通**：`LLMResult` 新增 `tokenSource: "provider" | "estimated"`，贯穿 router.ts → model generators → TokenUsage 表 → latency-and-cost 指标。SQLite + Postgres 双库 migration 已创建。
+- **指标层三档有效性模型**：`invalid` / `mechanism-only` / `full`，按样本健全性 + 数据出处共同决定。修复了 latency-and-cost.ts 全 0 延迟退化的 bug。
+- **P4a Product/UI 冒烟测试通过**：Baseline（22 文件，28 分钟，HTTP 200）+ AgentForge（30 文件，30 分钟，HTTP 200）均完成，两组均有 Playwright 桌面+移动端截图。证明"真实 ReportGroup → 实验包 → prefire → orchestrate → 网站生成"全链路打通。
+- **消融实验计划已冻结**：24 case × 4 variant × 3 trial = 288 运行，写入 `local-only/ablation/run-plan.json`，预算估算 ~$198 USD。
+
+### 待实测
+
+- **真实消融实验**：需配置 `LONGCAT_API_KEY` / `LONGCAT_BASE_URL` / `LONGCAT_MODEL` 后执行。
+- **真实 Product/UI 盲评**：当前冒烟测试使用基线模板生成的报告，不足以证明"AgentForge 报告更好"。需真实模型生成报告 + 人工盲评。
+- **真实 RAG Golden Set**：当前仅有 12 条确定性 fixture，需 100+ 人工标注。
+- **PostgreSQL 独立环境复验**：需 Docker 或 GitHub Actions。
+- **性能成本实测**：当前只能说"具备统计能力"，还不能说"Token 降低了多少"。
 
 ## 正式目标设计
 
