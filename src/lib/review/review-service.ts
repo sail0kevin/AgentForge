@@ -169,12 +169,16 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
     };
   }
   let review: ReviewResult;
+  let shouldSkipRevision = false;  // 快速通道标志
   try {
     const reviewOutput = await (input.generators?.review?.({ analysis: input.analysis, plan: input.plan, candidates, simplified: true }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings)));
     // 将 SimplifiedReviewResult 转换为 ReviewResult
     if ('overallAssessment' in reviewOutput) {
       // 快速通道：如果评估为无重大问题且findings为空，可跳过修订轮次
       const simplified = reviewOutput as SimplifiedReviewResult;
+      if (simplified.overallAssessment === "no_major_issues" && simplified.findings.length === 0) {
+        shouldSkipRevision = true;
+      }
       review = {
         schemaVersion: 1,
         findings: simplified.findings.map(f => ({
@@ -207,7 +211,7 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
     evaluation = enforceEvidenceAndHumanGate(evaluateBaseline(candidates, review, rubric), candidates, review, failures);
   }
   let currentRound = 0;
-  while (evaluation.decision === "needs_revision" && currentRound < input.budget.maxReviewRounds && input.generators?.revise && candidates[0]) {
+  while (evaluation.decision === "needs_revision" && !shouldSkipRevision && currentRound < input.budget.maxReviewRounds && input.generators?.revise && candidates[0]) {
     currentRound += 1;
     try {
       const original = candidates[0];
