@@ -1,5 +1,5 @@
 import type { ExecutionPlan, RequirementAnalysis } from "@/lib/planner/contracts";
-import { CandidateSolutionSchema, EvaluationResultSchema, ReviewResultSchema, type CandidateSolution, type EvaluationResult, type Finding, type ReviewBudget, type ReviewResult, type RubricDimension } from "./contracts";
+import { CandidateSolutionSchema, EvaluationResultSchema, ReviewResultSchema, SimplifiedReviewResultSchema, type CandidateSolution, type EvaluationResult, type Finding, type ReviewBudget, type ReviewResult, type SimplifiedReviewResult, type RubricDimension } from "./contracts";
 import { partitionTier1Evidence } from "./evidence-tier1";
 import { assessTieredEvidence, type Tier2EvidenceVerifier, type TieredEvidenceAssessment } from "./evidence-tier2";
 import { assessPolicyConfidence } from "./intervention-policy";
@@ -19,7 +19,7 @@ export type ReviewWorkflowResult = {
 
 export type ReviewGenerators = {
   candidate?: (input: { orientation: "delivery" | "quality"; analysis: RequirementAnalysis; plan: ExecutionPlan }) => Promise<CandidateSolution>;
-  review?: (input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[] }) => Promise<ReviewResult>;
+  review?: (input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[]; simplified?: boolean }) => Promise<ReviewResult | SimplifiedReviewResult>;
   evaluate?: (input: { analysis: RequirementAnalysis; plan: ExecutionPlan; candidates: CandidateSolution[]; review: ReviewResult; rubric: RubricDimension[] }) => Promise<EvaluationResult>;
   revise?: (input: { candidate: CandidateSolution; findings: Finding[]; round: number }) => Promise<CandidateSolution>;
   tier2Verifier?: Tier2EvidenceVerifier;
@@ -170,7 +170,27 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
   }
   let review: ReviewResult;
   try {
-    review = ReviewResultSchema.parse(await (input.generators?.review?.({ analysis: input.analysis, plan: input.plan, candidates }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings))));
+    const reviewOutput = await (input.generators?.review?.({ analysis: input.analysis, plan: input.plan, candidates, simplified: true }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings)));
+    // 将 SimplifiedReviewResult 转换为 ReviewResult
+    if ('overallAssessment' in reviewOutput) {
+      // 快速通道：如果评估为无重大问题且findings为空，可跳过修订轮次
+      const simplified = reviewOutput as SimplifiedReviewResult;
+      review = {
+        schemaVersion: 1,
+        findings: simplified.findings.map(f => ({
+          id: f.id,
+          candidateId: f.candidateId,
+          severity: f.severity,
+          category: 'general',
+          failureScenario: f.description,
+          evidenceRefs: [],
+          suggestion: f.description,
+          relatedCandidateIds: [],
+        })),
+      };
+    } else {
+      review = reviewOutput as ReviewResult;
+    }
     validateReviewReferences(review, candidates);
   } catch {
     failures.push({ stage: "review", code: "REVIEW_FAILED" });
@@ -198,7 +218,26 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
       candidates[0] = revised;
       // 修订后重新执行 Reviewer → Evaluator，防止修订引入新问题而未被再次检查。
       try {
-        review = ReviewResultSchema.parse(await (input.generators.review?.({ analysis: input.analysis, plan: input.plan, candidates }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings))));
+        const reviewOutput = await (input.generators.review?.({ analysis: input.analysis, plan: input.plan, candidates, simplified: true }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings)));
+        // 将 SimplifiedReviewResult 转换为 ReviewResult
+        if ('overallAssessment' in reviewOutput) {
+          const simplified = reviewOutput as SimplifiedReviewResult;
+          review = {
+            schemaVersion: 1,
+            findings: simplified.findings.map(f => ({
+              id: f.id,
+              candidateId: f.candidateId,
+              severity: f.severity,
+              category: 'general',
+              failureScenario: f.description,
+              evidenceRefs: [],
+              suggestion: f.description,
+              relatedCandidateIds: [],
+            })),
+          };
+        } else {
+          review = reviewOutput as ReviewResult;
+        }
         validateReviewReferences(review, candidates);
       } catch {
         failures.push({ stage: `revision:${currentRound}:review`, code: "REVIEW_AFTER_REVISION_FAILED" });

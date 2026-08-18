@@ -14,6 +14,7 @@ import { validateAblationRunPlan } from "@/lib/review/ablation-protocol";
 import { assertAblationBudgetCoversFrozenPlan, validateAblationExecutionAuthorization } from "@/lib/review/ablation-authorization";
 import { isWithinLocalOnly } from "@/lib/review/ablation-authorization";
 import { scoreChecklistAgainstText } from "@/lib/review/checklist-scoring";
+import { SCORING_LANGUAGE_MISMATCH_CODE, checkScoringLanguageConsistency } from "@/lib/review/scoring-language";
 import { validateLightweightCaseManifest } from "@/lib/review/lightweight-case-manifest";
 import { createLongCatCallModel, readLongCatConfigFromEnv } from "@/lib/review/longcat-client";
 import { ABLATION_LONGCAT_PRICING_SNAPSHOT, ABLATION_RUN_MAX_ESTIMATED_INPUT_TOKENS, ABLATION_RUN_MAX_TOKENS } from "@/lib/review/ablation-budget";
@@ -44,6 +45,38 @@ async function writeAtomically(targetPath: string, content: string) {
   const temporaryPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(temporaryPath, content, "utf8");
   await rename(temporaryPath, targetPath);
+}
+
+/** 运行期诊断统一走 stderr：与结尾汇总同一通道，重定向 `2>&1` 后可与崩溃堆栈按时间对齐。 */
+function logOperational(message: string) {
+  console.error(`[${new Date().toISOString()}] ${message}`);
+}
+
+/**
+ * 静默死亡诊断：此前三次中断都只留下"账本突然停止写入"，日志里没有任何线索。
+ * 这里把退出码、未捕获异常和终止信号全部落到 stderr，下次中断至少能区分崩溃、被杀和自然退出。
+ * 处理器里必须显式退出：注册 uncaughtException/unhandledRejection 会吃掉 Node 默认的终止行为，
+ * 若不退出，进程会带着未知状态继续消耗预算。
+ */
+function installExitDiagnostics() {
+  process.on("uncaughtException", (error) => {
+    logOperational(`uncaughtException ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+    process.exit(1);
+  });
+  process.on("unhandledRejection", (reason) => {
+    logOperational(`unhandledRejection ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`);
+    process.exit(1);
+  });
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"] as const) {
+    // 被信号打断时不再发起新调用；未结算标记留在账本里，正是"死在某次调用中途"的正确记录。
+    process.on(signal, () => {
+      logOperational(`received ${signal}; exiting without starting a new call`);
+      process.exit(130);
+    });
+  }
+  process.on("exit", (code) => {
+    logOperational(`process exit code=${code}`);
+  });
 }
 
 async function readExistingLedger(ledgerPath: string, plan: ReturnType<typeof validateAblationRunPlan>) {
@@ -171,9 +204,6 @@ async function main() {
     inFlightRunId: null,
   };
   assertAblationStudyMetadataMatches(ledger.metadata, metadata);
-  if (ledger.inFlightRunId) {
-    throw new Error(`ABLATION_RUN_IN_FLIGHT_REQUIRES_RECONCILIATION: ${ledger.inFlightRunId}`);
-  }
   let consumedCostUsd = ledger.results.reduce((total, result) => total + result.costUsd, 0);
   const settledRunIds = new Set(ledger.results.map((result) => result.runId));
 
@@ -182,10 +212,35 @@ async function main() {
     await writeAtomically(resolvedLedgerPath, `${JSON.stringify(ledger, null, 2)}\n`);
   };
 
+  // 未结算标记必须由人显式清除，且要指名道姓：进程异常退出时该次调用已真实计费，
+  // 但缺 token/成本/时长等审计字段，不允许伪造账本条目，只能承认它重跑并重新付费。
+  // 要求传入完全一致的 runId，避免顺手清掉一个并非本次核对对象的标记。
+  if (ledger.inFlightRunId) {
+    const reconcileInFlight = flagValue("--reconcile-in-flight");
+    if (reconcileInFlight !== ledger.inFlightRunId) {
+      throw new Error(`ABLATION_RUN_IN_FLIGHT_REQUIRES_RECONCILIATION: ${ledger.inFlightRunId}`);
+    }
+    logOperational(`reconciled in-flight marker runId=${ledger.inFlightRunId}; it will be re-run and re-charged`);
+    ledger.inFlightRunId = null;
+    await persistLedger();
+  }
+
+  const plannedTotal = plan.runs.length;
+  logOperational(`run loop start pid=${process.pid} settled=${settledRunIds.size}/${plannedTotal} consumedCostUsd=${consumedCostUsd}`);
+
+  // 心跳只为区分"卡在某次调用里"和"进程已经没了"：静默死亡时最后一条心跳就是死亡时刻的下界。
+  // unref 保证它自己永远不会把进程留活，不改变正常退出时机。
+  let currentRunLabel = "(none)";
+  const heartbeat = setInterval(() => {
+    logOperational(`heartbeat inFlight=${currentRunLabel} settled=${settledRunIds.size}/${plannedTotal} consumedCostUsd=${consumedCostUsd}`);
+  }, 120_000);
+  heartbeat.unref();
+
   for (const run of plan.runs) {
     if (settledRunIds.has(run.runId)) continue;
     const testCase = cases.get(run.caseId);
     if (!testCase) throw new Error("ABLATION_RUN_CASE_MISSING");
+    currentRunLabel = run.runId;
     const started = new Date();
     const remainingBudget = Number((maxTotalCostUsd - consumedCostUsd).toFixed(8));
     const runBudget = Math.min(maxCostUsdPerRun, remainingBudget);
@@ -207,16 +262,33 @@ async function main() {
           inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens, costUsd: model.usage.costUsd, callCount: model.usage.callCount,
         };
       } else {
-        const rawOutputPath = path.join(resolvedRawRoot, `${run.runId}.txt`);
-        // 原始文件与 ledger 使用同一字节内容计算哈希，报告审计无需猜测换行规则。
-        await writeAtomically(rawOutputPath, output.solutionText);
-        const score = scoreChecklistAgainstText(testCase, output.solutionText);
-        result = {
-        ...run, status: "completed", startedAt: started.toISOString(), finishedAt: finished.toISOString(), durationMs: finished.getTime() - started.getTime(),
-        coverageRate: score.coverageRate, constraintSatisfactionRate: score.constraintSatisfactionRate,
-        outputSha256: sha256(output.solutionText), rawOutputPath, errorCode: null,
-        inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens, costUsd: model.usage.costUsd, callCount: model.usage.callCount,
-        };
+        // Checklist 覆盖率是关键词子串匹配：产物一旦漂移出关键词所属语言，得分只反映测量失效而非质量。
+        // 这类运行必须记成显式 excluded，否则一个看似合法的 0.00 会把架构对比悄悄换成 prompt 语言对比。
+        const languageCheck = checkScoringLanguageConsistency({
+          keywords: testCase.checklist.flatMap((item) => item.keywords),
+          scoredText: output.solutionText,
+        });
+        if (!languageCheck.consistent) {
+          // 该次调用已真实计费，产物留档供人工复核；文件名与被评分产物区分，避免与 `<runId>.txt` 混淆。
+          await writeAtomically(path.join(resolvedRawRoot, `${run.runId}.rejected-language.txt`), output.solutionText);
+          result = {
+            ...run, status: "excluded", startedAt: started.toISOString(), finishedAt: finished.toISOString(), durationMs: finished.getTime() - started.getTime(),
+            coverageRate: null, constraintSatisfactionRate: null, outputSha256: null, rawOutputPath: null,
+            errorCode: SCORING_LANGUAGE_MISMATCH_CODE,
+            inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens, costUsd: model.usage.costUsd, callCount: model.usage.callCount,
+          };
+        } else {
+          const rawOutputPath = path.join(resolvedRawRoot, `${run.runId}.txt`);
+          // 原始文件与 ledger 使用同一字节内容计算哈希，报告审计无需猜测换行规则。
+          await writeAtomically(rawOutputPath, output.solutionText);
+          const score = scoreChecklistAgainstText(testCase, output.solutionText);
+          result = {
+            ...run, status: "completed", startedAt: started.toISOString(), finishedAt: finished.toISOString(), durationMs: finished.getTime() - started.getTime(),
+            coverageRate: score.coverageRate, constraintSatisfactionRate: score.constraintSatisfactionRate,
+            outputSha256: sha256(output.solutionText), rawOutputPath, errorCode: null,
+            inputTokens: model.usage.inputTokens, outputTokens: model.usage.outputTokens, costUsd: model.usage.costUsd, callCount: model.usage.callCount,
+          };
+        }
       }
     } catch (error) {
       consumedCostUsd = Number((consumedCostUsd + model.usage.costUsd).toFixed(8));
@@ -232,12 +304,22 @@ async function main() {
     ledger.inFlightRunId = null;
     settledRunIds.add(run.runId);
     await persistLedger();
+    currentRunLabel = "(none)";
+    // 每次结算落一行：此前中断只留下"账本突然停止写入"，无法判断死在第几次、跑到哪个臂。
+    // 覆盖率可能为 null（excluded），照原样打出来，不要用 0 冒充缺失值。
+    logOperational(
+      `settled ${settledRunIds.size}/${plannedTotal} runId=${result.runId} variant=${result.variant} status=${result.status}` +
+        ` cov=${result.coverageRate === null ? "null" : result.coverageRate.toFixed(4)} errorCode=${result.errorCode ?? "none"}` +
+        ` costUsd=${result.costUsd} durationMs=${result.durationMs} calls=${result.callCount} consumedCostUsd=${consumedCostUsd}`,
+    );
   }
 
-  console.error(`Wrote ${ledger.results.length} audited results to ${resolvedLedgerPath}; total external cost USD=${consumedCostUsd}`);
+  logOperational(`run loop complete: wrote ${ledger.results.length} audited results to ${resolvedLedgerPath}; total external cost USD=${consumedCostUsd}`);
 }
 
+installExitDiagnostics();
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  // 堆栈也要落盘：只打 message 时，"哪一行抛的"这个关键信息会丢失。
+  logOperational(`main failed ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
   process.exitCode = 1;
 });

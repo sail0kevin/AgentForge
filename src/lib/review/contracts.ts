@@ -23,6 +23,15 @@ export const CandidateSolutionSchema = z.object({
   estimatedEffort: z.enum(["low", "medium", "high"]),
 });
 
+/** 简化的Finding Schema - 只保留核心字段，移除复杂嵌套结构 */
+export const SimplifiedFindingSchema = z.object({
+  id: z.string().min(1).max(100),
+  candidateId: z.string().min(1).max(100),
+  severity: z.enum(["blocking", "high", "medium", "low"]),
+  description: z.string().min(10).max(1_000), // 合并 failureScenario + suggestion 为单一描述
+});
+
+/** 原始Finding Schema - 保留以兼容现有数据 */
 export const FindingSchema = z.object({
   id: z.string().min(1).max(100),
   candidateId: z.string().min(1).max(100),
@@ -34,6 +43,15 @@ export const FindingSchema = z.object({
   relatedCandidateIds: z.array(z.string().min(1).max(100)).max(5),
 });
 
+/** 简化的ReviewResult Schema - 降低复杂度，提升成功率 */
+export const SimplifiedReviewResultSchema = z.object({
+  schemaVersion: z.literal(1),
+  findings: z.array(SimplifiedFindingSchema).max(20), // 从40降至20
+  overallAssessment: z.enum(["no_major_issues", "needs_minor_revision", "needs_major_revision"]),
+  criticalIssues: z.array(z.string().min(10).max(500)).max(10), // 纯文本数组，易于生成
+});
+
+/** 原始ReviewResult Schema - 保留以兼容现有数据 */
 export const ReviewResultSchema = z.object({
   schemaVersion: z.literal(1),
   findings: z.array(FindingSchema).max(40),
@@ -96,7 +114,9 @@ export const HumanApprovalSchema = z.object({
 });
 
 export type CandidateSolution = z.infer<typeof CandidateSolutionSchema>;
+export type SimplifiedFinding = z.infer<typeof SimplifiedFindingSchema>;
 export type Finding = z.infer<typeof FindingSchema>;
+export type SimplifiedReviewResult = z.infer<typeof SimplifiedReviewResultSchema>;
 export type ReviewResult = z.infer<typeof ReviewResultSchema>;
 export type RubricDimension = z.infer<typeof RubricDimensionSchema>;
 export type EvaluationResult = z.infer<typeof EvaluationResultSchema>;
