@@ -191,6 +191,18 @@ OLLAMA_BASE_URL="http://localhost:11434"
 
 ---
 
+## 更多部署方案
+
+想要更简单的部署方式？查看 [一键部署方案](../deployment/ONE_CLICK_DEPLOYMENT.md)：
+
+- **Docker Compose** - 只需 `docker-compose up`
+- **在线演示** - 浏览器直接访问，零安装
+- **桌面应用** - 下载即用，双击启动
+
+当前已实现一键启动脚本，其他方案正在计划中。
+
+---
+
 ## 查看多Agent价值验证（5分钟）
 
 查看我们的实验数据：

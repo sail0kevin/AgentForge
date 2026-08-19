@@ -19,10 +19,24 @@
 
 - Product/UI 报告可导出单方案 `implementation-manifest` JSON，供下游 AI 编程工具或开发流程读取。
 - 仓库已有三个可运行的报告映射案例：企业团队考勤工作台、数字艺术展览和数字聆听室；它们用于验证报告要素能够被实现消费。
-- 案例不是“任意报告自动生成并部署网站”的证明。真实业务数据、生产部署、真实用户验收和许可证复用审计仍需独立完成。
+- 案例不是”任意报告自动生成并部署网站”的证明。真实业务数据、生产部署、真实用户验收和许可证复用审计仍需独立完成。
 - 新增 Product/UI 实施评测指南与实验包导出：它固定 Baseline/AgentForge 两条下游输入、管理员解盲映射和匿名评分材料；真实模型双分支输出与独立盲评仍待执行，不能据此宣称视觉质量提升。
 
 建议先阅读：[Product/UI 实施包说明](./2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md) 与 [数字聆听室案例说明](./2026-08-04 - generated-nocturne - AgentForge生成说明.md)。
+
+## 2026-08-19 快速上手更新
+
+- 新增**一键启动脚本**（Windows `quick-start.bat` 和 Mac/Linux `quick-start.sh`），自动完成依赖安装、环境配置、数据库初始化和服务启动。
+- 更新 [快速上手指南](./multi-agent-validation/QUICKSTART.md)，突出一键启动作为推荐方式。
+- 新增 [一键部署方案](./deployment/ONE_CLICK_DEPLOYMENT.md)，介绍当前已实现的一键脚本以及计划中的 Docker、在线演示和桌面应用方案。
+
+**快速体验**：
+```bash
+git clone https://github.com/sail0kevin/AgentForge.git
+cd AgentForge
+quick-start.bat  # Windows
+./quick-start.sh # Mac/Linux
+```
 
 
 1. [当前开发状态](./2026-08-01 - current-development-status - 当前开发状态.md)：当前实现、已知限制和最近验证结果的主入口。
