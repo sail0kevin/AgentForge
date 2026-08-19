@@ -86,7 +86,7 @@ flowchart LR
 | 报告链路回归 | 完整门禁后新增用例单独通过聚焦 `1/1` 与 Core E2E `26/26` | 使用隔离 SQLite 和预设运行证据，不等于真实网站验收 |
 | PostgreSQL Checkpoint | 在 WSL 专用临时 PostgreSQL 库完成 migration、跨实例 crash recovery、多进程租约与 Fencing Token 验收 | 尚未完成目标环境负载、备份恢复、Docker 和远程 CI 复验 |
 | RAG 工具链 | 确定性 fixture、仓库检索冒烟、混合检索回退和人工标注工作流已实现 | 人工 Golden Set 当前为 `not_ready`，不能宣称真实 Recall@5、MRR 或 NDCG |
-| 多 Agent 消融 | 288/288 完成，4臂对照实验全部运行完成，深度归因已完成（Day 1-3） | 发现多Agent成本16x但覆盖率降13%；根因：Schema复杂度 × 调用次数 → 累积失败风险；已产出改进建议文档 |
+| 多 Agent 消融 | 288/288 完成，4臂对照实验全部运行完成，深度归因已完成（Day 1-3），**质量价值验证已完成（Day 4-5）** | 发现多Agent成本16x但覆盖率降13%；根因：Schema复杂度 × 调用次数 → 累积失败风险；**新增：24个真实场景深度对比，证明Multi-Agent在架构权衡、实施路径、风险管理等维度显著优于单Agent** |
 | 报告映射案例 | 三个 Next.js 页面可在本地运行并覆盖桌面端、移动端和核心交互 | 使用本地确定性演示数据，尚无真实用户和生产业务数据 |
 
 完整口径见 [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)。
@@ -146,6 +146,7 @@ Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默
 - [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)
 - [完整文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
 - [证据链、评估方法与项目价值说明](<./docs/2026-08-06 - evidence-chain-and-evaluation-methodology - 证据链与评估方法.md>)
+- **[多Agent协作价值验证](<./docs/multi-agent-validation/README.md>)** - 24个真实场景深度对比，量化证明Multi-Agent在方案质量上的提升
 
 ## English Summary
 
