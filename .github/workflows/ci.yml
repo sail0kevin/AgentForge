@@ -3,6 +3,10 @@ name: CI
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - 'examples/**'
   pull_request:
 
 permissions:
