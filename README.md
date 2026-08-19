@@ -157,8 +157,10 @@ Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默
 
 ## 核心文档
 
+- **[阶段性收尾报告](<./docs/2026-08-19 - project-closure-report - 阶段性收尾报告.md>)** - v0.1.0完整状态、未来路线图、面试亮点、快速重启指南
 - [当前开发状态](<./docs/2026-08-01 - current-development-status - 当前开发状态.md>)
 - [当前运行架构](<./docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
+- [成本优化集成总结](<./docs/cost-optimization-integration-summary.md>) - 三层优化机制（缓存+评分+预算）完整集成
 - [Product/UI 实施包说明](<./docs/2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md>)
 - [Product/UI 实施评测指南](<./docs/2026-08-04 - product-ui-implementation-evaluation - ProductUI实施评测指南.md>)
 - [下游实施对照实验模板](<./examples/product-ui-implementation-experiment/README.md>)
