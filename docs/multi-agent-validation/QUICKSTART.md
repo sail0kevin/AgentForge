@@ -14,41 +14,46 @@
 
 这种方式使用预设的固定响应，可以完整体验工作流，但不会真正调用LLM。
 
-### 1. 克隆仓库
+### 🚀 一键启动（推荐）
 
 ```bash
+# 1. 克隆仓库
 git clone https://github.com/sail0kevin/AgentForge.git
 cd AgentForge
+
+# 2. 运行启动脚本
+# Windows
+quick-start.bat
+
+# Mac/Linux
+./quick-start.sh
 ```
 
-### 2. 安装依赖
+脚本会自动完成依赖安装、配置文件创建、数据库初始化并启动服务。完成后浏览器会自动打开 http://localhost:3000
+
+### 手动安装（可选）
+
+如果你想手动控制每一步：
 
 ```bash
+# 1. 克隆仓库
+git clone https://github.com/sail0kevin/AgentForge.git
+cd AgentForge
+
+# 2. 安装依赖
 npm ci
-```
 
-### 3. 配置环境
-
-```bash
+# 3. 配置环境
 # Windows PowerShell
 Copy-Item .env.example .env
-
 # Linux/Mac
 cp .env.example .env
-```
 
-`.env` 文件保持默认即可，不需要填写任何API Key。
-
-### 4. 初始化数据库
-
-```bash
+# 4. 初始化数据库
 npm run db:generate
 npm run db:migrate
-```
 
-### 5. 启动服务
-
-```bash
+# 5. 启动服务
 npm run dev
 ```
 

@@ -90,6 +90,258 @@ export function evaluateBaseline(candidates: CandidateSolution[], review: Review
   });
 }
 
+/**
+ * 生成候选方案
+ *
+ * 并发生成delivery和quality两个候选方案，处理错误和去重
+ *
+ * @param input - 候选生成配置
+ * @returns 生成的候选列表和失败记录
+ */
+async function generateCandidates(input: {
+  orientations: readonly ("delivery" | "quality")[];
+  analysis: RequirementAnalysis;
+  plan: ExecutionPlan;
+  generator?: ReviewGenerators["candidate"];
+}): Promise<{
+  candidates: CandidateSolution[];
+  failures: Array<{ stage: string; code: string }>;
+}> {
+  // 并发生成所有候选方案
+  const settled = await Promise.allSettled(
+    input.orientations.map(async (orientation) => {
+      const candidate = CandidateSolutionSchema.parse(
+        await (input.generator?.({ orientation, analysis: input.analysis, plan: input.plan })
+          ?? Promise.resolve(createBaselineCandidate(input.plan, orientation)))
+      );
+      if (candidate.orientation !== orientation) {
+        throw new Error("CANDIDATE_ORIENTATION_INVALID");
+      }
+      return candidate;
+    })
+  );
+
+  const candidates = settled.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : []
+  );
+
+  const failures = settled.flatMap((result, index) =>
+    result.status === "rejected"
+      ? [{ stage: `candidate:${input.orientations[index]}`, code: "CANDIDATE_FAILED" }]
+      : []
+  );
+
+  // ID去重检查
+  if (new Set(candidates.map((c) => c.id)).size !== candidates.length) {
+    failures.push({ stage: "candidate", code: "CANDIDATE_ID_CONFLICT" });
+    candidates.splice(1);
+  }
+
+  return { candidates, failures };
+}
+
+/**
+ * 执行Review并判断是否触发快速通道
+ *
+ * 调用Reviewer生成器，将SimplifiedReviewResult转换为ReviewResult，
+ * 并检测是否满足快速通道条件（无重大问题且findings为空）
+ *
+ * @param input - Review执行配置
+ * @returns Review结果和快速通道标志
+ */
+async function executeReview(input: {
+  analysis: RequirementAnalysis;
+  plan: ExecutionPlan;
+  candidates: CandidateSolution[];
+  maxFindings: number;
+  generator?: ReviewGenerators["review"];
+}): Promise<{
+  review: ReviewResult;
+  shouldSkipRevision: boolean;
+}> {
+  const reviewOutput = await (
+    input.generator?.({
+      analysis: input.analysis,
+      plan: input.plan,
+      candidates: input.candidates,
+      simplified: true
+    })
+    ?? Promise.resolve(createBaselineReview(input.candidates, input.maxFindings))
+  );
+
+  let shouldSkipRevision = false;
+  let review: ReviewResult;
+
+  // 将 SimplifiedReviewResult 转换为 ReviewResult
+  if ('overallAssessment' in reviewOutput) {
+    const simplified = reviewOutput as SimplifiedReviewResult;
+
+    // 快速通道：无重大问题且findings为空时跳过修订
+    if (simplified.overallAssessment === "no_major_issues"
+        && simplified.findings.length === 0) {
+      shouldSkipRevision = true;
+    }
+
+    review = {
+      schemaVersion: 1,
+      findings: simplified.findings.map(f => ({
+        id: f.id,
+        candidateId: f.candidateId,
+        severity: f.severity,
+        category: 'general',
+        failureScenario: f.description,
+        evidenceRefs: [],
+        suggestion: f.description,
+        relatedCandidateIds: [],
+      })),
+    };
+  } else {
+    review = reviewOutput as ReviewResult;
+  }
+
+  validateReviewReferences(review, input.candidates);
+  return { review, shouldSkipRevision };
+}
+
+/**
+ * 执行Evaluation并应用证据门禁
+ *
+ * 调用Evaluator生成器，验证引用完整性，并应用证据门禁和人工审批策略
+ *
+ * @param input - Evaluation执行配置
+ * @returns 最终的Evaluation结果（已应用证据门禁）
+ */
+async function executeEvaluation(input: {
+  analysis: RequirementAnalysis;
+  plan: ExecutionPlan;
+  candidates: CandidateSolution[];
+  review: ReviewResult;
+  rubric: RubricDimension[];
+  failures: Array<{ stage: string; code: string }>;
+  generator?: ReviewGenerators["evaluate"];
+}): Promise<EvaluationResult> {
+  const rawEvaluation = EvaluationResultSchema.parse(
+    await (input.generator?.({
+      analysis: input.analysis,
+      plan: input.plan,
+      candidates: input.candidates,
+      review: input.review,
+      rubric: input.rubric
+    })
+    ?? Promise.resolve(evaluateBaseline(input.candidates, input.review, input.rubric)))
+  );
+
+  validateEvaluationReferences(rawEvaluation, input.candidates, input.review, input.rubric);
+
+  return enforceEvidenceAndHumanGate(
+    rawEvaluation,
+    input.candidates,
+    input.review,
+    input.failures
+  );
+}
+
+/**
+ * 执行修订循环直到达到终止条件
+ *
+ * 根据Evaluator的decision判断是否需要修订，执行修订后重新Review和Evaluate，
+ * 直到达到最大轮次、决策变更或修订失败
+ *
+ * @param input - 修订循环配置
+ * @returns 最终的candidates、review、evaluation和当前轮次
+ */
+async function runRevisionLoop(input: {
+  analysis: RequirementAnalysis;
+  plan: ExecutionPlan;
+  candidates: CandidateSolution[];
+  review: ReviewResult;
+  evaluation: EvaluationResult;
+  rubric: RubricDimension[];
+  budget: ReviewBudget;
+  failures: Array<{ stage: string; code: string }>;
+  shouldSkipRevision: boolean;
+  generators?: ReviewGenerators;
+}): Promise<{
+  candidates: CandidateSolution[];
+  review: ReviewResult;
+  evaluation: EvaluationResult;
+  currentRound: number;
+}> {
+  let { candidates, review, evaluation } = input;
+  let currentRound = 0;
+
+  while (
+    evaluation.decision === "needs_revision"
+    && !input.shouldSkipRevision
+    && currentRound < input.budget.maxReviewRounds
+    && input.generators?.revise
+    && candidates[0]
+  ) {
+    currentRound += 1;
+
+    try {
+      const original = candidates[0];
+
+      // 修订只接收 supportedFindingIds（通过证据校验的 finding）
+      const supportedFindings = review.findings.filter(
+        (finding) =>
+          finding.candidateId === original.id
+          && evaluation.supportedFindingIds.includes(finding.id)
+      );
+
+      const revised = CandidateSolutionSchema.parse(
+        await input.generators.revise({
+          candidate: original,
+          findings: supportedFindings,
+          round: currentRound
+        })
+      );
+
+      if (revised.id !== original.id || revised.orientation !== original.orientation) {
+        throw new Error("REVISION_IDENTITY_CHANGED");
+      }
+
+      candidates[0] = revised;
+
+      // 修订后重新执行 Reviewer → Evaluator
+      try {
+        const reviewResult = await executeReview({
+          analysis: input.analysis,
+          plan: input.plan,
+          candidates,
+          maxFindings: input.budget.maxFindings,
+          generator: input.generators.review,
+        });
+        review = reviewResult.review;
+      } catch {
+        input.failures.push({
+          stage: `revision:${currentRound}:review`,
+          code: "REVIEW_AFTER_REVISION_FAILED"
+        });
+        review = { schemaVersion: 1, findings: [] };
+      }
+
+      evaluation = await executeEvaluation({
+        analysis: input.analysis,
+        plan: input.plan,
+        candidates,
+        review,
+        rubric: input.rubric,
+        failures: input.failures,
+        generator: input.generators.evaluate,
+      });
+    } catch {
+      input.failures.push({
+        stage: `revision:${currentRound}`,
+        code: "REVISION_FAILED"
+      });
+      break;
+    }
+  }
+
+  return { candidates, review, evaluation, currentRound };
+}
+
 function validateReviewReferences(review: ReviewResult, candidates: CandidateSolution[]) {
   const candidateIds = new Set(candidates.map((candidate) => candidate.id));
   const findingIds = new Set<string>();
@@ -143,18 +395,17 @@ function enforceEvidenceAndHumanGate(
 
 export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; plan: ExecutionPlan; budget: ReviewBudget; generators?: ReviewGenerators }): Promise<ReviewWorkflowResult> {
   const orientations = (["delivery", "quality"] as const).slice(0, input.budget.maxCandidates);
-  const settled = await Promise.allSettled(orientations.map(async (orientation) => {
-    const candidate = CandidateSolutionSchema.parse(await (input.generators?.candidate?.({ orientation, analysis: input.analysis, plan: input.plan }) ?? Promise.resolve(createBaselineCandidate(input.plan, orientation))));
-    if (candidate.orientation !== orientation) throw new Error("CANDIDATE_ORIENTATION_INVALID");
-    return candidate;
-  }));
-  const candidates = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
-  const failures = settled.flatMap((result, index) => result.status === "rejected" ? [{ stage: `candidate:${orientations[index]}`, code: "CANDIDATE_FAILED" }] : []);
-  if (new Set(candidates.map((candidate) => candidate.id)).size !== candidates.length) {
-    failures.push({ stage: "candidate", code: "CANDIDATE_ID_CONFLICT" });
-    candidates.splice(1);
-  }
-  if (candidates.length === 0) {
+
+  // 1. 生成候选方案
+  const { candidates: initialCandidates, failures } = await generateCandidates({
+    orientations,
+    analysis: input.analysis,
+    plan: input.plan,
+    generator: input.generators?.candidate,
+  });
+
+  // 边界情况：无候选方案时快速返回
+  if (initialCandidates.length === 0) {
     const review = { schemaVersion: 1 as const, findings: [] };
     return {
       status: "inconclusive",
@@ -168,95 +419,87 @@ export async function runReviewWorkflow(input: { analysis: RequirementAnalysis; 
       failures,
     };
   }
+
+  // 2. 执行Review
   let review: ReviewResult;
-  let shouldSkipRevision = false;  // 快速通道标志
+  let shouldSkipRevision = false;
   try {
-    const reviewOutput = await (input.generators?.review?.({ analysis: input.analysis, plan: input.plan, candidates, simplified: true }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings)));
-    // 将 SimplifiedReviewResult 转换为 ReviewResult
-    if ('overallAssessment' in reviewOutput) {
-      // 快速通道：如果评估为无重大问题且findings为空，可跳过修订轮次
-      const simplified = reviewOutput as SimplifiedReviewResult;
-      if (simplified.overallAssessment === "no_major_issues" && simplified.findings.length === 0) {
-        shouldSkipRevision = true;
-      }
-      review = {
-        schemaVersion: 1,
-        findings: simplified.findings.map(f => ({
-          id: f.id,
-          candidateId: f.candidateId,
-          severity: f.severity,
-          category: 'general',
-          failureScenario: f.description,
-          evidenceRefs: [],
-          suggestion: f.description,
-          relatedCandidateIds: [],
-        })),
-      };
-    } else {
-      review = reviewOutput as ReviewResult;
-    }
-    validateReviewReferences(review, candidates);
+    const reviewResult = await executeReview({
+      analysis: input.analysis,
+      plan: input.plan,
+      candidates: initialCandidates,
+      maxFindings: input.budget.maxFindings,
+      generator: input.generators?.review,
+    });
+    review = reviewResult.review;
+    shouldSkipRevision = reviewResult.shouldSkipRevision;
   } catch {
     failures.push({ stage: "review", code: "REVIEW_FAILED" });
     review = { schemaVersion: 1, findings: [] };
   }
+
+  // 3. 执行Evaluation
   const rubric = buildRubric(input.plan);
   let evaluation: EvaluationResult;
   try {
-    evaluation = EvaluationResultSchema.parse(await (input.generators?.evaluate?.({ analysis: input.analysis, plan: input.plan, candidates, review, rubric }) ?? Promise.resolve(evaluateBaseline(candidates, review, rubric))));
-    validateEvaluationReferences(evaluation, candidates, review, rubric);
-    evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review, failures);
+    evaluation = await executeEvaluation({
+      analysis: input.analysis,
+      plan: input.plan,
+      candidates: initialCandidates,
+      review,
+      rubric,
+      failures,
+      generator: input.generators?.evaluate,
+    });
   } catch {
     failures.push({ stage: "evaluate", code: "EVALUATOR_FAILED" });
-    evaluation = enforceEvidenceAndHumanGate(evaluateBaseline(candidates, review, rubric), candidates, review, failures);
+    evaluation = enforceEvidenceAndHumanGate(
+      evaluateBaseline(initialCandidates, review, rubric),
+      initialCandidates,
+      review,
+      failures
+    );
   }
-  let currentRound = 0;
-  while (evaluation.decision === "needs_revision" && !shouldSkipRevision && currentRound < input.budget.maxReviewRounds && input.generators?.revise && candidates[0]) {
-    currentRound += 1;
-    try {
-      const original = candidates[0];
-      // 修订只接收 supportedFindingIds（通过证据校验的 finding），不接收全部 finding。
-      const supportedFindings = review.findings.filter((finding) => finding.candidateId === original.id && evaluation.supportedFindingIds.includes(finding.id));
-      const revised = CandidateSolutionSchema.parse(await input.generators.revise({ candidate: original, findings: supportedFindings, round: currentRound }));
-      if (revised.id !== original.id || revised.orientation !== original.orientation) throw new Error("REVISION_IDENTITY_CHANGED");
-      candidates[0] = revised;
-      // 修订后重新执行 Reviewer → Evaluator，防止修订引入新问题而未被再次检查。
-      try {
-        const reviewOutput = await (input.generators.review?.({ analysis: input.analysis, plan: input.plan, candidates, simplified: true }) ?? Promise.resolve(createBaselineReview(candidates, input.budget.maxFindings)));
-        // 将 SimplifiedReviewResult 转换为 ReviewResult
-        if ('overallAssessment' in reviewOutput) {
-          const simplified = reviewOutput as SimplifiedReviewResult;
-          review = {
-            schemaVersion: 1,
-            findings: simplified.findings.map(f => ({
-              id: f.id,
-              candidateId: f.candidateId,
-              severity: f.severity,
-              category: 'general',
-              failureScenario: f.description,
-              evidenceRefs: [],
-              suggestion: f.description,
-              relatedCandidateIds: [],
-            })),
-          };
-        } else {
-          review = reviewOutput as ReviewResult;
-        }
-        validateReviewReferences(review, candidates);
-      } catch {
-        failures.push({ stage: `revision:${currentRound}:review`, code: "REVIEW_AFTER_REVISION_FAILED" });
-        review = { schemaVersion: 1, findings: [] };
-      }
-      evaluation = EvaluationResultSchema.parse(await (input.generators.evaluate?.({ analysis: input.analysis, plan: input.plan, candidates, review, rubric }) ?? Promise.resolve(evaluateBaseline(candidates, review, rubric))));
-      validateEvaluationReferences(evaluation, candidates, review, rubric);
-      evaluation = enforceEvidenceAndHumanGate(evaluation, candidates, review, failures);
-    } catch {
-      failures.push({ stage: `revision:${currentRound}`, code: "REVISION_FAILED" });
-      break;
-    }
-  }
-  const status = failures.length > 0 ? "partial" : evaluation.decision === "needs_human" ? "needs_human" : evaluation.decision === "approved" ? "approved" : "inconclusive";
-  // Tier 2 目前只提供可审计的语义验证披露，不在未校准前改变既有审批和人工门禁。
-  const evidenceAssessment = await assessTieredEvidence({ findings: review.findings, candidates, verifier: input.generators?.tier2Verifier });
-  return { status, candidates, review, evaluation, candidateDiversity: assessCandidateStructuralDiversity(candidates), evidenceAssessment, currentRound, maxRounds: input.budget.maxReviewRounds, failures };
+
+  // 4. 执行修订循环
+  const { candidates, review: finalReview, evaluation: finalEvaluation, currentRound } =
+    await runRevisionLoop({
+      analysis: input.analysis,
+      plan: input.plan,
+      candidates: initialCandidates,
+      review,
+      evaluation,
+      rubric,
+      budget: input.budget,
+      failures,
+      shouldSkipRevision,
+      generators: input.generators,
+    });
+
+  // 5. 最终汇总
+  const status = failures.length > 0
+    ? "partial"
+    : finalEvaluation.decision === "needs_human"
+      ? "needs_human"
+      : finalEvaluation.decision === "approved"
+        ? "approved"
+        : "inconclusive";
+
+  const evidenceAssessment = await assessTieredEvidence({
+    findings: finalReview.findings,
+    candidates,
+    verifier: input.generators?.tier2Verifier
+  });
+
+  return {
+    status,
+    candidates,
+    review: finalReview,
+    evaluation: finalEvaluation,
+    candidateDiversity: assessCandidateStructuralDiversity(candidates),
+    evidenceAssessment,
+    currentRound,
+    maxRounds: input.budget.maxReviewRounds,
+    failures
+  };
 }

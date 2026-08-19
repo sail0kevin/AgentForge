@@ -106,6 +106,24 @@ flowchart LR
 
 要求：Node.js LTS、npm。
 
+### 方式一：一键启动（推荐）
+
+```bash
+# Windows
+git clone https://github.com/sail0kevin/AgentForge.git
+cd AgentForge
+quick-start.bat
+
+# Mac/Linux
+git clone https://github.com/sail0kevin/AgentForge.git
+cd AgentForge
+./quick-start.sh
+```
+
+脚本会自动完成依赖安装、环境配置、数据库初始化并启动服务。
+
+### 方式二：手动安装
+
 ```bash
 git clone https://github.com/sail0kevin/AgentForge.git
 cd AgentForge
