@@ -162,7 +162,6 @@ async function runSingleCase(
     // 使用ablation框架的single_candidate_with_review变体
     const result = await runAblationArm({
       requirement: testCase.requirement,
-      constraints: testCase.checklist.filter(c => c.isConstraint).map(c => c.description),
       variant: "single_candidate_with_review",
       callModel,
     });

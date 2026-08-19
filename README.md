@@ -83,7 +83,7 @@ flowchart LR
 
 | 验证项 | 已有结果 | 结论边界 |
 |---|---|---|
-| 完整质量门禁 | 2026-08-03：`211/211` Unit、`25/25` Core E2E、`1/1` Session E2E；`src/lib/**` 行 `91.55%`、分支 `86.85%`、函数 `89.35%` | 同时通过 TypeScript、ESLint、文档链接检查和生产构建 |
+| 完整质量门禁 | 2026-08-19：`311/311` Unit、`25/25` Core E2E、`1/1` Session E2E；`src/lib/**` 行覆盖率保持在 90%+ | 同时通过 TypeScript、ESLint、文档链接检查和生产构建 |
 | 报告链路回归 | 完整门禁后新增用例单独通过聚焦 `1/1` 与 Core E2E `26/26` | 使用隔离 SQLite 和预设运行证据，不等于真实网站验收 |
 | PostgreSQL Checkpoint | 在 WSL 专用临时 PostgreSQL 库完成 migration、跨实例 crash recovery、多进程租约与 Fencing Token 验收 | 尚未完成目标环境负载、备份恢复、Docker 和远程 CI 复验 |
 | RAG 工具链 | 确定性 fixture、仓库检索冒烟、混合检索回退和人工标注工作流已实现 | 人工 Golden Set 当前为 `not_ready`，不能宣称真实 Recall@5、MRR 或 NDCG |

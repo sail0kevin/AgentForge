@@ -115,6 +115,8 @@ model PlanningArtifact {
   failureCode         String?
   budgetState         String
   schemaVersion       Int                  @default(1)
+  complexityScore     Float?
+  recommendedCandidates Int?
   workflowNodeKey     String?              @unique
   run                 Run                  @relation(fields: [runId], references: [id], onDelete: Cascade)
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)

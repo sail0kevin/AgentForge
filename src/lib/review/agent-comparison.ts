@@ -124,7 +124,14 @@ async function preparePlanForAblation(input: {
   const generate = ({ stage, prompt }: { stage: "analysis" | "plan"; prompt: string }) =>
     input.callModel(`planner:${stage}`, PLANNER_SYSTEM_RULES, prompt).then((result) => result.content);
 
-  let plannerResult = await planRequirement({ requirement: input.requirement, budget: input.plannerBudget, generate });
+  // 消融实验中禁用缓存和动态候选优化，确保可控对比
+  let plannerResult = await planRequirement({
+    requirement: input.requirement,
+    budget: input.plannerBudget,
+    generate,
+    useCache: false,
+    dynamicCandidates: false,
+  });
   let assumptionRetryUsed = false;
   if (plannerResult.status === "needs_clarification") {
     const assumptionAnswers = await answerClarificationWithAssumptions(input.callModel, input.requirement, plannerResult.clarification);
@@ -134,6 +141,8 @@ async function preparePlanForAblation(input: {
       generate,
       // 评测的单 Agent 臂同样要求自行声明假设；这里最多补一次并强制向前。
       bypassClarificationGate: true,
+      useCache: false,
+      dynamicCandidates: false,
     });
     assumptionRetryUsed = true;
   }

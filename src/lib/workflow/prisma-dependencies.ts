@@ -169,6 +169,17 @@ export function createPrismaWorkflowDependencies(options: WorkflowDependencyOpti
       if (!artifact?.requirementAnalysis || !artifact.executionPlan) throw new Error("PLANNING_ARTIFACT_NOT_READY");
       const analysis = RequirementAnalysisSchema.parse(JSON.parse(artifact.requirementAnalysis));
       const plan = ExecutionPlanSchema.parse(JSON.parse(artifact.executionPlan));
+
+      // 从 PlanningArtifact 读取复杂度评分和推荐候选数
+      const complexityScore = artifact.complexityScore ?? undefined;
+      const recommendedCandidates = artifact.recommendedCandidates as 1 | 2 | null;
+
+      // 动态调整 Review 预算的候选数量
+      const reviewBudget = ReviewBudgetSchema.parse({
+        ...REVIEW_BUDGET,
+        maxCandidates: recommendedCandidates ?? REVIEW_BUDGET.maxCandidates,
+      });
+
       const roles = options.mode === "model" ? requireModelRoles(options.agents) : null;
       const model = roles
         ? await createReviewModelContext({
@@ -178,19 +189,19 @@ export function createPrismaWorkflowDependencies(options: WorkflowDependencyOpti
               reviewerAgentId: roles.reviewerAgentId,
               evaluatorAgentId: roles.evaluatorAgentId,
             },
-            budget: REVIEW_BUDGET,
+            budget: reviewBudget,
             signal: options.signal,
           })
         : null;
       const handle = await createRun(input.userId, `Review planning artifact ${artifact.id}`);
       let usageSaved = false;
       try {
-        const result = await runReviewWorkflow({ analysis, plan, budget: REVIEW_BUDGET, generators: model?.generators });
+        const result = await runReviewWorkflow({ analysis, plan, budget: reviewBudget, generators: model?.generators });
         const record = await saveReviewWorkflow({
           runId: handle.runId,
           planningArtifactId: artifact.id,
           userId: input.userId,
-          budget: REVIEW_BUDGET,
+          budget: reviewBudget,
           workflowNodeKey: input.nodeKey,
           result,
         });
