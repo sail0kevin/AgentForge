@@ -83,8 +83,11 @@ interface Phase1ValidationReport {
   };
 }
 
+type CallModelStats = { totalInputTokens: number; totalOutputTokens: number; totalCalls: number };
+type CallModelWithStats = CallModel & { getStats: () => CallModelStats };
+
 // 创建LongCat API调用函数
-function createLongcatCallModel(): CallModel {
+function createLongcatCallModel(): CallModelWithStats {
   const apiKey = process.env.LONGCAT_API_KEY;
   const baseUrl = process.env.LONGCAT_BASE_URL || "https://ai.tkapi.site";
   const model = process.env.LONGCAT_MODEL || "gpt-5.6";
@@ -136,14 +139,14 @@ function createLongcatCallModel(): CallModel {
     return { content, inputTokens, outputTokens };
   };
 
-  // 附加统计方法
-  (callModel as any).getStats = () => ({
-    totalInputTokens,
-    totalOutputTokens,
-    totalCalls,
+  // 附加统计方法；Object.assign 让返回值带上 getStats 而无需类型断言
+  return Object.assign(callModel, {
+    getStats: (): CallModelStats => ({
+      totalInputTokens,
+      totalOutputTokens,
+      totalCalls,
+    }),
   });
-
-  return callModel;
 }
 
 async function runSingleCase(

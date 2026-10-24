@@ -267,7 +267,8 @@ async function runRevisionLoop(input: {
   evaluation: EvaluationResult;
   currentRound: number;
 }> {
-  let { candidates, review, evaluation } = input;
+  const { candidates } = input;
+  let { review, evaluation } = input;
   let currentRound = 0;
 
   while (

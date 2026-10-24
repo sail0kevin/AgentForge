@@ -170,8 +170,7 @@ export function createPrismaWorkflowDependencies(options: WorkflowDependencyOpti
       const analysis = RequirementAnalysisSchema.parse(JSON.parse(artifact.requirementAnalysis));
       const plan = ExecutionPlanSchema.parse(JSON.parse(artifact.executionPlan));
 
-      // 从 PlanningArtifact 读取复杂度评分和推荐候选数
-      const complexityScore = artifact.complexityScore ?? undefined;
+      // 从 PlanningArtifact 读取推荐候选数，动态调整 Review 预算
       const recommendedCandidates = artifact.recommendedCandidates as 1 | 2 | null;
 
       // 动态调整 Review 预算的候选数量

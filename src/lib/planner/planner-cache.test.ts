@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { PlannerCache, type PlannerCacheEntry } from './planner-cache';
+import { PlannerCache } from './planner-cache';
 import { RequirementAnalysisSchema, ExecutionPlanSchema } from './contracts';
 
 describe('PlannerCache', () => {

@@ -7,7 +7,6 @@ import {
   estimateCost,
   generateBudgetRecommendation,
   BUDGET_POLICIES,
-  type BudgetTier,
 } from './budget-policy';
 
 describe('BudgetPolicy', () => {
