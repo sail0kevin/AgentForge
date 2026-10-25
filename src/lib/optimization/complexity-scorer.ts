@@ -121,15 +121,27 @@ export function scoreRequirementComplexity(
   let level: 'low' | 'medium' | 'high';
   let recommendedCandidates: 1 | 2;
 
+  // 维度评分可以上调等级，但不得把需求分析已判定为 medium/high 的需求下调为 low：
+  // 单候选会关闭跨候选人工裁决门，两模块对同一需求给出矛盾等级时以较保守者为准。
+  const analysisFloor = analysis.complexity === 'high' || analysis.complexity === 'medium';
+  // 计划包含 5 个及以上任务时同样不降级：结构化的多任务需求不属于简单需求，
+  // 也避免 baseline 路径需求长度在 80 字符门槛附近波动导致单双候选非确定。
+  const taskFloor = taskCount >= 5;
+
   if (score >= 60) {
     level = 'high';
     recommendedCandidates = 2;
     if (reasons.length === 0) {
       reasons.push('综合评分高，建议双候选');
     }
-  } else if (score >= 35) {
+  } else if (score >= 35 || analysisFloor || taskFloor) {
     level = 'medium';
     recommendedCandidates = 2;
+    if (score < 35) {
+      reasons.push(analysisFloor
+        ? `需求分析判定为 ${analysis.complexity}，维度评分不足仍保留双候选`
+        : `计划包含 ${taskCount} 个任务，不适用单候选降级`);
+    }
   } else {
     level = 'low';
     recommendedCandidates = 1;

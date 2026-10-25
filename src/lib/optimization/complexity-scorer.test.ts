@@ -245,6 +245,115 @@ describe('ComplexityScorer', () => {
       assert.equal(result.recommendedCandidates, 1);
       assert.ok(result.score < 35);
     });
+
+    it('维度评分不足时不把分析判定为medium的需求降级为单候选', () => {
+      // 复现 baseline 路径的矛盾场景：需求文本较长时分析判定 medium，
+      // 但 baseline 约束提取只认移动端/离线/成本三类关键词，五个维度总分只有 33。
+      // 单候选会关闭跨候选人工裁决门，因此以分析判定为下限保留双候选。
+      const analysis = RequirementAnalysisSchema.parse({
+        schemaVersion: 1,
+        projectType: 'admin',
+        summary: '为运营团队建设内容管理后台，需要角色权限、审核流程、操作审计、可访问性和分阶段交付。',
+        goals: ['建设内容管理后台'],
+        targetUsers: ['业务管理员'],
+        inScope: ['角色与权限模型', '后台操作流程与审计'],
+        outOfScope: [],
+        assumptions: [],
+        constraints: [],
+        missingInformation: [],
+        risks: [],
+        complexity: 'medium',
+      });
+
+      const plan = ExecutionPlanSchema.parse({
+        schemaVersion: 1,
+        title: '内容管理后台实施计划',
+        rationale: '这是内容管理后台实施计划的原理说明',
+        tasks: Array.from({ length: 5 }, (_, i) => ({
+          id: `task-${i + 1}`,
+          title: `任务${i + 1}`,
+          description: '这是任务的详细描述，包含足够的信息来说明任务的具体内容',
+          agentRole: 'frontend' as const,
+          dependsOn: [],
+          toolIds: [],
+          estimatedTokens: 1000,
+          reportSectionIds: [`sec-${i + 1}`],
+        })),
+        reportSections: Array.from({ length: 5 }, (_, i) => ({
+          id: `sec-${i + 1}`,
+          title: `章节${i + 1}`,
+          purpose: `章节${i + 1}目的`,
+          order: i + 1,
+          required: true,
+          sourceTaskIds: [`task-${i + 1}`],
+        })),
+        evaluationDimensions: ['需求覆盖', '技术可行性', '风险控制', '报告清晰度'],
+        maxRounds: 2,
+        estimatedTotalTokens: 30000,
+        estimatedCostUsd: 0.15,
+      });
+
+      const result = scoreRequirementComplexity(analysis, plan);
+
+      // 5任务(15) + 0缺失 + 5章节(10) + 4维度(8) + 0约束 = 33，低于 35
+      assert.ok(result.score < 35, '维度评分本身应低于35');
+      assert.equal(result.level, 'medium', '分析判定medium时不得降级为low');
+      assert.equal(result.recommendedCandidates, 2, '必须保留双候选以维持人工裁决门');
+      assert.ok(result.reasons.some((reason) => reason.includes('仍保留双候选')));
+    });
+
+    it('分析判定low但计划包含5个任务时同样不降级为单候选', () => {
+      // 复现 E2E 非确定性场景：需求文本含时间戳标记，长度在 baseline 的 80 字符
+      // 门槛附近波动，分析可能给出 low；但 5 任务的结构化计划不应受文本长度影响。
+      const analysis = RequirementAnalysisSchema.parse({
+        schemaVersion: 1,
+        projectType: 'admin',
+        summary: '为运营团队建设内容管理后台，需要角色权限、审核流程、操作审计和分阶段交付。',
+        goals: ['建设内容管理后台'],
+        targetUsers: ['业务管理员'],
+        inScope: ['角色与权限模型', '后台操作流程与审计'],
+        outOfScope: [],
+        assumptions: [],
+        constraints: [],
+        missingInformation: [],
+        risks: [],
+        complexity: 'low',
+      });
+
+      const plan = ExecutionPlanSchema.parse({
+        schemaVersion: 1,
+        title: '内容管理后台实施计划',
+        rationale: '这是内容管理后台实施计划的原理说明',
+        tasks: Array.from({ length: 5 }, (_, i) => ({
+          id: `task-${i + 1}`,
+          title: `任务${i + 1}`,
+          description: '这是任务的详细描述，包含足够的信息来说明任务的具体内容',
+          agentRole: 'frontend' as const,
+          dependsOn: [],
+          toolIds: [],
+          estimatedTokens: 1000,
+          reportSectionIds: [`sec-${i + 1}`],
+        })),
+        reportSections: Array.from({ length: 5 }, (_, i) => ({
+          id: `sec-${i + 1}`,
+          title: `章节${i + 1}`,
+          purpose: `章节${i + 1}目的`,
+          order: i + 1,
+          required: true,
+          sourceTaskIds: [`task-${i + 1}`],
+        })),
+        evaluationDimensions: ['需求覆盖', '技术可行性', '风险控制', '报告清晰度'],
+        maxRounds: 2,
+        estimatedTotalTokens: 30000,
+        estimatedCostUsd: 0.15,
+      });
+
+      const result = scoreRequirementComplexity(analysis, plan);
+
+      assert.equal(result.level, 'medium', '5任务计划不得评为low');
+      assert.equal(result.recommendedCandidates, 2, '必须保留双候选');
+      assert.ok(result.reasons.some((reason) => reason.includes('不适用单候选降级')));
+    });
   });
 
   describe('batchScoreComplexity', () => {
