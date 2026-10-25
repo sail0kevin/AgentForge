@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
@@ -9,6 +9,12 @@ import { hashAblationJson } from "./ablation-results";
 import { validateLightweightCaseManifest } from "./lightweight-case-manifest";
 
 const execFile = promisify(execFileCallback);
+
+// local-only 被 Git 忽略，全新 checkout（如 CI）上不存在，需先创建再 mkdtemp。
+async function createLocalOnlyTempDir(prefix: string) {
+  await mkdir(path.resolve("local-only"), { recursive: true });
+  return mkdtemp(path.resolve("local-only", prefix));
+}
 
 function createManifest() {
   return validateLightweightCaseManifest({
@@ -32,7 +38,7 @@ function createManifest() {
 
 test("ablation run preflight rejects an insufficient frozen-study budget before provider configuration", async () => {
   // 测试不提供 LongCat 凭证；预算错误必须先于任何 Provider 环境变量读取发生。
-  const directory = await mkdtemp(path.resolve("local-only", "ablation-run-test-"));
+  const directory = await createLocalOnlyTempDir("ablation-run-test-");
   try {
     const manifest = createManifest();
     const plan = createAblationRunPlan(manifest, 1, 20260801);
@@ -82,7 +88,7 @@ test("ablation run preflight rejects an insufficient frozen-study budget before 
 });
 
 test("ablation run preflight reports the frozen-plan protocol reserve instead of multiplying every run by the highest arm", async () => {
-  const directory = await mkdtemp(path.resolve("local-only", "ablation-run-preflight-test-"));
+  const directory = await createLocalOnlyTempDir("ablation-run-preflight-test-");
   try {
     const manifest = createManifest();
     const plan = createAblationRunPlan(manifest, 1, 20260801);
@@ -120,7 +126,7 @@ test("ablation run preflight reports the frozen-plan protocol reserve instead of
 
 test("authorization preflight validates the frozen study without loading Provider configuration", async () => {
   // 授权预检是负责人批准费用前的离线检查，子进程故意不提供任何 LongCat 环境变量。
-  const directory = await mkdtemp(path.resolve("local-only", "ablation-authorization-preflight-test-"));
+  const directory = await createLocalOnlyTempDir("ablation-authorization-preflight-test-");
   try {
     const manifest = createManifest();
     const plan = createAblationRunPlan(manifest, 1, 20260801);
@@ -197,7 +203,7 @@ test("authorization preflight documents its no-cost input contract", async () =>
 });
 
 test("authorization preflight rejects insufficient approved budget before Provider configuration", async () => {
-  const directory = await mkdtemp(path.resolve("local-only", "ablation-authorization-budget-test-"));
+  const directory = await createLocalOnlyTempDir("ablation-authorization-budget-test-");
   try {
     const manifest = createManifest();
     const plan = createAblationRunPlan(manifest, 1, 20260801);
@@ -238,7 +244,7 @@ test("authorization preflight rejects insufficient approved budget before Provid
 });
 
 test("ablation plan CLI writes the frozen cost-bearing plan only under local-only", async () => {
-  const directory = await mkdtemp(path.resolve("local-only", "ablation-plan-test-"));
+  const directory = await createLocalOnlyTempDir("ablation-plan-test-");
   const publicOutputPath = path.resolve("ablation-plan-public-test.json");
   try {
     const manifest = createManifest();

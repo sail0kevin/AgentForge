@@ -1,5 +1,7 @@
 import { prisma } from "../../src/lib/db";
 import { type DataSource, type MetricComputeOutput, computeValidity } from "./lib/metric-types";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 export interface ReviewWorkflowEvalRow {
   evaluationJson: string | null;
@@ -75,7 +77,10 @@ function parseDataSourceCli(): DataSource {
   return valid.includes(raw as DataSource) ? (raw as DataSource) : "unknown";
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+// 仅在作为 CLI 直接执行时运行，被测试导入时不得触发真实数据库查询。
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

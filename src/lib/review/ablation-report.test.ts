@@ -12,6 +12,12 @@ import { ABLATION_LONGCAT_PRICING_SNAPSHOT } from "./ablation-budget";
 
 const execFile = promisify(execFileCallback);
 
+// local-only 被 Git 忽略，全新 checkout（如 CI）上不存在，需先创建再 mkdtemp。
+async function createLocalOnlyTempDir(prefix: string) {
+  await mkdir(path.resolve("local-only"), { recursive: true });
+  return mkdtemp(path.resolve("local-only", prefix));
+}
+
 function createManifest() {
   return validateLightweightCaseManifest({
     schemaVersion: 1,
@@ -95,7 +101,7 @@ async function runReport(planPath: string, ledgerPath: string) {
 
 test("ablation report CLI binds the authorization file and rejects tampering", async () => {
   // 使用工作区 local-only，满足报告 CLI 对私有路径的真实边界检查。
-  const directory = await mkdtemp(path.resolve("local-only", "ablation-report-test-"));
+  const directory = await createLocalOnlyTempDir("ablation-report-test-");
   try {
     const rawOutputRoot = path.join(directory, "raw");
     const planPath = path.join(directory, "run-plan.json");
