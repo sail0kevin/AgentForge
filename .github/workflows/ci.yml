@@ -40,6 +40,10 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      # 指标层与其他数据库读取步骤假设库表存在：零样本可以，缺表不行。
+      - name: Apply SQLite migrations
+        run: npm run db:migrate
+
       - name: Check secret hygiene
         run: npm run security:verify-secrets
 
