@@ -1,14 +1,6 @@
 /**
- * Ollama 本地 embedding 客户端
- *
- * 作用：把文本转成向量（embedding），供 embedding 检索和 RRF 混合检索使用。
- *       与 router.ts 的对话调用分开：那边打 /api/chat，这边打 /api/embed。
- *
- * 原理：Ollama 提供 /api/embed 接口，POST { model, input } 返回 { embeddings: number[][] }。
- *       这里沿用 router.ts 里 callOllama 的同款原始 fetch + baseUrl 解析方式，不引入额外依赖。
- *
- * 为什么维度写死 1024：本项目选用 bge-m3 模型，其向量维度固定为 1024。
- *       维度是数据库列和相似度计算的契约，必须固定；换模型需同步改这里和迁移。
+ * Ollama 本地 embedding 客户端（/api/embed），供语义检索与 RRF 混合检索使用。
+ * 与 router.ts 的对话调用分离：那边 /api/chat，这边 /api/embed，同样用原始 fetch 不引依赖。
  */
 
 import { assertSafeProviderUrl } from "@/lib/security/provider-url";

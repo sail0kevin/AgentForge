@@ -1,12 +1,6 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 
-/**
- * Provider 枚举
- *
- * 作用：定义所有支持的模型供应商类型
- * 原理：用 zod 的 enum 类型做运行时校验，防止传入不合法的供应商名称
- * 如何调用：providerSchema.parse("openai") 通过 | providerSchema.parse("xxx") 报错
- */
+/** 支持的模型供应商枚举，zod enum 提供运行时校验。 */
 export const providerSchema = z.enum(["openai", "anthropic", "deepseek", "ollama", "custom"]);
 export const workspaceModeSchema = z.enum(["sequential", "debate"]);
 
@@ -69,13 +63,7 @@ export const knowledgeSnippetSchema = z.object({
   createdAt: z.string().min(1),
 });
 
-/**
- * Manual Run 请求体校验模式
- *
- * 作用：校验前端发送过来的对话请求，确保数据格式正确
- * 原理：逐层嵌套校验——先校验 input，再校验 agents 数组，最后校验 knowledgeSnippets
- * 如何调用：manualRunSchema.parse(requestBody) 通过 | manualRunSchema.parse({}) 报详细错误
- */
+/** 前端对话请求体校验。 */
 export const manualRunSchema = z.object({
   input: z.string().min(1).max(8000),
   agentIds: z.array(z.string().min(1)).min(1).max(12),
@@ -84,15 +72,7 @@ export const manualRunSchema = z.object({
 });
 
 
-/**
- * 安全解析 Agent config 字段中的 capabilityIds 数组
- *
- * 作用：从 Prisma Agent 对象的 config JSON 字符串中解析出 capabilityIds 数组
- * 原理：JSON.parse 在 strict 模式下返回 JsonValue 类型，需要显式校验和转换
- * 参数：config - JSON 字符串，例如 '["rag","memory"]'
- * 返回：string[] - 解析后的能力 ID 数组，解析失败返回空数组
- * 如何调用：const ids = parseCapabilityIds(agent.config);
- */
+/** 从 Prisma Agent 的 config JSON 字符串解析 capabilityIds，解析失败返回空数组。 */
 export function parseCapabilityIds(config: unknown): string[] {
   if (typeof config !== "string") return [];
   try {
@@ -107,14 +87,7 @@ export function parseCapabilityIds(config: unknown): string[] {
 }
 
 
-/**
- * 解析 Agent config JSON 中的元数据
- *
- * 作用：从 Agent.config 字段解析 capabilityIds 和 apiUrl 等非敏感元数据
- * 原理：早期版本仅存储 capabilityIds 数组，现扩展为对象，需向后兼容
- * 参数：config - JSON 字符串，可能是 '["rag"]' 或 '{"capabilityIds":[],"apiUrl":"..."}'
- * 返回：{ capabilityIds: string[], apiUrl: string }
- */
+/** 解析 Agent config 中的 capabilityIds 与 apiUrl；早期版本仅存数组，需兼容两种形态。 */
 export function parseAgentMeta(config: unknown): { capabilityIds: string[]; apiUrl: string } {
   if (typeof config !== "string") return { capabilityIds: [], apiUrl: "" };
   try {
