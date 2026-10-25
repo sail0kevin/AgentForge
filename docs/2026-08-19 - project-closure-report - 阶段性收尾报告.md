@@ -77,8 +77,8 @@ AgentForge 已完成从概念验证到可交付 MVP 的完整开发周期。项�
 - Migration: `prisma/migrations/20260819020755_add_complexity_optimization_fields/`
 
 **集成文档**：
-- `docs/cost-optimization-integration-summary.md` - 完整集成总结
-- `docs/optimization/cost-optimization-plan.md` - 成本优化方案文档
+- `docs/2026-08-19 - cost-optimization-integration-summary - 成本优化集成总结.md` - 完整集成总结
+- `docs/optimization/2026-08-19 - cost-optimization-plan - 成本优化方案.md` - 成本优化方案文档
 
 ---
 
@@ -108,9 +108,9 @@ AgentForge 已完成从概念验证到可交付 MVP 的完整开发周期。项�
 - 统计分析发现Multi-Agent成本16x但覆盖率低13%，深度对比证明Multi-Agent在架构权衡等维度显著优于Single-Agent
 
 **验证证据**：
-- `docs/multi-agent-validation/README.md` - 完整验证报告
-- `docs/multi-agent-validation/statistical-summary.md` - 统计摘要
-- `docs/multi-agent-validation/case-07-showcase.md` - 典型案例展示
+- `docs/multi-agent-validation/2026-08-19 - validation-guide - 多Agent验证材料指南.md` - 完整验证报告
+- `docs/multi-agent-validation/2026-08-19 - statistical-summary - 统计总结.md` - 统计摘要
+- `docs/multi-agent-validation/2026-08-19 - case-07-showcase - 案例七深度对比.md` - 典型案例展示
 - `scripts/agent-ablation-run.ts` - 消融实验运行器
 - `src/lib/review/agent-comparison.ts` - 消融框架核心实现
 
@@ -279,7 +279,7 @@ G:\projects\agent-learning\projects\Multi-Agent-Workspace\
 ├── docs/                     # 完整文档（60+份）
 │   ├── 2026-08-01 - current-development-status - 当前开发状态.md
 │   ├── 2026-08-01 - v2-evidence-baseline - V2证据基线.md
-│   ├── cost-optimization-integration-summary.md
+│   ├── 2026-08-19 - cost-optimization-integration-summary - 成本优化集成总结.md
 │   ├── multi-agent-validation/  # 消融实验与验证
 │   ├── optimization/            # 成本优化文档
 │   └── deployment/              # 部署文档
@@ -310,12 +310,12 @@ G:\projects\agent-learning\projects\Multi-Agent-Workspace\
 
 **技术实现**：
 - `docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md` - 运行架构
-- `docs/cost-optimization-integration-summary.md` - 成本优化集成
+- `docs/2026-08-19 - cost-optimization-integration-summary - 成本优化集成总结.md` - 成本优化集成
 - `docs/2026-08-01 - p0-2-postgres-acceptance-status - P0-2PostgreSQL验收状态.md` - Checkpoint验收
 
 **验证与评测**：
 - `docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md` - 证据基线
-- `docs/multi-agent-validation/README.md` - 多Agent协作价值验证
+- `docs/multi-agent-validation/2026-08-19 - validation-guide - 多Agent验证材料指南.md` - 多Agent协作价值验证
 - `docs/2026-08-04 - product-ui-implementation-evaluation - ProductUI实施评测指南.md` - 下游评测
 
 **文档总览**：
@@ -572,12 +572,12 @@ interface UnifiedProvider {
 
 ### 3. 核心技术实现（30分钟）
 - `docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md` - 运行架构
-- `docs/cost-optimization-integration-summary.md` - 成本优化集成
+- `docs/2026-08-19 - cost-optimization-integration-summary - 成本优化集成总结.md` - 成本优化集成
 - `docs/2026-08-01 - p0-2-postgres-acceptance-status - P0-2PostgreSQL验收状态.md` - Checkpoint验收
 
 ### 4. 验证与证据（30分钟）
 - `docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md` - 证据基线
-- `docs/multi-agent-validation/README.md` - 多Agent协作价值验证
+- `docs/multi-agent-validation/2026-08-19 - validation-guide - 多Agent验证材料指南.md` - 多Agent协作价值验证
 
 ### 5. 代码入口（30分钟）
 - `src/lib/workflow/prisma-dependencies.ts` - 工作流编排入口

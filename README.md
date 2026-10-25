@@ -160,14 +160,14 @@ Windows PowerShell 使用 `Copy-Item .env.example .env` 创建环境文件。默
 - **[阶段性收尾报告](<./docs/2026-08-19 - project-closure-report - 阶段性收尾报告.md>)** - v0.1.0完整状态、未来路线图、面试亮点、快速重启指南
 - [当前开发状态](<./docs/2026-08-01 - current-development-status - 当前开发状态.md>)
 - [当前运行架构](<./docs/2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
-- [成本优化集成总结](<./docs/cost-optimization-integration-summary.md>) - 三层优化机制（缓存+评分+预算）完整集成
+- [成本优化集成总结](<./docs/2026-08-19 - cost-optimization-integration-summary - 成本优化集成总结.md>) - 三层优化机制（缓存+评分+预算）完整集成
 - [Product/UI 实施包说明](<./docs/2026-08-04 - product-ui-implementation-manifest - AgentForge-implementation-manifest.md>)
 - [Product/UI 实施评测指南](<./docs/2026-08-04 - product-ui-implementation-evaluation - ProductUI实施评测指南.md>)
 - [下游实施对照实验模板](<./examples/product-ui-implementation-experiment/README.md>)
 - [V2 证据基线](<./docs/2026-08-01 - v2-evidence-baseline - V2证据基线.md>)
 - [完整文档索引](<./docs/2026-08-01 - document-index - 文档索引.md>)
 - [证据链、评估方法与项目价值说明](<./docs/2026-08-06 - evidence-chain-and-evaluation-methodology - 证据链与评估方法.md>)
-- **[多Agent协作价值验证](<./docs/multi-agent-validation/README.md>)** - 24个真实场景深度对比，量化证明Multi-Agent在方案质量上的提升
+- **[多Agent协作价值验证](<./docs/multi-agent-validation/2026-08-19 - validation-guide - 多Agent验证材料指南.md>)** - 24个真实场景深度对比，量化证明Multi-Agent在方案质量上的提升
 
 ## English Summary
 

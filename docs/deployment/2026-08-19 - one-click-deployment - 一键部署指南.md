@@ -243,7 +243,7 @@ npm run electron:build:linux
 
 ## 📚 相关文档
 
-- [快速上手指南](../multi-agent-validation/QUICKSTART.md)
+- [快速上手指南](../multi-agent-validation/2026-08-19 - quickstart - 快速上手指南.md)
 - [本地演示指南](<../2026-07-19 - local-demo-guide - 本地演示指南.md>)
 - [当前运行架构](<../2026-08-01 - current-runtime-architecture - 当前运行架构.md>)
 

@@ -193,7 +193,7 @@ OLLAMA_BASE_URL="http://localhost:11434"
 
 ## 更多部署方案
 
-想要更简单的部署方式？查看 [一键部署方案](../deployment/ONE_CLICK_DEPLOYMENT.md)：
+想要更简单的部署方式？查看 [一键部署方案](../deployment/2026-08-19 - one-click-deployment - 一键部署指南.md)：
 
 - **Docker Compose** - 只需 `docker-compose up`
 - **在线演示** - 浏览器直接访问，零安装
@@ -207,17 +207,17 @@ OLLAMA_BASE_URL="http://localhost:11434"
 
 查看我们的实验数据：
 
-1. **统计总结**：`docs/multi-agent-validation/statistical-summary.md`
+1. **统计总结**：`docs/multi-agent-validation/2026-08-19 - statistical-summary - 统计总结.md`
    - 24个真实场景对比
    - Multi-Agent vs Single-Agent量化数据
    - ROI分析
 
-2. **深度案例**：`docs/multi-agent-validation/case-07-showcase.md`
+2. **深度案例**：`docs/multi-agent-validation/2026-08-19 - case-07-showcase - 案例七深度对比.md`
    - UGC内容审核系统完整对比
    - Single-Agent: 5,000字技术方案
    - Multi-Agent: 10,000字执行方案
 
-3. **简历指南**：`docs/multi-agent-validation/resume-highlights.md`
+3. **简历指南**：`docs/multi-agent-validation/2026-08-19 - resume-highlights - 简历亮点.md`
    - 如何在简历中描述这个项目
    - 面试话术模板
    - 关键数字速查表
@@ -280,8 +280,8 @@ npm run db:migrate
 
 ### 如果你想用于简历/面试：
 
-1. 阅读 [简历亮点提炼](./resume-highlights.md)
-2. 阅读 [使用指南](./README.md)
+1. 阅读 [简历亮点提炼](./2026-08-19 - resume-highlights - 简历亮点.md)
+2. 阅读 [使用指南](./2026-08-19 - validation-guide - 多Agent验证材料指南.md)
 3. 准备面试话术（30秒电梯演讲）
 
 ### 如果你想贡献代码：

@@ -92,7 +92,7 @@ Full Multi-Agent (平均9次调用)
 | 输出字数 | ~5,000字 | ~10,000字 | **2x** |
 | 处理时长 | 51.6秒 | 856.4秒 | 16.6x |
 
-### 4.2 质量差异（详见case-07-showcase.md）
+### 4.2 质量差异（详见2026-08-19 - case-07-showcase - 案例七深度对比.md）
 
 **Single Agent**:
 - ✓ 技术方案合理（敏感词、机审、队列、审计）
@@ -243,7 +243,7 @@ Full Multi-Agent (平均9次调用)
 ## 八、数据文件索引
 
 - **消融实验原始数据**: `local-only/ablation/result-ledger-v2.json`
-- **代表性案例深度对比**: `local-only/ablation/phase1-validation/case-07-showcase.md`
+- **代表性案例深度对比**: `local-only/ablation/phase1-validation/2026-08-19 - case-07-showcase - 案例七深度对比.md`
 - **Single Agent输出示例**: `local-only/ablation/raw-v2/lw-case-07-trial-3-single_agent.txt`
 - **Multi-Agent输出示例**: `local-only/ablation/raw-v2/lw-case-07-trial-3-full_multi_agent.txt`
 - **需求原文**: `docs/quality - 质量评测/lightweight-case-manifest.json`

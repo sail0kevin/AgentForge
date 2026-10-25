@@ -1,12 +1,12 @@
 # 多Agent协作框架展示材料使用指南
 
-> 💡 **想快速体验AgentForge？** 查看 [快速上手指南](./QUICKSTART.md)
+> 💡 **想快速体验AgentForge？** 查看 [快速上手指南](./2026-08-19 - quickstart - 快速上手指南.md)
 
 ## 一、材料清单
 
 本目录包含3份核心材料，用于证明多Agent协作的价值：
 
-### 1. 统计总结 (`statistical-summary.md`)
+### 1. 统计总结 (`2026-08-19 - statistical-summary - 统计总结.md`)
 **用途**: 面试时的量化数据支撑  
 **核心数据**:
 - 24个真实业务场景完整测试
@@ -18,7 +18,7 @@
 - 需要用数据说服面试官"多Agent确实有效"
 - HR面问"项目有什么量化成果"
 
-### 2. 案例深度对比 (`case-07-showcase.md`)
+### 2. 案例深度对比 (`2026-08-19 - case-07-showcase - 案例七深度对比.md`)
 **用途**: 展示多Agent的质量差异  
 **核心内容**:
 - 同一个复杂需求（UGC内容审核系统）
@@ -53,12 +53,12 @@
 
 **追问应对**:
 - Q: "有没有具体例子？"
-- A: "有的。比如在内容审核系统这个案例里（展示case-07-showcase.md），Single Agent直接说'采用微服务架构'，但Multi-Agent会说'日均百万流量用普通数据库+消息队列即可支撑，不引入流计算框架，降低团队上手成本'。这种显式的权衡分析在真实项目评审中非常重要。"
+- A: "有的。比如在内容审核系统这个案例里（展示2026-08-19 - case-07-showcase - 案例七深度对比.md），Single Agent直接说'采用微服务架构'，但Multi-Agent会说'日均百万流量用普通数据库+消息队列即可支撑，不引入流计算框架，降低团队上手成本'。这种显式的权衡分析在真实项目评审中非常重要。"
 
 ### 场景3: 被问"怎么证明效果"
 
 **模板**:
-> "我做了消融实验，对比了4种变体：Single Agent、Single+Review、Dual Candidate、Full Multi-Agent。用24个真实业务场景（从电商系统到内容审核、从企业OA到数据平台）全覆盖测试。结果发现Multi-Agent生成的方案有这些特点：（展示statistical-summary.md的对比表）"
+> "我做了消融实验，对比了4种变体：Single Agent、Single+Review、Dual Candidate、Full Multi-Agent。用24个真实业务场景（从电商系统到内容审核、从企业OA到数据平台）全覆盖测试。结果发现Multi-Agent生成的方案有这些特点：（展示2026-08-19 - statistical-summary - 统计总结.md的对比表）"
 
 **追问应对**:
 - Q: "24个场景够吗？"
@@ -113,8 +113,8 @@
 
 1. **第一层**（自我介绍）: "24个场景、22.8倍Token、ROI为正"
 2. **第二层**（追问创新点）: "Planner-Proposer-Reviewer-Reviser-Evaluator协作"
-3. **第三层**（追问具体例子）: 打开case-07-showcase.md，展示架构权衡对比
-4. **第四层**（追问数据细节）: 打开statistical-summary.md，展示完整统计
+3. **第三层**（追问具体例子）: 打开2026-08-19 - case-07-showcase - 案例七深度对比.md，展示架构权衡对比
+4. **第四层**（追问数据细节）: 打开2026-08-19 - statistical-summary - 统计总结.md，展示完整统计
 
 ### 技巧2: 用对比图表
 

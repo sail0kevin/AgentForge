@@ -27,8 +27,8 @@
 ## 2026-08-19 快速上手更新
 
 - 新增**一键启动脚本**（Windows `quick-start.bat` 和 Mac/Linux `quick-start.sh`），自动完成依赖安装、环境配置、数据库初始化和服务启动。
-- 更新 [快速上手指南](./multi-agent-validation/QUICKSTART.md)，突出一键启动作为推荐方式。
-- 新增 [一键部署方案](./deployment/ONE_CLICK_DEPLOYMENT.md)，介绍当前已实现的一键脚本以及计划中的 Docker、在线演示和桌面应用方案。
+- 更新 [快速上手指南](./multi-agent-validation/2026-08-19 - quickstart - 快速上手指南.md)，突出一键启动作为推荐方式。
+- 新增 [一键部署方案](./deployment/2026-08-19 - one-click-deployment - 一键部署指南.md)，介绍当前已实现的一键脚本以及计划中的 Docker、在线演示和桌面应用方案。
 
 **快速体验**：
 ```bash

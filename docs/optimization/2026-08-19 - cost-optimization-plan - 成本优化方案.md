@@ -309,7 +309,7 @@ export function applyOptimizationPolicy(
 2. **重跑消融实验** (4-6小时)
    - 在24个case上对比优化前后
    - 生成Token/成本/质量对比报告
-   - 更新 `statistical-summary.md`
+   - 更新 `2026-08-19 - statistical-summary - 统计总结.md`
 
 3. **实现预算策略UI** (4小时)
    - 前端添加预算选择器
@@ -348,7 +348,7 @@ export function applyOptimizationPolicy(
 - [ ] 24个case消融实验对比完成
 - [ ] Token节省达到40%以上
 - [ ] 质量下降<10%（基于人工评分）
-- [ ] `statistical-summary.md` 包含优化前后对比
+- [ ] `2026-08-19 - statistical-summary - 统计总结.md` 包含优化前后对比
 
 ---
 
@@ -395,11 +395,11 @@ export function applyOptimizationPolicy(
 - [ ] 修改 `src/lib/review/review-service.ts`（P1）
 
 ### 文档
-- [ ] `docs/optimization/cost-optimization-plan.md`（本文档）
+- [ ] `docs/optimization/2026-08-19 - cost-optimization-plan - 成本优化方案.md`（本文档）
 - [ ] `docs/optimization/complexity-scores.csv`（24 case评分）
 - [ ] `docs/optimization/optimization-comparison.md`（消融对比，P1）
 - [ ] 更新 `README.md` 添加成本优化章节
-- [ ] 更新 `resume-highlights.md` 改进空间部分
+- [ ] 更新 `2026-08-19 - resume-highlights - 简历亮点.md` 改进空间部分
 
 ### 数据
 - [ ] `local-only/optimization/cache-demo.json`（缓存命中演示）
@@ -443,7 +443,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 ```
 docs: add cost optimization documentation
 
-- Add docs/optimization/cost-optimization-plan.md
+- Add docs/optimization/2026-08-19 - cost-optimization-plan - 成本优化方案.md
 - Update README with optimization chapter
 - Update resume-highlights with improvement strategy
 - Add complexity scores and comparison reports
