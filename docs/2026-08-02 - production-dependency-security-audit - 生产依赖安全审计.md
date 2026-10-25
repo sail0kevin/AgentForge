@@ -2,6 +2,8 @@
 
 更新时间：2026-08-02（Asia/Shanghai）
 
+> **2026-10-25 附录**：本文记录的是 2026-08-02 时点的钉扎决策。此后 npm advisory 新增了 13 个生产依赖漏洞（含 next 在 Windows 主机的未认证 RCE，critical 级），原钉扎版本（next 16.2.12、prisma 7.9.1、fast-uri 3.1.4 等）均在受影响范围内，已于当日升级清零：next → 16.4.3、prisma 全家 → 7.10.1、zod → 4.6.7，overrides 更新为 fast-uri 3.1.9 / postcss 8.5.31 / sharp 0.35.5。同时恢复了 CI 审计硬门禁（撤销 2026-08-19 引入的 `|| true` 临时放行）。当前最新状态以 `npm run security:audit:production` 与 CI 为准。
+
 ## 结论
 
 本次安全模块完成了生产依赖的最小升级和本地验证。当前 npm 官方 registry 的生产依赖审计结果为 0 个漏洞，但这只代表 npm advisory 范围内的依赖审计通过，不代表整个应用已经完成安全验收。
